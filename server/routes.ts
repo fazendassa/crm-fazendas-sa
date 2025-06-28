@@ -328,6 +328,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Pipeline stages routes
+  app.get("/api/pipeline-stages", isAuthenticated, async (req, res) => {
+    try {
+      const stages = await storage.getPipelineStages();
+      res.json(stages);
+    } catch (error) {
+      console.error("Error fetching pipeline stages:", error);
+      res.status(500).json({ message: "Failed to fetch pipeline stages" });
+    }
+  });
+
+  app.post("/api/pipeline-stages", isAuthenticated, async (req, res) => {
+    try {
+      const stage = await storage.createPipelineStage(req.body);
+      res.status(201).json(stage);
+    } catch (error) {
+      console.error("Error creating pipeline stage:", error);
+      res.status(500).json({ message: "Failed to create pipeline stage" });
+    }
+  });
+
+  app.put("/api/pipeline-stages/:id", isAuthenticated, async (req, res) => {
+    try {
+      const stage = await storage.updatePipelineStage(parseInt(req.params.id), req.body);
+      res.json(stage);
+    } catch (error) {
+      console.error("Error updating pipeline stage:", error);
+      res.status(500).json({ message: "Failed to update pipeline stage" });
+    }
+  });
+
+  app.delete("/api/pipeline-stages/:id", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deletePipelineStage(parseInt(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting pipeline stage:", error);
+      res.status(500).json({ message: "Failed to delete pipeline stage" });
+    }
+  });
+
+  app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
+    try {
+      await storage.updateStagePositions(req.body.stages);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error updating stage positions:", error);
+      res.status(500).json({ message: "Failed to update stage positions" });
+    }
+  });
+
   // Dashboard metrics
   app.get('/api/dashboard/metrics', isAuthenticated, async (req, res) => {
     try {
