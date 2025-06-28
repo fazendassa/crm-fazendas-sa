@@ -1,0 +1,45 @@
+[vite] connecting...
+[vite] connected.
+Warning: Connect(Droppable): Support for defaultProps will be removed from memo components in a future major release. Use JavaScript default parameters instead.
+    at div
+    at div
+    at div
+    at Provider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=b69e771f:1738:20)
+    at App (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=b69e771f:8281:25)
+    at ErrorBoundary2 (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=b69e771f:2778:35)
+    at DragDropContext (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=b69e771f:8401:19)
+    at KanbanBoard (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/components/pipeline/kanban-board-simple.tsx:30:39)
+    at div
+    at Pipeline (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/pages/pipeline.tsx:37:55)
+    at Route (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b69e771f:323:16)
+    at Switch (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b69e771f:379:17)
+    at main
+    at div
+    at div
+    at Router (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/App.tsx?v=SPA5YKBzqT22X9dYCK-hT:38:42)
+    at Provider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b69e771f:38:15)
+    at TooltipProvider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=b69e771f:61:5)
+    at QueryClientProvider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=b69e771f:2805:3)
+    at App
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+Form clicked
+=== SAVE BUTTON CLICKED ===
+Form clicked
+=== FORM SUBMIT TRIGGERED ===
+Form data: 
+Object {title: "Oportunidade - Pereira", description: "Oportunidade criada automaticamente via importação de contatos", stage: "Prospecção", contactId: 20, companyId: 10, …}
+Form errors: 
+Object {}
+Form state valid: true
+Deal being edited: 
+Object {id: 17, title: "Oportunidade - Pereira", value: null, stage: "Prospecção", pipelineId: 11, …}
+Pipeline ID: 11
+Mutation pending: false
+=== MUTATION FUNCTION CALLED ===
+Form data received: 
+Object {title: "Oportunidade - Pereira", description: "Oportunidade criada automaticamente via importação de contatos", stage: "Prospecção", contactId: 20, companyId: 10, …}
+Deal object: 
+Object {id: 17, title: "Oportunidade - Pereira", value: null, stage: "Prospecção", pipelineId: 11, …}
+Pipeline ID: 11
+Processed deal data: 
+Object {title: "Oportunidade - Pereira", description: "Oportunidade criada automaticamente via importação de contatos", stage: "Prospecção", contactId: 20, companyId: 10, …}
