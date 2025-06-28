@@ -40,7 +40,7 @@ export default function ContactImport() {
     { value: "company", label: "Empresa" },
     { value: "status", label: "Status" },
     { value: "tags", label: "Tags" },
-    { value: "", label: "Ignorar campo" }
+    { value: "ignore", label: "Ignorar campo" }
   ];
 
   // Fetch pipelines
@@ -90,6 +90,8 @@ export default function ContactImport() {
           autoMapping[column] = 'status';
         } else if (lowerColumn.includes('tags')) {
           autoMapping[column] = 'tags';
+        } else {
+          autoMapping[column] = 'ignore';
         }
       });
       
@@ -306,7 +308,7 @@ export default function ContactImport() {
                         </span>
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                         <Select
-                          value={fieldMapping[column] || ""}
+                          value={fieldMapping[column] || "ignore"}
                           onValueChange={(value) => updateFieldMapping(column, value)}
                         >
                           <SelectTrigger className="w-32">

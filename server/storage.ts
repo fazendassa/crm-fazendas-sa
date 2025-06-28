@@ -841,7 +841,8 @@ export class DatabaseStorage implements IStorage {
   async createContactsFromImport(
     data: any[], 
     pipelineId?: number, 
-    tags: string[] = []
+    tags: string[] = [],
+    fieldMapping: any = {}
   ): Promise<{ success: number; errors: string[] }> {
     const errors: string[] = [];
     let success = 0;
@@ -858,27 +859,62 @@ export class DatabaseStorage implements IStorage {
         console.log(`\n--- Processando linha ${i + 1} ---`);
         console.log('Dados da linha:', row);
 
-        // Map common field variations to our schema
-        const name = row.Nome || row.Name || row.nome || row.name || 
-                    row.NOME || row.NAME || '';
+        // Use field mapping to extract data
+        let name = '';
+        let email = null;
+        let phone = null;
+        let position = null;
+        let status = 'active';
+        let company = null;
 
-        const email = row.Email || row.email || row['E-mail'] || row['e-mail'] || 
-                     row.EMAIL || row['E-MAIL'] || null;
+        // Apply field mapping
+        Object.keys(fieldMapping).forEach(column => {
+          const field = fieldMapping[column];
+          const value = row[column];
+          
+          if (!value || field === 'ignore') return;
+          
+          switch (field) {
+            case 'name':
+              name = value.toString().trim();
+              break;
+            case 'email':
+              email = value.toString().trim();
+              break;
+            case 'phone':
+              phone = value.toString().trim();
+              break;
+            case 'position':
+              position = value.toString().trim();
+              break;
+            case 'status':
+              status = value.toString().toLowerCase();
+              break;
+            case 'company':
+              company = value.toString().trim();
+              break;
+          }
+        });
 
-        const phone = row.Telefone || row.Phone || row.telefone || row.phone || 
-                     row.TELEFONE || row.PHONE || null;
-
-        const position = row.Cargo || row.Position || row.cargo || row.position || 
-                        row.CARGO || row.POSITION || null;
-
-        const status = row.Status || row.status || row.STATUS || 'active';
+        // Fallback to old mapping if no field mapping provided
+        if (Object.keys(fieldMapping).length === 0) {
+          name = row.Nome || row.Name || row.nome || row.name || 
+                row.NOME || row.NAME || '';
+          email = row.Email || row.email || row['E-mail'] || row['e-mail'] || 
+                 row.EMAIL || row['E-MAIL'] || null;
+          phone = row.Telefone || row.Phone || row.telefone || row.phone || 
+                 row.TELEFONE || row.PHONE || null;
+          position = row.Cargo || row.Position || row.cargo || row.position || 
+                    row.CARGO || row.POSITION || null;
+          status = row.Status || row.status || row.STATUS || 'active';
+          company = row.Empresa || row.Company || row.empresa || row.company ||
+                   row.EMPRESA || row.COMPANY;
+        }
 
         console.log('Campos extraídos:', { name, email, phone, position, status });
 
         // Handle company creation if needed
         let companyId: number | null = null;
-        const company = row.Empresa || row.Company || row.empresa || row.company ||
-                           row.EMPRESA || row.COMPANY;
         if (company && company.toString().trim() !== '') {
           const companyName = company.toString().trim();
           const [existingCompany] = await db
@@ -949,6 +985,35 @@ export class DatabaseStorage implements IStorage {
         // Create contact
         const createdContact = await this.createContact(contactData);
         console.log('Contato criado com sucesso:', createdContact.id);
+
+        // If pipeline is provided, create a deal automatically
+        if (pipelineId) {
+          try {
+            // Get first stage of the pipeline
+            const pipelineStages = await this.getPipelineStages(pipelineId);
+            const firstStage = pipelineStages.find(stage => stage.position === 0) || pipelineStages[0];
+            
+            if (firstStage) {
+              const dealData = {
+                title: `Oportunidade - ${createdContact.name}`,
+                description: `Oportunidade criada automaticamente via importação de contatos`,
+                stage: firstStage.title,
+                pipelineId: pipelineId,
+                contactId: createdContact.id,
+                companyId: createdContact.companyId,
+                value: null,
+                expectedCloseDate: null,
+              };
+
+              const createdDeal = await this.createDeal(dealData);
+              console.log('Oportunidade criada automaticamente:', createdDeal.id);
+            }
+          } catch (dealError) {
+            console.error('Erro ao criar oportunidade automática:', dealError);
+            // Don't fail the contact import if deal creation fails
+          }
+        }
+
         success++;
 
       } catch (error) {
