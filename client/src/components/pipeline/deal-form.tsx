@@ -23,10 +23,11 @@ type FormData = z.infer<typeof formSchema>;
 interface DealFormProps {
   deal?: DealWithRelations | null;
   defaultStage?: string;
+  pipelineId: number;
   onSuccess: () => void;
 }
 
-export default function DealForm({ deal, defaultStage, onSuccess }: DealFormProps) {
+export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: DealFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -64,6 +65,7 @@ export default function DealForm({ deal, defaultStage, onSuccess }: DealFormProp
       // Convert form data to proper types
       const dealData = {
         ...data,
+        pipelineId,
         value: data.value ? parseFloat(data.value).toString() : null,
         expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate + 'T00:00:00.000Z') : null,
         contactId: data.contactId || null,
@@ -71,9 +73,9 @@ export default function DealForm({ deal, defaultStage, onSuccess }: DealFormProp
       };
 
       if (deal) {
-        await apiRequest('PUT', `/api/deals/${deal.id}`, dealData);
+        await apiRequest(`/api/deals/${deal.id}`, 'PUT', dealData);
       } else {
-        await apiRequest('POST', '/api/deals', dealData);
+        await apiRequest('/api/deals', 'POST', dealData);
       }
     },
     onSuccess: () => {

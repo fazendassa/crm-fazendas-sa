@@ -20,6 +20,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [isDealDialogOpen, setIsDealDialogOpen] = useState(false);
   const [newStageTitle, setNewStageTitle] = useState("");
   const [isAddingStage, setIsAddingStage] = useState(false);
+  const [defaultStage, setDefaultStage] = useState<string | undefined>(undefined);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -194,6 +195,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                     className="w-full h-20 border-2 border-dashed"
                     onClick={() => {
                       setSelectedDeal(null);
+                      setDefaultStage(stage.title.toLowerCase());
                       setIsDealDialogOpen(true);
                     }}
                   >
@@ -216,9 +218,12 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
           </DialogHeader>
           <DealForm
             deal={selectedDeal}
+            defaultStage={defaultStage}
+            pipelineId={pipelineId}
             onSuccess={() => {
               setIsDealDialogOpen(false);
               setSelectedDeal(null);
+              setDefaultStage(undefined);
               queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
             }}
           />

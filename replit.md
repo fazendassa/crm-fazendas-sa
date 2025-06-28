@@ -133,6 +133,7 @@ RESTful API endpoints organized by resource:
 ```
 Changelog:
 - June 28, 2025. Initial setup
+- June 28, 2025. Fixed pipeline creation bugs: corrected pipelineId parameter passing, defaultStage handling, and API request parameter order in DealForm and KanbanBoard components
 ```
 
 ## User Preferences
