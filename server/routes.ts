@@ -577,6 +577,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: 'Arquivo vazio ou formato inválido' });
         }
 
+        console.log('Dados do arquivo:', data.slice(0, 2)); // Log first 2 rows for debugging
+        console.log('PipelineId:', pipelineId);
+        console.log('Tags:', tags);
+
         // Process and import contacts
         const result = await storage.createContactsFromImport(
           data, 
