@@ -26,7 +26,6 @@ export default function KanbanBoard() {
   const [isDealDialogOpen, setIsDealDialogOpen] = useState(false);
   const [newStageTitle, setNewStageTitle] = useState("");
   const [isAddingStage, setIsAddingStage] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -35,29 +34,8 @@ export default function KanbanBoard() {
     queryKey: ["/api/pipeline-stages"],
   });
 
-  const { data: dealsData } = useQuery({
+  const { data: dealsData = [] } = useQuery({
     queryKey: ["/api/deals/by-stage"],
-  });
-
-  // Initialize default stages
-  const initializeStagesMutation = useMutation({
-    mutationFn: async () => {
-      const defaultStages = [
-        { title: "Prospecção", position: 0, color: "#3b82f6" },
-        { title: "Qualificação", position: 1, color: "#f59e0b" },
-        { title: "Proposta", position: 2, color: "#8b5cf6" },
-        { title: "Negociação", position: 3, color: "#ef4444" },
-        { title: "Fechado", position: 4, color: "#10b981" },
-      ];
-      
-      for (const stage of defaultStages) {
-        await apiRequest("POST", "/api/pipeline-stages", stage);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages"] });
-      setHasInitialized(true);
-    },
   });
 
   // Create new stage
@@ -121,23 +99,22 @@ export default function KanbanBoard() {
 
   // Build columns from stages and deals
   useEffect(() => {
-    if (stages.length === 0 && !hasInitialized) {
-      initializeStagesMutation.mutate();
-      return;
-    }
+    if (!stages || stages.length === 0) return;
 
     const columns: KanbanColumn[] = stages
       .sort((a, b) => a.position - b.position)
       .map((stage) => ({
         id: stage.id.toString(),
         title: stage.title,
-        color: stage.color,
+        color: stage.color || "#3b82f6",
         position: stage.position,
-        deals: dealsData?.find((d: any) => d.stage === stage.title.toLowerCase())?.deals || [],
+        deals: Array.isArray(dealsData) 
+          ? dealsData.find((d: any) => d.stage === stage.title.toLowerCase())?.deals || []
+          : [],
       }));
 
     setKanbanColumns(columns);
-  }, [stages, dealsData, hasInitialized]);
+  }, [stages, dealsData]);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
