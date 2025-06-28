@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertContactSchema, type ContactWithCompany } from "@shared/schema";
 import { z } from "zod";
+import { Plus, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const formSchema = insertContactSchema.extend({
   companyId: z.coerce.number().optional(),
@@ -27,6 +29,10 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
 
   const { data: companiesData } = useQuery({
     queryKey: ['/api/companies'],
+  });
+
+  const { data: availableTags } = useQuery({
+    queryKey: ["/api/contacts/tags"],
   });
 
   const {
@@ -59,8 +65,9 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
       const submitData = {
         ...data,
         companyId: data.companyId === 'none' ? null : data.companyId ? parseInt(data.companyId) : null,
+        tags: data.tags
       };
-      
+
       if (contact) {
         await apiRequest('PUT', `/api/contacts/${contact.id}`, submitData);
       } else {
@@ -86,6 +93,27 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
   const onSubmit = (data: FormData) => {
     createContactMutation.mutate(data);
   };
+
+  const addTag = () => {
+    if (newTag.trim() && !selectedTags.includes(newTag.trim())) {
+      setSelectedTags([...selectedTags, newTag.trim()]);
+      setNewTag("");
+    }
+  };
+
+  const addExistingTag = (tag: string) => {
+    if (!selectedTags.includes(tag)) {
+      setSelectedTags([...selectedTags, tag]);
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setSelectedTags(selectedTags.filter(tag => tag !== tagToRemove));
+  };
+
+  const [selectedTags, setSelectedTags] = React.useState<string[]>(contact?.tags || []);
+  const [newTag, setNewTag] = React.useState("");
+  
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -178,7 +206,7 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
       {/* Address Fields */}
       <div className="space-y-4 border-t pt-4">
         <h3 className="text-lg font-semibold">Endereço</h3>
-        
+
         <div>
           <Label htmlFor="street">Rua/Endereço</Label>
           <Input
@@ -225,6 +253,62 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
             />
           </div>
         </div>
+      </div>
+
+      {/* Tags Section */}
+      <div className="space-y-2">
+        <Label>Tags (Opcional)</Label>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Nova tag"
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+          />
+          <Button type="button" onClick={addTag} size="sm" variant="outline">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {selectedTags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {selectedTags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+                {tag}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => removeTag(tag)}
+                  className="h-4 w-4 p-0 hover:bg-transparent"
+                >
+                  <X className="h-2 w-2" />
+                </Button>
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {availableTags && Array.isArray(availableTags) && availableTags.length > 0 && (
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Tags existentes:</Label>
+            <div className="flex flex-wrap gap-1">
+              {(availableTags as string[]).map((tag: string) => (
+                <Button
+                  key={tag}
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => addExistingTag(tag)}
+                  className="h-6 text-xs"
+                  disabled={selectedTags.includes(tag)}
+                >
+                  {tag}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex space-x-2 pt-4">
