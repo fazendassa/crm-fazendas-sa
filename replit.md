@@ -136,6 +136,7 @@ Changelog:
 - June 28, 2025. Fixed pipeline creation bugs: corrected pipelineId parameter passing, defaultStage handling, and API request parameter order in DealForm and KanbanBoard components
 - June 28, 2025. Added comprehensive pipeline management: edit and delete functionality with confirmation dialogs, improved UI with management buttons for selected pipelines
 - June 28, 2025. Fixed pipeline isolation bug: implemented proper pipeline-specific data filtering, cache invalidation with pipeline ID keys, and clean default stage creation for new pipelines without duplication
+- June 28, 2025. Implemented complete drag-and-drop kanban functionality: using react-beautiful-dnd library with visual feedback (rotation and shadow effects), automatic stage updates via API, success/error notifications, and smooth user interaction for moving deals between pipeline stages
 ```
 
 ## User Preferences
