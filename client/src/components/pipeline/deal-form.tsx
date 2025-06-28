@@ -208,14 +208,14 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
       <div>
         <Label htmlFor="contactId">Contato</Label>
         <Select 
-          value={watch('contactId')?.toString() || ''} 
-          onValueChange={(value) => setValue('contactId', value ? parseInt(value) : undefined)}
+          value={watch('contactId')?.toString() || 'none'} 
+          onValueChange={(value) => setValue('contactId', value === 'none' ? undefined : parseInt(value))}
         >
           <SelectTrigger>
             <SelectValue placeholder="Selecione um contato" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Nenhum contato</SelectItem>
+            <SelectItem value="none">Nenhum contato</SelectItem>
             {contactsData?.contacts?.map((contact: any) => (
               <SelectItem key={contact.id} value={contact.id.toString()}>
                 {contact.name} {contact.company?.name && `(${contact.company.name})`}
@@ -228,14 +228,14 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
       <div>
         <Label htmlFor="companyId">Empresa</Label>
         <Select 
-          value={watch('companyId')?.toString() || ''} 
-          onValueChange={(value) => setValue('companyId', value ? parseInt(value) : undefined)}
+          value={watch('companyId')?.toString() || 'none'} 
+          onValueChange={(value) => setValue('companyId', value === 'none' ? undefined : parseInt(value))}
         >
           <SelectTrigger>
             <SelectValue placeholder="Selecione uma empresa" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Nenhuma empresa</SelectItem>
+            <SelectItem value="none">Nenhuma empresa</SelectItem>
             {companiesData?.companies?.map((company: any) => (
               <SelectItem key={company.id} value={company.id.toString()}>
                 {company.name}
