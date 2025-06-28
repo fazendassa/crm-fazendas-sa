@@ -96,7 +96,11 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage", pipelineId] });
+      // Invalidate multiple related queries to ensure UI updates instantly
+      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      
       toast({
         title: "Sucesso",
         description: deal ? "Oportunidade atualizada com sucesso" : "Oportunidade criada com sucesso",

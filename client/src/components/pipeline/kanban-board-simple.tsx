@@ -47,7 +47,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages", pipelineId] });
+      // Invalidate all related queries for instant updates
+      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      
       setIsAddingStage(false);
       setNewStageTitle("");
       toast({
@@ -71,7 +75,10 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       await apiRequest(`/api/deals/${dealId}`, "PUT", { stage });
     },
     onSuccess: () => {
-      // Data is already updated optimistically, just show success message
+      // Data is already updated optimistically, just ensure all related queries are fresh
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      
       toast({
         title: "Sucesso",
         description: "Oportunidade movida com sucesso",
@@ -81,6 +88,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       console.error("Error updating deal stage:", error);
       // Revert optimistic update by refetching data
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
       toast({
         title: "Erro",
         description: "Erro ao mover oportunidade",
