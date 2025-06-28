@@ -9,10 +9,6 @@ export default function Dashboard() {
     queryKey: ['/api/dashboard/metrics'],
   });
 
-  const { data: dealsByStage } = useQuery({
-    queryKey: ['/api/deals/by-stage'],
-  });
-
   const { data: recentActivities } = useQuery({
     queryKey: ['/api/activities', { limit: 10 }],
   });
@@ -46,26 +42,35 @@ export default function Dashboard() {
 
   const getStageColor = (stage: string) => {
     switch (stage) {
-      case 'prospecting':
+      case 'prospeccao':
         return 'bg-blue-600';
-      case 'qualification':
+      case 'qualificacao':
         return 'bg-green-600';
-      case 'proposal':
+      case 'proposta':
         return 'bg-yellow-600';
-      case 'closing':
+      case 'fechamento':
         return 'bg-purple-600';
       default:
         return 'bg-gray-600';
     }
   };
 
-  const getStagePercentage = (stage: string, totalDeals: number) => {
-    const stageData = dealsByStage?.find((s: any) => s.stage === stage);
-    if (!stageData || totalDeals === 0) return 0;
-    return (stageData.count / totalDeals) * 100;
+  const getStageDisplayName = (stage: string) => {
+    switch (stage) {
+      case 'prospeccao':
+        return 'Prospecção';
+      case 'qualificacao':
+        return 'Qualificação';
+      case 'proposta':
+        return 'Proposta';
+      case 'fechamento':
+        return 'Fechamento';
+      default:
+        return stage.charAt(0).toUpperCase() + stage.slice(1);
+    }
   };
 
-  const totalDeals = dealsByStage?.reduce((acc: number, stage: any) => acc + stage.count, 0) || 0;
+  const totalDeals = metrics?.stageMetrics?.reduce((acc: number, stage: any) => acc + stage.count, 0) || 0;
 
   return (
     <div className="p-6">
@@ -146,52 +151,36 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Pipeline por Estágio</CardTitle>
+            <CardDescription>Distribuição de deals pelos estágios do pipeline</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Prospecção</span>
-                <span className="text-sm font-medium">
-                  {dealsByStage?.find((s: any) => s.stage === 'prospecting')?.count || 0} deals
-                </span>
-              </div>
-              <Progress 
-                value={getStagePercentage('prospecting', totalDeals)} 
-                className="h-2"
-              />
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Qualificação</span>
-                <span className="text-sm font-medium">
-                  {dealsByStage?.find((s: any) => s.stage === 'qualification')?.count || 0} deals
-                </span>
-              </div>
-              <Progress 
-                value={getStagePercentage('qualification', totalDeals)} 
-                className="h-2"
-              />
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Proposta</span>
-                <span className="text-sm font-medium">
-                  {dealsByStage?.find((s: any) => s.stage === 'proposal')?.count || 0} deals
-                </span>
-              </div>
-              <Progress 
-                value={getStagePercentage('proposal', totalDeals)} 
-                className="h-2"
-              />
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Fechamento</span>
-                <span className="text-sm font-medium">
-                  {dealsByStage?.find((s: any) => s.stage === 'closing')?.count || 0} deals
-                </span>
-              </div>
-              <Progress 
-                value={getStagePercentage('closing', totalDeals)} 
-                className="h-2"
-              />
+              {metrics?.stageMetrics?.map((stage: any) => {
+                const percentage = totalDeals > 0 ? (stage.count / totalDeals) * 100 : 0;
+                const stageDisplayName = getStageDisplayName(stage.stage);
+                
+                return (
+                  <div key={stage.stage} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className={`w-3 h-3 rounded-full ${getStageColor(stage.stage)}`}
+                        />
+                        <span className="text-sm text-gray-600">{stageDisplayName}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-medium">{stage.count} deals</span>
+                        <div className="text-xs text-gray-500">{stage.totalValue}</div>
+                      </div>
+                    </div>
+                    <Progress value={percentage} className="h-2" />
+                  </div>
+                );
+              }) || (
+                <div className="text-center text-gray-500 py-4">
+                  Nenhum deal encontrado
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -203,7 +192,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivities && recentActivities.length > 0 ? (
+              {recentActivities && Array.isArray(recentActivities) && recentActivities.length > 0 ? (
                 recentActivities.map((activity: any) => (
                   <div key={activity.id} className="flex items-start space-x-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">

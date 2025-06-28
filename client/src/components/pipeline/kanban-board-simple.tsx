@@ -148,9 +148,16 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
             return (
               <div key={stage.id} className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                    {stage.title}
-                  </h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                      {stage.title}
+                    </h4>
+                    {stage.isDefault && (
+                      <Badge variant="outline" className="text-xs">
+                        Padrão
+                      </Badge>
+                    )}
+                  </div>
                   <Badge variant="secondary" className="text-xs">
                     {stageDeals.length}
                   </Badge>
