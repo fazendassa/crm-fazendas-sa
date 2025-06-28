@@ -26,11 +26,17 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const queryClient = useQueryClient();
 
   const { data: stages = [], isLoading: stagesLoading } = useQuery<PipelineStage[]>({
-    queryKey: ["/api/pipeline-stages", { pipelineId }],
+    queryKey: ["/api/pipeline-stages", pipelineId],
+    queryFn: () => fetch(`/api/pipeline-stages?pipelineId=${pipelineId}`, {
+      credentials: 'include'
+    }).then(res => res.json()),
   });
 
   const { data: dealsData = [], isLoading: dealsLoading } = useQuery<{ stage: string; count: number; deals: DealWithRelations[] }[]>({
-    queryKey: ["/api/deals/by-stage", { pipelineId }],
+    queryKey: ["/api/deals/by-stage", pipelineId],
+    queryFn: () => fetch(`/api/deals/by-stage?pipelineId=${pipelineId}`, {
+      credentials: 'include'
+    }).then(res => res.json()),
   });
 
   // Create new stage
@@ -45,7 +51,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages", { pipelineId }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages", pipelineId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage", pipelineId] });
       setNewStageTitle("");
       setIsAddingStage(false);
       toast({
