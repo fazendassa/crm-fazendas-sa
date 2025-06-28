@@ -900,54 +900,6 @@ export class DatabaseStorage implements IStorage {
         success++;
 
       } catch (error) {
-        console.error('Erro ao processar linha:', error);
-        errors.push(`Linha ${data.indexOf(row) + 1}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-      }
-    }
-
-    return { success, errors };
-        };
-
-        // Try to find company by name if provided
-        if (row.Empresa || row.Company || row.empresa || row.company) {
-          const companyName = row.Empresa || row.Company || row.empresa || row.company;
-          const [existingCompany] = await db
-            .select()
-            .from(companies)
-            .where(eq(companies.name, companyName))
-            .limit(1);
-          
-          if (existingCompany) {
-            contactData.companyId = existingCompany.id;
-          } else {
-            // Create new company if it doesn't exist
-            const [newCompany] = await db
-              .insert(companies)
-              .values({ name: companyName })
-              .returning();
-            contactData.companyId = newCompany.id;
-          }
-        }
-
-        // Add any additional tags from the row
-        if (row.Tags || row.tags) {
-          const rowTags = Array.isArray(row.Tags || row.tags) 
-            ? row.Tags || row.tags 
-            : (row.Tags || row.tags).split(',').map((t: string) => t.trim());
-          contactData.tags = [...(contactData.tags || []), ...rowTags];
-        }
-
-        // Validate required fields
-        if (!contactData.name || contactData.name.trim() === '') {
-          errors.push(`Linha ${data.indexOf(row) + 1}: Nome é obrigatório`);
-          continue;
-        }
-
-        // Create contact
-        await this.createContact(contactData);
-        success++;
-
-      } catch (error) {
         errors.push(`Linha ${data.indexOf(row) + 1}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       }
     }
