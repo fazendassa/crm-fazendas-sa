@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 export default function ContactImport() {
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
-  const [selectedPipeline, setSelectedPipeline] = useState<string>("");
+  const [selectedPipeline, setSelectedPipeline] = useState<string | undefined>(undefined);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [importResult, setImportResult] = useState<{
@@ -104,7 +104,7 @@ export default function ContactImport() {
     const formData = new FormData();
     formData.append("file", file);
     
-    if (selectedPipeline) {
+    if (selectedPipeline && selectedPipeline !== "none") {
       formData.append("pipelineId", selectedPipeline);
     }
     
@@ -181,7 +181,7 @@ export default function ContactImport() {
                   <SelectValue placeholder="Selecione um pipeline" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum pipeline</SelectItem>
+                  <SelectItem value="none">Nenhum pipeline</SelectItem>
                   {(pipelines as any[])?.map((pipeline: any) => (
                     <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                       {pipeline.name}
