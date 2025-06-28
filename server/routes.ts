@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { requirePermission, requireAnyPermission, applyDataFiltering } from "./rbac";
 import {
   insertCompanySchema,
   insertContactSchema,
@@ -25,6 +26,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // User management routes
+  app.get('/api/users', isAuthenticated, requirePermission('view:users'), async (req: any, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.put('/api/users/:id/role', isAuthenticated, requirePermission('update:users'), async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      const { role } = req.body;
+      
+      if (!role || !['admin', 'gestor', 'vendedor', 'financeiro', 'externo'].includes(role)) {
+        return res.status(400).json({ message: "Papel inválido" });
+      }
+
+      await storage.updateUserRole(userId, role);
+      res.status(200).json({ message: "Papel atualizado com sucesso" });
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
     }
   });
 

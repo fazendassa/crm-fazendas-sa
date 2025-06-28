@@ -32,7 +32,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").notNull().default("user"), // 'admin' or 'user'
+  role: varchar("role").notNull().default("vendedor"), // 'admin', 'gestor', 'vendedor', 'financeiro', 'externo'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -76,6 +76,7 @@ export const deals = pgTable("deals", {
   expectedCloseDate: timestamp("expected_close_date"),
   contactId: integer("contact_id").references(() => contacts.id),
   companyId: integer("company_id").references(() => companies.id),
+  ownerId: varchar("owner_id").references(() => users.id, { onDelete: "set null" }), // Vendedor responsável
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
