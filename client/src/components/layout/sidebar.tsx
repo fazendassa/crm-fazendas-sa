@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions, useRoutePermissions } from "@/hooks/usePermissions";
 import { 
   LayoutDashboard, 
   Users, 
@@ -8,22 +9,76 @@ import {
   TrendingUp, 
   Activity, 
   Settings,
+  DollarSign,
+  BarChart3,
   LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ROLE_LABELS } from "@shared/rbac";
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Contatos', href: '/contacts', icon: Users },
-  { name: 'Empresas', href: '/companies', icon: Building2 },
-  { name: 'Pipeline', href: '/pipeline', icon: TrendingUp },
-  { name: 'Atividades', href: '/activities', icon: Activity },
-  { name: 'Administração', href: '/admin', icon: Settings },
+  { 
+    name: 'Dashboard', 
+    href: '/', 
+    icon: LayoutDashboard,
+    permission: 'view:dashboard' as const
+  },
+  { 
+    name: 'Contatos', 
+    href: '/contacts', 
+    icon: Users,
+    permission: 'view:contacts' as const
+  },
+  { 
+    name: 'Empresas', 
+    href: '/companies', 
+    icon: Building2,
+    permission: 'view:companies' as const
+  },
+  { 
+    name: 'Pipeline', 
+    href: '/pipeline', 
+    icon: TrendingUp,
+    permission: 'view:pipelines' as const
+  },
+  { 
+    name: 'Atividades', 
+    href: '/activities', 
+    icon: Activity,
+    permission: 'view:activities' as const
+  },
+  { 
+    name: 'Financeiro', 
+    href: '/billing', 
+    icon: DollarSign,
+    permission: 'view:billing' as const
+  },
+  { 
+    name: 'Relatórios', 
+    href: '/reports', 
+    icon: BarChart3,
+    permission: 'view:team_reports' as const,
+    fallbackPermission: 'view:own_reports' as const
+  },
+  { 
+    name: 'Usuários', 
+    href: '/users', 
+    icon: Users,
+    permission: 'view:users' as const
+  },
+  { 
+    name: 'Administração', 
+    href: '/admin', 
+    icon: Settings,
+    permission: 'manage:settings' as const
+  },
 ];
 
 export default function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const permissions = usePermissions();
 
   return (
     <div className="hidden md:flex md:flex-col md:w-64 bg-white shadow-lg">
@@ -36,8 +91,12 @@ export default function Sidebar() {
           const isActive = location === item.href;
           const Icon = item.icon;
           
-          // Hide admin section for non-admin users
-          if (item.href === '/admin' && user?.role !== 'admin') {
+          // Verificar permissões para mostrar o item do menu
+          const hasAccess = (item as any).fallbackPermission 
+            ? permissions.hasPermission((item as any).permission) || permissions.hasPermission((item as any).fallbackPermission)
+            : permissions.hasPermission((item as any).permission);
+          
+          if (!hasAccess) {
             return null;
           }
           
