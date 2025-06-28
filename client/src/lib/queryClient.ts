@@ -8,26 +8,36 @@ async function throwIfResNotOk(res: Response) {
 }
 
 export async function apiRequest(
-  url: string,
-  method: string = "GET",
-  data?: unknown | undefined,
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  endpoint: string,
+  data?: any
 ): Promise<any> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  const url = `/api${endpoint}`;
 
-  await throwIfResNotOk(res);
-  
-  // Handle empty responses (like 204 No Content)
-  if (res.status === 204 || res.headers.get('content-length') === '0') {
+  const config: RequestInit = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  };
+
+  // Only add body for POST and PUT requests
+  if (data && (method === 'POST' || method === 'PUT')) {
+    config.body = JSON.stringify(data);
+  }
+
+  const response = await fetch(url, config);
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  // Only parse JSON if there's content
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
     return null;
   }
-  
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+
+  return response.json();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
