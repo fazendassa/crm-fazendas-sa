@@ -47,10 +47,14 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       });
     },
     onSuccess: () => {
-      // Invalidate all related queries for instant updates
-      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      // Force complete cache refresh for pipeline stages
+      queryClient.removeQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
+      queryClient.removeQueries({ queryKey: ["/api/pipeline-stages"] });
+      queryClient.removeQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
+      
+      // Immediate refetch
+      queryClient.refetchQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
+      queryClient.refetchQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       
       setIsAddingStage(false);
       setNewStageTitle("");
