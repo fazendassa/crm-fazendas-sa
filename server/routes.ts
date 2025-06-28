@@ -7,6 +7,8 @@ import {
   insertContactSchema,
   insertDealSchema,
   insertActivitySchema,
+  insertPipelineSchema,
+  insertPipelineStageSchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -190,7 +192,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/deals/by-stage', isAuthenticated, async (req, res) => {
     try {
-      const dealsByStage = await storage.getDealsByStage();
+      const { pipelineId } = req.query;
+      const dealsByStage = await storage.getDealsByStage(pipelineId ? parseInt(pipelineId as string) : undefined);
       res.json(dealsByStage);
     } catch (error) {
       console.error("Error fetching deals by stage:", error);
@@ -328,10 +331,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Pipeline endpoints
+  app.get("/api/pipelines", isAuthenticated, async (req, res) => {
+    try {
+      const pipelines = await storage.getPipelines();
+      res.json(pipelines);
+    } catch (error) {
+      console.error("Error fetching pipelines:", error);
+      res.status(500).json({ message: "Failed to fetch pipelines" });
+    }
+  });
+
+  app.get("/api/pipelines/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const pipeline = await storage.getPipeline(id);
+      if (!pipeline) {
+        return res.status(404).json({ message: "Pipeline not found" });
+      }
+      res.json(pipeline);
+    } catch (error) {
+      console.error("Error fetching pipeline:", error);
+      res.status(500).json({ message: "Failed to fetch pipeline" });
+    }
+  });
+
+  app.post("/api/pipelines", isAuthenticated, async (req, res) => {
+    try {
+      const validatedData = insertPipelineSchema.parse(req.body);
+      const pipeline = await storage.createPipeline(validatedData);
+      res.status(201).json(pipeline);
+    } catch (error) {
+      console.error("Error creating pipeline:", error);
+      res.status(500).json({ message: "Failed to create pipeline" });
+    }
+  });
+
+  app.put("/api/pipelines/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertPipelineSchema.partial().parse(req.body);
+      const pipeline = await storage.updatePipeline(id, validatedData);
+      res.json(pipeline);
+    } catch (error) {
+      console.error("Error updating pipeline:", error);
+      res.status(500).json({ message: "Failed to update pipeline" });
+    }
+  });
+
+  app.delete("/api/pipelines/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deletePipeline(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting pipeline:", error);
+      res.status(500).json({ message: "Failed to delete pipeline" });
+    }
+  });
+
   // Pipeline stages routes
   app.get("/api/pipeline-stages", isAuthenticated, async (req, res) => {
     try {
-      const stages = await storage.getPipelineStages();
+      const pipelineId = req.query.pipelineId ? parseInt(req.query.pipelineId as string) : undefined;
+      const stages = await storage.getPipelineStages(pipelineId);
       res.json(stages);
     } catch (error) {
       console.error("Error fetching pipeline stages:", error);

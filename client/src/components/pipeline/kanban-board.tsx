@@ -20,7 +20,11 @@ interface KanbanColumn {
   deals: DealWithRelations[];
 }
 
-export default function KanbanBoard() {
+interface KanbanBoardProps {
+  pipelineId: number;
+}
+
+export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [kanbanColumns, setKanbanColumns] = useState<KanbanColumn[]>([]);
   const [selectedDeal, setSelectedDeal] = useState<DealWithRelations | null>(null);
   const [isDealDialogOpen, setIsDealDialogOpen] = useState(false);
@@ -31,19 +35,20 @@ export default function KanbanBoard() {
   const queryClient = useQueryClient();
 
   const { data: stages = [] } = useQuery<PipelineStage[]>({
-    queryKey: ["/api/pipeline-stages"],
+    queryKey: ["/api/pipeline-stages", { pipelineId }],
   });
 
-  const { data: dealsData = [] } = useQuery({
-    queryKey: ["/api/deals/by-stage"],
+  const { data: dealsData = [] } = useQuery<{ stage: string; count: number; deals: DealWithRelations[] }[]>({
+    queryKey: ["/api/deals/by-stage", { pipelineId }],
   });
 
   // Create new stage
   const createStageMutation = useMutation({
     mutationFn: async (title: string) => {
       const maxPosition = Math.max(...stages.map(s => s.position), -1);
-      return apiRequest("POST", "/api/pipeline-stages", {
+      return apiRequest("/api/pipeline-stages", "POST", {
         title,
+        pipelineId,
         position: maxPosition + 1,
         color: "#3b82f6",
       });

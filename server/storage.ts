@@ -4,6 +4,7 @@ import {
   contacts,
   deals,
   activities,
+  pipelines,
   pipelineStages,
   type User,
   type UpsertUser,
@@ -18,6 +19,8 @@ import {
   type Activity,
   type ActivityWithRelations,
   type InsertActivity,
+  type Pipeline,
+  type InsertPipeline,
   type PipelineStage,
   type InsertPipelineStage,
 } from "@shared/schema";
@@ -51,7 +54,7 @@ export interface IStorage {
   createDeal(deal: InsertDeal): Promise<Deal>;
   updateDeal(id: number, deal: Partial<InsertDeal>): Promise<Deal>;
   deleteDeal(id: number): Promise<void>;
-  getDealsByStage(): Promise<{ stage: string; count: number; deals: DealWithRelations[] }[]>;
+  getDealsByStage(pipelineId?: number): Promise<{ stage: string; count: number; deals: DealWithRelations[] }[]>;
 
   // Activity operations
   getActivities(contactId?: number, dealId?: number, userId?: string, limit?: number, offset?: number): Promise<ActivityWithRelations[]>;
@@ -60,8 +63,15 @@ export interface IStorage {
   updateActivity(id: number, activity: Partial<InsertActivity>): Promise<Activity>;
   deleteActivity(id: number): Promise<void>;
 
+  // Pipeline operations
+  getPipelines(): Promise<Pipeline[]>;
+  getPipeline(id: number): Promise<Pipeline | undefined>;
+  createPipeline(pipeline: InsertPipeline): Promise<Pipeline>;
+  updatePipeline(id: number, pipeline: Partial<InsertPipeline>): Promise<Pipeline>;
+  deletePipeline(id: number): Promise<void>;
+
   // Pipeline stages operations
-  getPipelineStages(): Promise<PipelineStage[]>;
+  getPipelineStages(pipelineId?: number): Promise<PipelineStage[]>;
   createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage>;
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
@@ -256,6 +266,7 @@ export class DatabaseStorage implements IStorage {
         title: deals.title,
         value: deals.value,
         stage: deals.stage,
+        pipelineId: deals.pipelineId,
         expectedCloseDate: deals.expectedCloseDate,
         contactId: deals.contactId,
         companyId: deals.companyId,
@@ -301,6 +312,7 @@ export class DatabaseStorage implements IStorage {
         title: deals.title,
         value: deals.value,
         stage: deals.stage,
+        pipelineId: deals.pipelineId,
         expectedCloseDate: deals.expectedCloseDate,
         contactId: deals.contactId,
         companyId: deals.companyId,
@@ -353,16 +365,107 @@ export class DatabaseStorage implements IStorage {
     await db.delete(deals).where(eq(deals.id, id));
   }
 
-  async getDealsByStage(): Promise<{ stage: string; count: number; deals: DealWithRelations[] }[]> {
-    const stages = ['prospecting', 'qualification', 'proposal', 'closing'];
+  async getDealsByStage(pipelineId?: number): Promise<{ stage: string; count: number; deals: DealWithRelations[] }[]> {
+    // Get stages from pipeline_stages table if pipelineId is provided
+    let stages: string[];
+    if (pipelineId) {
+      const pipelineStages = await this.getPipelineStages(pipelineId);
+      stages = pipelineStages.map(s => s.title.toLowerCase());
+    } else {
+      stages = ['prospecting', 'qualification', 'proposal', 'closing'];
+    }
+    
     const result = [];
 
     for (const stage of stages) {
-      const stageDeals = await this.getDeals(stage);
+      let dealsInStage;
+      
+      if (pipelineId) {
+        dealsInStage = await db
+          .select({
+            id: deals.id,
+            title: deals.title,
+            value: deals.value,
+            stage: deals.stage,
+            pipelineId: deals.pipelineId,
+            expectedCloseDate: deals.expectedCloseDate,
+            contactId: deals.contactId,
+            companyId: deals.companyId,
+            description: deals.description,
+            createdAt: deals.createdAt,
+            updatedAt: deals.updatedAt,
+            contact: {
+              id: contacts.id,
+              name: contacts.name,
+              email: contacts.email,
+              phone: contacts.phone,
+              position: contacts.position,
+              companyId: contacts.companyId,
+              tags: contacts.tags,
+              status: contacts.status,
+              createdAt: contacts.createdAt,
+              updatedAt: contacts.updatedAt,
+            },
+            company: {
+              id: companies.id,
+              name: companies.name,
+              sector: companies.sector,
+              location: companies.location,
+              createdAt: companies.createdAt,
+              updatedAt: companies.updatedAt,
+            },
+          })
+          .from(deals)
+          .leftJoin(contacts, eq(deals.contactId, contacts.id))
+          .leftJoin(companies, eq(deals.companyId, companies.id))
+          .where(and(eq(deals.stage, stage), eq(deals.pipelineId, pipelineId)))
+          .orderBy(desc(deals.createdAt));
+      } else {
+        dealsInStage = await db
+          .select({
+            id: deals.id,
+            title: deals.title,
+            value: deals.value,
+            stage: deals.stage,
+            pipelineId: deals.pipelineId,
+            expectedCloseDate: deals.expectedCloseDate,
+            contactId: deals.contactId,
+            companyId: deals.companyId,
+            description: deals.description,
+            createdAt: deals.createdAt,
+            updatedAt: deals.updatedAt,
+            contact: {
+              id: contacts.id,
+              name: contacts.name,
+              email: contacts.email,
+              phone: contacts.phone,
+              position: contacts.position,
+              companyId: contacts.companyId,
+              tags: contacts.tags,
+              status: contacts.status,
+              createdAt: contacts.createdAt,
+              updatedAt: contacts.updatedAt,
+            },
+            company: {
+              id: companies.id,
+              name: companies.name,
+              sector: companies.sector,
+              location: companies.location,
+              createdAt: companies.createdAt,
+              updatedAt: companies.updatedAt,
+            },
+          })
+          .from(deals)
+          .leftJoin(contacts, eq(deals.contactId, contacts.id))
+          .leftJoin(companies, eq(deals.companyId, companies.id))
+          .where(eq(deals.stage, stage))
+          .orderBy(desc(deals.createdAt));
+      }
+
       result.push({
         stage,
-        count: stageDeals.length,
-        deals: stageDeals,
+        count: dealsInStage.length,
+        deals: dealsInStage as DealWithRelations[],
       });
     }
 
@@ -538,7 +641,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Pipeline stages operations
-  async getPipelineStages(): Promise<PipelineStage[]> {
+  async getPipelineStages(pipelineId?: number): Promise<PipelineStage[]> {
+    if (pipelineId) {
+      return await db
+        .select()
+        .from(pipelineStages)
+        .where(eq(pipelineStages.pipelineId, pipelineId))
+        .orderBy(pipelineStages.position);
+    }
     return await db.select().from(pipelineStages).orderBy(pipelineStages.position);
   }
 
@@ -570,6 +680,34 @@ export class DatabaseStorage implements IStorage {
         .set({ position: stage.position, updatedAt: new Date() })
         .where(eq(pipelineStages.id, stage.id));
     }
+  }
+
+  // Pipeline operations
+  async getPipelines(): Promise<Pipeline[]> {
+    return await db.select().from(pipelines).orderBy(pipelines.name);
+  }
+
+  async getPipeline(id: number): Promise<Pipeline | undefined> {
+    const [pipeline] = await db.select().from(pipelines).where(eq(pipelines.id, id));
+    return pipeline;
+  }
+
+  async createPipeline(pipeline: InsertPipeline): Promise<Pipeline> {
+    const [created] = await db.insert(pipelines).values(pipeline).returning();
+    return created;
+  }
+
+  async updatePipeline(id: number, pipeline: Partial<InsertPipeline>): Promise<Pipeline> {
+    const [updated] = await db
+      .update(pipelines)
+      .set({ ...pipeline, updatedAt: new Date() })
+      .where(eq(pipelines.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePipeline(id: number): Promise<void> {
+    await db.delete(pipelines).where(eq(pipelines.id, id));
   }
 
   // Dashboard metrics
