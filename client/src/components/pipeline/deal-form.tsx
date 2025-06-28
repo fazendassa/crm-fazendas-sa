@@ -90,9 +90,9 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
       };
 
       if (deal) {
-        return await apiRequest("PUT", `/api/deals/${deal.id}`, dealData);
+        return await apiRequest(`/api/deals/${deal.id}`, "PUT", dealData);
       } else {
-        return await apiRequest("POST", "/api/deals", dealData);
+        return await apiRequest("/api/deals", "POST", dealData);
       }
     },
     onSuccess: () => {
