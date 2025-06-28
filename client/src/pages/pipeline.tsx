@@ -41,7 +41,7 @@ export default function Pipeline() {
 
   const createPipelineMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      return await apiRequest("POST", "/api/pipelines", data);
+      return await apiRequest("/api/pipelines", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pipelines"] });
@@ -63,7 +63,7 @@ export default function Pipeline() {
 
   const updatePipelineMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
-      return await apiRequest("PUT", `/api/pipelines/${id}`, data);
+      return await apiRequest(`/api/pipelines/${id}`, "PUT", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/pipelines"] });
