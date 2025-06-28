@@ -22,10 +22,11 @@ type FormData = z.infer<typeof formSchema>;
 
 interface DealFormProps {
   deal?: DealWithRelations | null;
+  defaultStage?: string;
   onSuccess: () => void;
 }
 
-export default function DealForm({ deal, onSuccess }: DealFormProps) {
+export default function DealForm({ deal, defaultStage, onSuccess }: DealFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -49,7 +50,7 @@ export default function DealForm({ deal, onSuccess }: DealFormProps) {
       title: deal?.title || '',
       description: deal?.description || '',
       value: deal?.value || '',
-      stage: deal?.stage || 'prospecting',
+      stage: deal?.stage || defaultStage || 'prospecting',
       contactId: deal?.contactId || undefined,
       companyId: deal?.companyId || undefined,
       expectedCloseDate: deal?.expectedCloseDate 

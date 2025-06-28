@@ -4,6 +4,7 @@ import {
   contacts,
   deals,
   activities,
+  pipelineStages,
   type User,
   type UpsertUser,
   type Company,
@@ -17,6 +18,8 @@ import {
   type Activity,
   type ActivityWithRelations,
   type InsertActivity,
+  type PipelineStage,
+  type InsertPipelineStage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, and, count, desc } from "drizzle-orm";
@@ -56,6 +59,13 @@ export interface IStorage {
   createActivity(activity: InsertActivity): Promise<Activity>;
   updateActivity(id: number, activity: Partial<InsertActivity>): Promise<Activity>;
   deleteActivity(id: number): Promise<void>;
+
+  // Pipeline stages operations
+  getPipelineStages(): Promise<PipelineStage[]>;
+  createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage>;
+  updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
+  deletePipelineStage(id: number): Promise<void>;
+  updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
 
   // Dashboard metrics
   getDashboardMetrics(): Promise<{
@@ -525,6 +535,41 @@ export class DatabaseStorage implements IStorage {
 
   async deleteActivity(id: number): Promise<void> {
     await db.delete(activities).where(eq(activities.id, id));
+  }
+
+  // Pipeline stages operations
+  async getPipelineStages(): Promise<PipelineStage[]> {
+    return await db.select().from(pipelineStages).orderBy(pipelineStages.position);
+  }
+
+  async createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage> {
+    const [newStage] = await db
+      .insert(pipelineStages)
+      .values(stage)
+      .returning();
+    return newStage;
+  }
+
+  async updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage> {
+    const [updatedStage] = await db
+      .update(pipelineStages)
+      .set({ ...stage, updatedAt: new Date() })
+      .where(eq(pipelineStages.id, id))
+      .returning();
+    return updatedStage;
+  }
+
+  async deletePipelineStage(id: number): Promise<void> {
+    await db.delete(pipelineStages).where(eq(pipelineStages.id, id));
+  }
+
+  async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
+    for (const stage of stages) {
+      await db
+        .update(pipelineStages)
+        .set({ position: stage.position, updatedAt: new Date() })
+        .where(eq(pipelineStages.id, stage.id));
+    }
   }
 
   // Dashboard metrics
