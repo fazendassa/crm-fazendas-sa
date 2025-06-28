@@ -82,7 +82,7 @@ export default function Sidebar() {
 
   return (
     <div className="hidden md:flex md:flex-col md:w-64 bg-white shadow-lg">
-      <div className="flex items-center justify-center h-16 bg-primary">
+      <div className="flex items-center justify-center h-16 bg-[#2b2b2b]">
         <h1 className="text-white text-xl font-bold">Fazendas S/A crm</h1>
       </div>
       <nav className="flex-1 px-4 py-6 space-y-2">
