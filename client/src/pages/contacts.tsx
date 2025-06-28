@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Upload } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { Link } from "wouter";
 import ContactForm from "@/components/contacts/contact-form";
 import type { ContactWithCompany } from "@shared/schema";
 
@@ -86,25 +87,33 @@ export default function Contacts() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Gestão de Contatos</CardTitle>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={() => setSelectedContact(null)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Novo Contato
+            <div className="flex gap-2">
+              <Link href="/contacts/import">
+                <Button variant="outline">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Importar
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>
-                    {selectedContact ? 'Editar Contato' : 'Novo Contato'}
-                  </DialogTitle>
-                </DialogHeader>
-                <ContactForm
-                  contact={selectedContact}
-                  onSuccess={handleFormSuccess}
-                />
-              </DialogContent>
-            </Dialog>
+              </Link>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => setSelectedContact(null)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Novo Contato
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {selectedContact ? 'Editar Contato' : 'Novo Contato'}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <ContactForm
+                    contact={selectedContact}
+                    onSuccess={handleFormSuccess}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           {/* Filters */}

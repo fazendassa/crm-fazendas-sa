@@ -25,7 +25,7 @@ import {
   type InsertPipelineStage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, and, count, desc, ne, sql } from "drizzle-orm";
+import { eq, ilike, and, count, desc, ne, sql, isNotNull, sum } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -49,6 +49,11 @@ export interface IStorage {
   updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact>;
   deleteContact(id: number): Promise<void>;
   getContactCount(search?: string, companyId?: number): Promise<number>;
+  
+  // Contact import operations
+  importContacts(contacts: InsertContact[]): Promise<{ success: number; errors: string[] }>;
+  getAvailableTags(): Promise<string[]>;
+  createContactsFromImport(data: any[], pipelineId?: number, tags?: string[]): Promise<{ success: number; errors: string[] }>;
 
   // Deal operations
   getDeals(stage?: string, limit?: number, offset?: number): Promise<DealWithRelations[]>;
@@ -798,6 +803,108 @@ export class DatabaseStorage implements IStorage {
         }).format(parseFloat(metric.totalValue || '0')),
       })),
     };
+  }
+
+  // Contact import operations
+  async importContacts(contactsData: InsertContact[]): Promise<{ success: number; errors: string[] }> {
+    const errors: string[] = [];
+    let success = 0;
+
+    for (const contactData of contactsData) {
+      try {
+        await this.createContact(contactData);
+        success++;
+      } catch (error) {
+        errors.push(`Erro ao importar contato ${contactData.name}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      }
+    }
+
+    return { success, errors };
+  }
+
+  async getAvailableTags(): Promise<string[]> {
+    const result = await db
+      .select({ tags: contacts.tags })
+      .from(contacts)
+      .where(isNotNull(contacts.tags));
+
+    const allTags = new Set<string>();
+    result.forEach(row => {
+      if (row.tags) {
+        row.tags.forEach(tag => allTags.add(tag));
+      }
+    });
+
+    return Array.from(allTags).sort();
+  }
+
+  async createContactsFromImport(
+    data: any[], 
+    pipelineId?: number, 
+    tags: string[] = []
+  ): Promise<{ success: number; errors: string[] }> {
+    const errors: string[] = [];
+    let success = 0;
+
+    for (const row of data) {
+      try {
+        // Map common field variations to our schema
+        const contactData: InsertContact = {
+          name: row.Nome || row.Name || row.nome || row.name || '',
+          email: row.Email || row.email || row['E-mail'] || row['e-mail'] || null,
+          phone: row.Telefone || row.Phone || row.telefone || row.phone || null,
+          position: row.Cargo || row.Position || row.cargo || row.position || null,
+          status: row.Status || row.status || 'active',
+          source: 'import',
+          pipelineId: pipelineId || null,
+          tags: [...tags] // Add provided tags
+        };
+
+        // Try to find company by name if provided
+        if (row.Empresa || row.Company || row.empresa || row.company) {
+          const companyName = row.Empresa || row.Company || row.empresa || row.company;
+          const [existingCompany] = await db
+            .select()
+            .from(companies)
+            .where(eq(companies.name, companyName))
+            .limit(1);
+          
+          if (existingCompany) {
+            contactData.companyId = existingCompany.id;
+          } else {
+            // Create new company if it doesn't exist
+            const [newCompany] = await db
+              .insert(companies)
+              .values({ name: companyName })
+              .returning();
+            contactData.companyId = newCompany.id;
+          }
+        }
+
+        // Add any additional tags from the row
+        if (row.Tags || row.tags) {
+          const rowTags = Array.isArray(row.Tags || row.tags) 
+            ? row.Tags || row.tags 
+            : (row.Tags || row.tags).split(',').map((t: string) => t.trim());
+          contactData.tags = [...(contactData.tags || []), ...rowTags];
+        }
+
+        // Validate required fields
+        if (!contactData.name || contactData.name.trim() === '') {
+          errors.push(`Linha ${data.indexOf(row) + 1}: Nome é obrigatório`);
+          continue;
+        }
+
+        // Create contact
+        await this.createContact(contactData);
+        success++;
+
+      } catch (error) {
+        errors.push(`Linha ${data.indexOf(row) + 1}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      }
+    }
+
+    return { success, errors };
   }
 }
 

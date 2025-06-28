@@ -13,6 +13,7 @@ import Pipeline from "@/pages/pipeline";
 import Activities from "@/pages/activities";
 import Admin from "@/pages/admin";
 import UserManagement from "@/pages/user-management";
+import ContactImport from "@/pages/contact-import";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 
@@ -45,6 +46,7 @@ function Router() {
           <Switch>
             <Route path="/" component={Dashboard} />
             <Route path="/contacts" component={Contacts} />
+            <Route path="/contacts/import" component={ContactImport} />
             <Route path="/companies" component={Companies} />
             <Route path="/pipeline" component={Pipeline} />
             <Route path="/activities" component={Activities} />
