@@ -16,7 +16,7 @@ import UserManagement from "@/pages/user-management";
 import ContactImport from "@/pages/contact-import";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -46,9 +46,23 @@ function Router() {
         <main className="flex-1 overflow-x-hidden overflow-y-auto">
           <Switch>
             <Route path="/" component={Dashboard} />
-            <Route path="/contacts" component={lazy(() => import("./pages/contacts"))} />
-            <Route path="/contacts/:id" component={lazy(() => import("./pages/contact-detail"))} />
-            <Route path="/contact-import" component={lazy(() => import("./pages/contact-import"))} />
+            <Route path="/contacts">
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
+                <Contacts />
+              </Suspense>
+            </Route>
+            <Route path="/contacts/:id">
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
+                 {/* @ts-expect-error */}
+                <Route path="/contacts/:id" component={lazy(() => import("./pages/contact-detail"))} />
+              </Suspense>
+            </Route>
+            <Route path="/contact-import">
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
+                 {/* @ts-expect-error */}
+                <Route path="/contact-import" component={lazy(() => import("./pages/contact-import"))} />
+              </Suspense>
+            </Route>
             <Route path="/companies" component={Companies} />
             <Route path="/pipeline" component={Pipeline} />
             <Route path="/activities" component={Activities} />
