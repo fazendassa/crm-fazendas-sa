@@ -12,7 +12,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { insertDealSchema, type DealWithRelations } from "@shared/schema";
 import { z } from "zod";
 
-const formSchema = insertDealSchema.extend({
+const formSchema = z.object({
+  title: z.string().min(1, "Título é obrigatório"),
+  description: z.string().optional(),
+  stage: z.string().min(1, "Estágio é obrigatório"),
   contactId: z.coerce.number().optional(),
   companyId: z.coerce.number().optional(),
   value: z.string().optional(),
@@ -113,22 +116,17 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
   });
 
   const onSubmit = (data: FormData) => {
-    console.log("Form data before submission:", data);
+    console.log("=== FORM SUBMIT TRIGGERED ===");
+    console.log("Form data:", data);
     console.log("Form errors:", errors);
-    console.log("PipelineId:", pipelineId);
-    if (!data.title || data.title.trim() === '') {
-      toast({
-        title: "Erro de validação",
-        description: "O título da oportunidade é obrigatório",
-        variant: "destructive",
-      });
-      return;
-    }
+    console.log("Form state valid:", Object.keys(errors).length === 0);
+    
     createDealMutation.mutate(data);
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" 
+          onClick={() => console.log("Form clicked")}>
       <div>
         <Label htmlFor="title">Título da Oportunidade *</Label>
         <Input
@@ -256,6 +254,7 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
           type="submit" 
           className="flex-1"
           disabled={createDealMutation.isPending}
+          onClick={() => console.log("=== SAVE BUTTON CLICKED ===")}
         >
           {createDealMutation.isPending ? 'Salvando...' : 'Salvar'}
         </Button>
