@@ -184,7 +184,7 @@ export default function ActivityForm({ activity, onSuccess }: ActivityFormProps)
             <SelectValue placeholder="Selecione um contato (opcional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">Nenhum contato</SelectItem>
+            <SelectItem value="">Nenhum contato</SelectItem>
             {contactsData?.contacts?.map((contact: any) => (
               <SelectItem key={contact.id} value={contact.id.toString()}>
                 {contact.name} {contact.company?.name && `(${contact.company.name})`}
@@ -204,7 +204,7 @@ export default function ActivityForm({ activity, onSuccess }: ActivityFormProps)
             <SelectValue placeholder="Selecione uma oportunidade (opcional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">Nenhuma oportunidade</SelectItem>
+            <SelectItem value="">Nenhuma oportunidade</SelectItem>
             {dealsData?.map((deal: any) => (
               <SelectItem key={deal.id} value={deal.id.toString()}>
                 {deal.title}
