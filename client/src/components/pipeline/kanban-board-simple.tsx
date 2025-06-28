@@ -90,9 +90,12 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
   // Group deals by stage
   const stageDealsMap = new Map<string, DealWithRelations[]>();
+  console.log("Kanban deals data:", dealsData);
   dealsData.forEach(stageData => {
+    console.log("Setting stage deals:", stageData.stage, "->", stageData.deals);
     stageDealsMap.set(stageData.stage, stageData.deals);
   });
+  console.log("Stage deals map:", stageDealsMap);
 
   return (
     <div className="space-y-6">
@@ -150,7 +153,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         {stages
           .sort((a, b) => a.position - b.position)
           .map((stage) => {
-            const stageDeals = stageDealsMap.get(stage.title.toLowerCase()) || [];
+            const stageDeals = stageDealsMap.get(stage.title) || [];
             
             return (
               <div key={stage.id} className="space-y-4">
