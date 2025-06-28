@@ -49,7 +49,7 @@ export interface IStorage {
   updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact>;
   deleteContact(id: number): Promise<void>;
   getContactCount(search?: string, companyId?: number): Promise<number>;
-  
+
   // Contact import operations
   importContacts(contacts: InsertContact[]): Promise<{ success: number; errors: string[] }>;
   getAvailableTags(): Promise<string[]>;
@@ -129,11 +129,11 @@ export class DatabaseStorage implements IStorage {
   // Company operations
   async getCompanies(search?: string, limit = 50, offset = 0): Promise<Company[]> {
     const query = db.select().from(companies);
-    
+
     if (search) {
       query.where(ilike(companies.name, `%${search}%`));
     }
-    
+
     return await query.limit(limit).offset(offset).orderBy(desc(companies.createdAt));
   }
 
@@ -162,11 +162,11 @@ export class DatabaseStorage implements IStorage {
 
   async getCompanyCount(search?: string): Promise<number> {
     const query = db.select({ count: count() }).from(companies);
-    
+
     if (search) {
       query.where(ilike(companies.name, `%${search}%`));
     }
-    
+
     const [result] = await query;
     return result.count;
   }
@@ -392,12 +392,12 @@ export class DatabaseStorage implements IStorage {
     } else {
       stages = ['prospecting', 'qualification', 'proposal', 'closing'];
     }
-    
+
     const result = [];
 
     for (const stage of stages) {
       let dealsInStage;
-      
+
       if (pipelineId) {
         dealsInStage = await db
           .select({
@@ -717,7 +717,7 @@ export class DatabaseStorage implements IStorage {
 
   async createPipeline(pipeline: InsertPipeline): Promise<Pipeline> {
     const [created] = await db.insert(pipelines).values(pipeline).returning();
-    
+
     // Create default stages for new pipeline
     const defaultStages = [
       { title: "Prospecção", position: 0, color: "#3b82f6", isDefault: true },
@@ -861,19 +861,49 @@ export class DatabaseStorage implements IStorage {
         // Map common field variations to our schema
         const name = row.Nome || row.Name || row.nome || row.name || 
                     row.NOME || row.NAME || '';
-        
+
         const email = row.Email || row.email || row['E-mail'] || row['e-mail'] || 
                      row.EMAIL || row['E-MAIL'] || null;
-        
+
         const phone = row.Telefone || row.Phone || row.telefone || row.phone || 
                      row.TELEFONE || row.PHONE || null;
-        
+
         const position = row.Cargo || row.Position || row.cargo || row.position || 
                         row.CARGO || row.POSITION || null;
-        
+
         const status = row.Status || row.status || row.STATUS || 'active';
 
         console.log('Campos extraídos:', { name, email, phone, position, status });
+
+        // Handle company creation if needed
+        let companyId: number | null = null;
+        const company = row.Empresa || row.Company || row.empresa || row.company ||
+                           row.EMPRESA || row.COMPANY;
+        if (company && company.toString().trim() !== '') {
+          const companyName = company.toString().trim();
+          const [existingCompany] = await db
+            .select()
+            .from(companies)
+            .where(eq(companies.name, companyName))
+            .limit(1);
+
+          if (existingCompany.length > 0) {
+            companyId = existingCompany[0].id;
+            console.log('Empresa existente encontrada:', companyName, companyId);
+          } else {
+            // Create new company
+            const newCompany = await this.createCompany({
+              name: companyName,
+              sector: null,
+              website: null,
+              phone: null,
+              email: null,
+              address: null
+            });
+            companyId = newCompany.id;
+            console.log('Nova empresa criada:', companyName, companyId);
+          }
+        }
 
         const contactData: InsertContact = {
           name: name.toString().trim(),
@@ -883,36 +913,9 @@ export class DatabaseStorage implements IStorage {
           status: status.toString().toLowerCase(),
           source: 'import',
           pipelineId: pipelineId || null,
+          companyId: companyId,
           tags: [...tags] // Add provided tags
         };
-
-        // Try to find company by name if provided
-        const companyName = row.Empresa || row.Company || row.empresa || row.company || 
-                           row.EMPRESA || row.COMPANY;
-        
-        if (companyName && companyName.toString().trim()) {
-          const companyNameTrimmed = companyName.toString().trim();
-          console.log('Procurando empresa:', companyNameTrimmed);
-          
-          const [existingCompany] = await db
-            .select()
-            .from(companies)
-            .where(eq(companies.name, companyNameTrimmed))
-            .limit(1);
-          
-          if (existingCompany) {
-            contactData.companyId = existingCompany.id;
-            console.log('Empresa encontrada:', existingCompany.id);
-          } else {
-            // Create new company if it doesn't exist
-            const [newCompany] = await db
-              .insert(companies)
-              .values({ name: companyNameTrimmed })
-              .returning();
-            contactData.companyId = newCompany.id;
-            console.log('Nova empresa criada:', newCompany.id);
-          }
-        }
 
         // Add any additional tags from the row
         const rowTags = row.Tags || row.tags || row.TAGS;
