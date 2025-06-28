@@ -50,10 +50,16 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
 
   const createContactMutation = useMutation({
     mutationFn: async (data: FormData) => {
+      // Convert "none" to null for companyId
+      const submitData = {
+        ...data,
+        companyId: data.companyId === 'none' ? null : data.companyId ? parseInt(data.companyId) : null,
+      };
+      
       if (contact) {
-        await apiRequest('PUT', `/api/contacts/${contact.id}`, data);
+        await apiRequest('PUT', `/api/contacts/${contact.id}`, submitData);
       } else {
-        await apiRequest('POST', '/api/contacts', data);
+        await apiRequest('POST', '/api/contacts', submitData);
       }
     },
     onSuccess: () => {
@@ -137,7 +143,7 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
             <SelectValue placeholder="Selecione uma empresa" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Nenhuma empresa</SelectItem>
+            <SelectItem value="none">Nenhuma empresa</SelectItem>
             {companiesData?.companies?.map((company: any) => (
               <SelectItem key={company.id} value={company.id.toString()}>
                 {company.name}

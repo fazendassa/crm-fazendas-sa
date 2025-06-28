@@ -25,7 +25,7 @@ export default function Contacts() {
   const limit = 10;
 
   const { data: contactsData, isLoading } = useQuery({
-    queryKey: ['/api/contacts', { search, companyId: companyFilter, limit, offset: page * limit }],
+    queryKey: ['/api/contacts', { search, companyId: companyFilter === 'all' ? undefined : companyFilter, limit, offset: page * limit }],
   });
 
   const { data: companiesData } = useQuery({
@@ -123,7 +123,7 @@ export default function Contacts() {
                 <SelectValue placeholder="Todas as Empresas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as Empresas</SelectItem>
+                <SelectItem value="all">Todas as Empresas</SelectItem>
                 {companiesData?.companies?.map((company: any) => (
                   <SelectItem key={company.id} value={company.id.toString()}>
                     {company.name}

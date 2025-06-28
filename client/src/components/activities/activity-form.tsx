@@ -73,9 +73,9 @@ export default function ActivityForm({ activity, onSuccess }: ActivityFormProps)
       const activityData = {
         ...data,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
-        contactId: data.contactId || null,
-        dealId: data.dealId || null,
-        companyId: data.companyId || null,
+        contactId: data.contactId === 'none' ? null : data.contactId ? parseInt(data.contactId.toString()) : null,
+        dealId: data.dealId === 'none' ? null : data.dealId ? parseInt(data.dealId.toString()) : null,
+        companyId: data.companyId === 'none' ? null : data.companyId ? parseInt(data.companyId.toString()) : null,
         userId: user?.id,
       };
 
@@ -184,7 +184,7 @@ export default function ActivityForm({ activity, onSuccess }: ActivityFormProps)
             <SelectValue placeholder="Selecione um contato (opcional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Nenhum contato</SelectItem>
+            <SelectItem value="none">Nenhum contato</SelectItem>
             {contactsData?.contacts?.map((contact: any) => (
               <SelectItem key={contact.id} value={contact.id.toString()}>
                 {contact.name} {contact.company?.name && `(${contact.company.name})`}
@@ -204,7 +204,7 @@ export default function ActivityForm({ activity, onSuccess }: ActivityFormProps)
             <SelectValue placeholder="Selecione uma oportunidade (opcional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Nenhuma oportunidade</SelectItem>
+            <SelectItem value="none">Nenhuma oportunidade</SelectItem>
             {dealsData?.map((deal: any) => (
               <SelectItem key={deal.id} value={deal.id.toString()}>
                 {deal.title}
@@ -224,7 +224,7 @@ export default function ActivityForm({ activity, onSuccess }: ActivityFormProps)
             <SelectValue placeholder="Selecione uma empresa (opcional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Nenhuma empresa</SelectItem>
+            <SelectItem value="none">Nenhuma empresa</SelectItem>
             {companiesData?.companies?.map((company: any) => (
               <SelectItem key={company.id} value={company.id.toString()}>
                 {company.name}
