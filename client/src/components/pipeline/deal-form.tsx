@@ -64,7 +64,7 @@ export default function DealForm({ deal, onSuccess }: DealFormProps) {
       const dealData = {
         ...data,
         value: data.value ? parseFloat(data.value).toString() : null,
-        expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : null,
+        expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate + 'T00:00:00.000Z') : null,
         contactId: data.contactId || null,
         companyId: data.companyId || null,
       };
