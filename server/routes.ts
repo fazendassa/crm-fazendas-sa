@@ -155,6 +155,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get available tags - must come before :id route
+  app.get('/api/contacts/tags', isAuthenticated, async (req, res) => {
+    try {
+      const tags = await storage.getAvailableTags();
+      res.json(tags);
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      res.status(500).json({ message: 'Erro ao buscar tags' });
+    }
+  });
+
   app.get('/api/contacts/:id', isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -589,16 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Get available tags
-  app.get('/api/contacts/tags', isAuthenticated, async (req, res) => {
-    try {
-      const tags = await storage.getAvailableTags();
-      res.json(tags);
-    } catch (error) {
-      console.error('Error fetching tags:', error);
-      res.status(500).json({ message: 'Erro ao buscar tags' });
-    }
-  });
+  
 
   // Download import template
   app.get('/api/contacts/import-template', isAuthenticated, (req, res) => {
