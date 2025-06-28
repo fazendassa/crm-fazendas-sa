@@ -370,7 +370,7 @@ export class DatabaseStorage implements IStorage {
     let stages: string[];
     if (pipelineId) {
       const pipelineStages = await this.getPipelineStages(pipelineId);
-      stages = pipelineStages.map(s => s.title.toLowerCase());
+      stages = pipelineStages.map(s => s.title);
     } else {
       stages = ['prospecting', 'qualification', 'proposal', 'closing'];
     }
