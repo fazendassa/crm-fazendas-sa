@@ -51,7 +51,7 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
       title: deal?.title || '',
       description: deal?.description || '',
       value: deal?.value || '',
-      stage: deal?.stage || defaultStage || 'prospecting',
+      stage: deal?.stage || defaultStage || 'prospecção',
       contactId: deal?.contactId || undefined,
       companyId: deal?.companyId || undefined,
       expectedCloseDate: deal?.expectedCloseDate 
@@ -73,12 +73,13 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
       };
 
       if (deal) {
-        await apiRequest(`/api/deals/${deal.id}`, 'PUT', dealData);
+        return await apiRequest("PUT", `/api/deals/${deal.id}`, dealData);
       } else {
-        await apiRequest('/api/deals', 'POST', dealData);
+        return await apiRequest("POST", "/api/deals", dealData);
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage", pipelineId] });
       toast({
         title: "Sucesso",
         description: deal ? "Oportunidade atualizada com sucesso" : "Oportunidade criada com sucesso",
@@ -98,6 +99,15 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
   const onSubmit = (data: FormData) => {
     console.log("Form data before submission:", data);
     console.log("Form errors:", errors);
+    console.log("PipelineId:", pipelineId);
+    if (!data.title || data.title.trim() === '') {
+      toast({
+        title: "Erro de validação",
+        description: "O título da oportunidade é obrigatório",
+        variant: "destructive",
+      });
+      return;
+    }
     createDealMutation.mutate(data);
   };
 
