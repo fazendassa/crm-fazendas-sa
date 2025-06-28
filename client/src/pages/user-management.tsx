@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Plus, Edit, Trash2 } from "lucide-react";
+import { Users, Plus, Edit, Trash2, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, type UserRole } from "@shared/rbac";
 
@@ -30,6 +30,7 @@ export default function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>('vendedor');
+  const [copied, setCopied] = useState(false);
 
   // Buscar lista de usuários
   const { data: users, isLoading } = useQuery({
@@ -96,6 +97,51 @@ export default function UserManagement() {
             </p>
           </div>
         </div>
+
+        {/* Instruções para criar novos usuários */}
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="text-blue-800">Como criar novos usuários</CardTitle>
+            <CardDescription className="text-blue-700">
+              Processo de criação de usuários no sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-blue-700">
+            <div className="space-y-3">
+              <p><strong>1. Login automático:</strong> Novos usuários são criados automaticamente quando fazem login pela primeira vez usando Replit Auth.</p>
+              <p><strong>2. Papel padrão:</strong> Todos os novos usuários recebem o papel "Vendedor" por padrão.</p>
+              <p><strong>3. Alteração de papéis:</strong> Como administrador, você pode alterar o papel de qualquer usuário usando o botão "Editar" na tabela abaixo.</p>
+              <p><strong>4. Convite:</strong> Para convidar alguém, compartilhe o link do sistema abaixo:</p>
+              <div className="flex items-center gap-2 mt-2 p-3 bg-white rounded border">
+                <code className="flex-1 text-sm">{window.location.origin}</code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(window.location.origin);
+                      // setCopied(true);
+                      // setTimeout(() => setCopied(false), 2000);
+                      toast({
+                        title: "Link copiado!",
+                        description: "O link foi copiado para a área de transferência.",
+                      });
+                    } catch (err) {
+                      toast({
+                        title: "Erro ao copiar",
+                        description: "Não foi possível copiar o link.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                  Copiar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Resumo dos papéis */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
