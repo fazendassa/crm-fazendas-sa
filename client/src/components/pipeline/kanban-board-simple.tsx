@@ -39,12 +39,25 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Create new stage mutation
   const createStageMutation = useMutation({
     mutationFn: async (title: string) => {
-      await apiRequest("/api/pipeline-stages", "POST", {
-        title,
-        pipelineId,
-        position: Array.isArray(stages) ? stages.length : 0,
-        isDefault: false,
+      const response = await fetch("/api/pipeline-stages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          title,
+          pipelineId,
+          position: Array.isArray(stages) ? stages.length : 0,
+          isDefault: false,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create stage: ${response.status}`);
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       // Force complete cache refresh for pipeline stages
@@ -119,7 +132,20 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Update stage positions mutation
   const updateStagePositionsMutation = useMutation({
     mutationFn: async (stagesData: Array<{ id: number; position: number }>) => {
-      await apiRequest("/api/pipeline-stages/positions", "PUT", { stages: stagesData });
+      const response = await fetch("/api/pipeline-stages/positions", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ stages: stagesData }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update stage positions: ${response.status}`);
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
