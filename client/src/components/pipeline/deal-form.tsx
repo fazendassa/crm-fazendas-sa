@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,11 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
     queryKey: ['/api/companies'],
   });
 
+  const { data: pipelineStages } = useQuery({
+    queryKey: ['/api/pipeline-stages', pipelineId],
+    queryFn: () => fetch(`/api/pipeline-stages?pipelineId=${pipelineId}`).then(res => res.json()),
+  });
+
   const {
     register,
     handleSubmit,
@@ -51,7 +57,7 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
       title: deal?.title || '',
       description: deal?.description || '',
       value: deal?.value || '',
-      stage: deal?.stage || defaultStage || 'prospecção',
+      stage: deal?.stage || defaultStage || '',
       contactId: deal?.contactId || undefined,
       companyId: deal?.companyId || undefined,
       expectedCloseDate: deal?.expectedCloseDate 
@@ -59,6 +65,14 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
         : '',
     },
   });
+
+  // Set default stage when pipeline stages load
+  useEffect(() => {
+    if (pipelineStages && pipelineStages.length > 0 && !deal && !watch('stage')) {
+      const firstStage = pipelineStages.find((stage: any) => stage.position === 0) || pipelineStages[0];
+      setValue('stage', firstStage.title);
+    }
+  }, [pipelineStages, deal, setValue, watch]);
 
   const createDealMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -180,12 +194,11 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
             <SelectValue placeholder="Selecione o estágio" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="prospecting">Prospecção</SelectItem>
-            <SelectItem value="qualification">Qualificação</SelectItem>
-            <SelectItem value="proposal">Proposta</SelectItem>
-            <SelectItem value="closing">Fechamento</SelectItem>
-            <SelectItem value="won">Ganho</SelectItem>
-            <SelectItem value="lost">Perdido</SelectItem>
+            {pipelineStages?.map((stage: any) => (
+              <SelectItem key={stage.id} value={stage.title}>
+                {stage.title}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
