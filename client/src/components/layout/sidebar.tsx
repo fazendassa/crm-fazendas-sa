@@ -83,9 +83,8 @@ export default function Sidebar() {
   return (
     <div className="hidden md:flex md:flex-col md:w-64 bg-white shadow-lg">
       <div className="flex items-center justify-center h-16 bg-primary">
-        <h1 className="text-white text-xl font-bold">CRM Professional</h1>
+        <h1 className="text-white text-xl font-bold">Fazendas S/A crm</h1>
       </div>
-      
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navigation.map((item) => {
           const isActive = location === item.href;
@@ -118,7 +117,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      
       <div className="px-4 py-4 border-t">
         <div className="flex items-center mb-3">
           <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-medium">
