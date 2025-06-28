@@ -35,11 +35,17 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const queryClient = useQueryClient();
 
   const { data: stages = [] } = useQuery<PipelineStage[]>({
-    queryKey: ["/api/pipeline-stages", { pipelineId }],
+    queryKey: ["/api/pipeline-stages", pipelineId],
+    queryFn: () => fetch(`/api/pipeline-stages?pipelineId=${pipelineId}`, {
+      credentials: 'include'
+    }).then(res => res.json()),
   });
 
   const { data: dealsData = [] } = useQuery<{ stage: string; count: number; deals: DealWithRelations[] }[]>({
-    queryKey: ["/api/deals/by-stage", { pipelineId }],
+    queryKey: ["/api/deals/by-stage", pipelineId],
+    queryFn: () => fetch(`/api/deals/by-stage?pipelineId=${pipelineId}`, {
+      credentials: 'include'
+    }).then(res => res.json()),
   });
 
   // Create new stage
@@ -70,7 +76,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return apiRequest("DELETE", `/api/pipeline-stages/${stageId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages", { pipelineId }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages", pipelineId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage", pipelineId] });
       toast({
         title: "Sucesso",
         description: "Estágio excluído",
@@ -84,7 +91,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return apiRequest("PUT", `/api/deals/${dealId}`, { stage });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage", pipelineId] });
     },
   });
 
@@ -94,7 +101,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return apiRequest("DELETE", `/api/deals/${dealId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage", pipelineId] });
       toast({
         title: "Sucesso",
         description: "Negócio excluído",
@@ -184,10 +191,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                 </DialogHeader>
                 <DealForm
                   deal={selectedDeal}
+                  pipelineId={pipelineId}
                   onSuccess={() => {
                     setIsDealDialogOpen(false);
                     setSelectedDeal(null);
-                    queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage"] });
+                    queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage", pipelineId] });
                   }}
                 />
               </DialogContent>
