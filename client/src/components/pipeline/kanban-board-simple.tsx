@@ -71,7 +71,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       await apiRequest(`/api/deals/${dealId}`, "PUT", { stage });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/deals/by-stage", pipelineId] });
+      // Data is already updated optimistically, just show success message
       toast({
         title: "Sucesso",
         description: "Oportunidade movida com sucesso",
@@ -79,6 +79,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     },
     onError: (error) => {
       console.error("Error updating deal stage:", error);
+      // Revert optimistic update by refetching data
+      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       toast({
         title: "Erro",
         description: "Erro ao mover oportunidade",
@@ -117,7 +119,40 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     const dealId = parseInt(draggableId.replace("deal-", ""));
     const newStage = destination.droppableId;
 
-    // Update the deal stage
+    // Optimistically update the cache first
+    queryClient.setQueryData([`/api/deals/by-stage?pipelineId=${pipelineId}`], (oldData: any) => {
+      if (!Array.isArray(oldData)) return oldData;
+      
+      return oldData.map((stageData: any) => {
+        // Remove deal from source stage
+        if (stageData.stage === source.droppableId) {
+          return {
+            ...stageData,
+            deals: stageData.deals.filter((deal: any) => deal.id !== dealId),
+            count: stageData.count - 1
+          };
+        }
+        
+        // Add deal to destination stage
+        if (stageData.stage === destination.droppableId) {
+          const dealToMove = oldData
+            .find((s: any) => s.stage === source.droppableId)
+            ?.deals.find((deal: any) => deal.id === dealId);
+          
+          if (dealToMove) {
+            return {
+              ...stageData,
+              deals: [...stageData.deals, { ...dealToMove, stage: newStage }],
+              count: stageData.count + 1
+            };
+          }
+        }
+        
+        return stageData;
+      });
+    });
+
+    // Update the deal stage on server
     updateDealMutation.mutate({ dealId, stage: newStage });
   };
 
