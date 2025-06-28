@@ -57,6 +57,12 @@ export const contacts = pgTable("contacts", {
   tags: text("tags").array().default([]),
   status: varchar("status").notNull().default("active"), // 'active', 'inactive', 'prospect'
   source: varchar("source").default("manual"), // 'manual', 'import', 'api'
+  // Address fields
+  street: varchar("street"),
+  city: varchar("city"),
+  state: varchar("state"),
+  zipCode: varchar("zip_code"),
+  country: varchar("country").default("Brasil"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
