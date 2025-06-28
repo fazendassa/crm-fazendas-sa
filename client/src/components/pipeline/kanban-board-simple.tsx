@@ -27,15 +27,13 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const queryClient = useQueryClient();
 
   // Get pipeline stages
-  const { data: stages = [], isLoading: stagesLoading } = useQuery({
-    queryKey: ["/api/pipeline-stages", pipelineId],
-    queryFn: () => apiRequest(`/api/pipeline-stages?pipelineId=${pipelineId}`),
+  const { data: stages = [], isLoading: stagesLoading } = useQuery<PipelineStage[]>({
+    queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`],
   });
 
   // Get deals by stage for this pipeline
-  const { data: dealsData = [], isLoading: dealsLoading } = useQuery({
-    queryKey: ["/api/deals/by-stage", pipelineId],
-    queryFn: () => apiRequest(`/api/deals/by-stage?pipelineId=${pipelineId}`),
+  const { data: dealsData = [], isLoading: dealsLoading } = useQuery<{ stage: string; count: number; deals: DealWithRelations[] }[]>({
+    queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`],
   });
 
   // Create new stage mutation
@@ -44,7 +42,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       await apiRequest("/api/pipeline-stages", "POST", {
         title,
         pipelineId,
-        position: stages.length,
+        position: Array.isArray(stages) ? stages.length : 0,
         isDefault: false,
       });
     },
@@ -133,9 +131,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
   // Group deals by stage
   const stageDealsMap = new Map<string, DealWithRelations[]>();
-  dealsData.forEach(stageData => {
-    stageDealsMap.set(stageData.stage, stageData.deals);
-  });
+  if (Array.isArray(dealsData)) {
+    dealsData.forEach((stageData: any) => {
+      stageDealsMap.set(stageData.stage, stageData.deals);
+    });
+  }
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
@@ -191,9 +191,10 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
         {/* Kanban columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stages
-            .sort((a, b) => a.position - b.position)
-            .map((stage) => {
+          {Array.isArray(stages) &&
+            stages
+            .sort((a: any, b: any) => a.position - b.position)
+            .map((stage: any) => {
               const stageDeals = stageDealsMap.get(stage.title) || [];
               
               return (
