@@ -65,8 +65,8 @@ export default function DealForm({ deal, onSuccess }: DealFormProps) {
         ...data,
         value: data.value ? parseFloat(data.value).toString() : null,
         expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : null,
-        contactId: data.contactId || null,
-        companyId: data.companyId || null,
+        contactId: data.contactId === 'none' ? null : data.contactId ? parseInt(data.contactId.toString()) : null,
+        companyId: data.companyId === 'none' ? null : data.companyId ? parseInt(data.companyId.toString()) : null,
       };
 
       if (deal) {
@@ -182,7 +182,7 @@ export default function DealForm({ deal, onSuccess }: DealFormProps) {
             <SelectValue placeholder="Selecione um contato" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Nenhum contato</SelectItem>
+            <SelectItem value="none">Nenhum contato</SelectItem>
             {contactsData?.contacts?.map((contact: any) => (
               <SelectItem key={contact.id} value={contact.id.toString()}>
                 {contact.name} {contact.company?.name && `(${contact.company.name})`}
@@ -202,7 +202,7 @@ export default function DealForm({ deal, onSuccess }: DealFormProps) {
             <SelectValue placeholder="Selecione uma empresa" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Nenhuma empresa</SelectItem>
+            <SelectItem value="none">Nenhuma empresa</SelectItem>
             {companiesData?.companies?.map((company: any) => (
               <SelectItem key={company.id} value={company.id.toString()}>
                 {company.name}
