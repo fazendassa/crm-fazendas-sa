@@ -1,3 +1,4 @@
+import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +27,8 @@ interface ContactFormProps {
 export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedTags, setSelectedTags] = React.useState<string[]>(contact?.tags || []);
+  const [newTag, setNewTag] = React.useState("");
 
   const { data: companiesData } = useQuery({
     queryKey: ['/api/companies'],
@@ -65,7 +68,7 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
       const submitData = {
         ...data,
         companyId: data.companyId === 'none' ? null : data.companyId ? parseInt(data.companyId) : null,
-        tags: data.tags
+        tags: selectedTags
       };
 
       if (contact) {
@@ -110,10 +113,6 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
   const removeTag = (tagToRemove: string) => {
     setSelectedTags(selectedTags.filter(tag => tag !== tagToRemove));
   };
-
-  const [selectedTags, setSelectedTags] = React.useState<string[]>(contact?.tags || []);
-  const [newTag, setNewTag] = React.useState("");
-  
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
