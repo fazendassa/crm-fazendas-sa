@@ -79,6 +79,11 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
 
   const createDealMutation = useMutation({
     mutationFn: async (data: FormData) => {
+      console.log("=== MUTATION FUNCTION CALLED ===");
+      console.log("Form data received:", data);
+      console.log("Deal object:", deal);
+      console.log("Pipeline ID:", pipelineId);
+
       // Convert form data to proper types
       const dealData = {
         ...data,
@@ -89,9 +94,27 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
         companyId: data.companyId || null,
       };
 
-      if (deal) {
-        return await apiRequest(`/api/deals/${deal.id}`, "PUT", dealData);
+      console.log("Processed deal data:", dealData);
+
+      if (deal && deal.id) {
+        console.log("Updating existing deal with ID:", deal.id);
+        const response = await fetch(`/api/deals/${deal.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(dealData),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Update response error:", errorText);
+          throw new Error(`Failed to update deal: ${response.status} ${response.statusText}`);
+        }
+
+        return await response.json();
       } else {
+        console.log("Creating new deal");
         return await apiRequest("/api/deals", "POST", dealData);
       }
     },
@@ -124,6 +147,9 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
     console.log("Form data:", data);
     console.log("Form errors:", errors);
     console.log("Form state valid:", Object.keys(errors).length === 0);
+    console.log("Deal being edited:", deal);
+    console.log("Pipeline ID:", pipelineId);
+    console.log("Mutation pending:", createDealMutation.isPending);
     
     createDealMutation.mutate(data);
   };
