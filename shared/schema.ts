@@ -59,11 +59,20 @@ export const contacts = pgTable("contacts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const pipelines = pgTable("pipelines", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const deals = pgTable("deals", {
   id: serial("id").primaryKey(),
   title: varchar("title").notNull(),
   value: decimal("value", { precision: 12, scale: 2 }),
-  stage: varchar("stage").notNull().default("prospecting"), // 'prospecting', 'qualification', 'proposal', 'closing', 'won', 'lost'
+  stage: varchar("stage").notNull().default("prospecting"),
+  pipelineId: integer("pipeline_id").references(() => pipelines.id, { onDelete: "cascade" }).notNull(),
   expectedCloseDate: timestamp("expected_close_date"),
   contactId: integer("contact_id").references(() => contacts.id),
   companyId: integer("company_id").references(() => companies.id),
@@ -89,6 +98,7 @@ export const activities = pgTable("activities", {
 
 export const pipelineStages = pgTable("pipeline_stages", {
   id: serial("id").primaryKey(),
+  pipelineId: integer("pipeline_id").references(() => pipelines.id, { onDelete: "cascade" }).notNull(),
   title: varchar("title", { length: 100 }).notNull(),
   position: integer("position").notNull(),
   color: varchar("color", { length: 20 }).default("#3b82f6"),
@@ -112,6 +122,11 @@ export const contactsRelations = relations(contacts, ({ one, many }) => ({
   activities: many(activities),
 }));
 
+export const pipelinesRelations = relations(pipelines, ({ many }) => ({
+  deals: many(deals),
+  stages: many(pipelineStages),
+}));
+
 export const dealsRelations = relations(deals, ({ one, many }) => ({
   contact: one(contacts, {
     fields: [deals.contactId],
@@ -120,6 +135,10 @@ export const dealsRelations = relations(deals, ({ one, many }) => ({
   company: one(companies, {
     fields: [deals.companyId],
     references: [companies.id],
+  }),
+  pipeline: one(pipelines, {
+    fields: [deals.pipelineId],
+    references: [pipelines.id],
   }),
   activities: many(activities),
 }));
@@ -147,7 +166,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   activities: many(activities),
 }));
 
-export const pipelineStagesRelations = relations(pipelineStages, ({ many }) => ({
+export const pipelineStagesRelations = relations(pipelineStages, ({ one, many }) => ({
+  pipeline: one(pipelines, {
+    fields: [pipelineStages.pipelineId],
+    references: [pipelines.id],
+  }),
   deals: many(deals),
 }));
 
@@ -176,6 +199,12 @@ export const insertActivitySchema = createInsertSchema(activities).omit({
   updatedAt: true,
 });
 
+export const insertPipelineSchema = createInsertSchema(pipelines).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertPipelineStageSchema = createInsertSchema(pipelineStages).omit({
   id: true,
   createdAt: true,
@@ -193,6 +222,8 @@ export type Deal = typeof deals.$inferSelect;
 export type InsertDeal = z.infer<typeof insertDealSchema>;
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
+export type Pipeline = typeof pipelines.$inferSelect;
+export type InsertPipeline = z.infer<typeof insertPipelineSchema>;
 export type PipelineStage = typeof pipelineStages.$inferSelect;
 export type InsertPipelineStage = z.infer<typeof insertPipelineStageSchema>;
 
