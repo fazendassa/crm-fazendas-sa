@@ -846,63 +846,120 @@ export class DatabaseStorage implements IStorage {
     const errors: string[] = [];
     let success = 0;
 
-    for (const row of data) {
+    console.log('=== INÍCIO DA IMPORTAÇÃO ===');
+    console.log('Total de linhas para processar:', data.length);
+    console.log('Pipeline ID:', pipelineId);
+    console.log('Tags fornecidas:', tags);
+    console.log('Amostra dos dados:', data.slice(0, 3));
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
       try {
+        console.log(`\n--- Processando linha ${i + 1} ---`);
+        console.log('Dados da linha:', row);
+
         // Map common field variations to our schema
+        const name = row.Nome || row.Name || row.nome || row.name || 
+                    row.NOME || row.NAME || '';
+        
+        const email = row.Email || row.email || row['E-mail'] || row['e-mail'] || 
+                     row.EMAIL || row['E-MAIL'] || null;
+        
+        const phone = row.Telefone || row.Phone || row.telefone || row.phone || 
+                     row.TELEFONE || row.PHONE || null;
+        
+        const position = row.Cargo || row.Position || row.cargo || row.position || 
+                        row.CARGO || row.POSITION || null;
+        
+        const status = row.Status || row.status || row.STATUS || 'active';
+
+        console.log('Campos extraídos:', { name, email, phone, position, status });
+
         const contactData: InsertContact = {
-          name: row.Nome || row.Name || row.nome || row.name || '',
-          email: row.Email || row.email || row['E-mail'] || row['e-mail'] || null,
-          phone: row.Telefone || row.Phone || row.telefone || row.phone || null,
-          position: row.Cargo || row.Position || row.cargo || row.position || null,
-          status: row.Status || row.status || 'active',
+          name: name.toString().trim(),
+          email: email ? email.toString().trim() : null,
+          phone: phone ? phone.toString().trim() : null,
+          position: position ? position.toString().trim() : null,
+          status: status.toString().toLowerCase(),
           source: 'import',
           pipelineId: pipelineId || null,
           tags: [...tags] // Add provided tags
         };
 
         // Try to find company by name if provided
-        if (row.Empresa || row.Company || row.empresa || row.company) {
-          const companyName = row.Empresa || row.Company || row.empresa || row.company;
+        const companyName = row.Empresa || row.Company || row.empresa || row.company || 
+                           row.EMPRESA || row.COMPANY;
+        
+        if (companyName && companyName.toString().trim()) {
+          const companyNameTrimmed = companyName.toString().trim();
+          console.log('Procurando empresa:', companyNameTrimmed);
+          
           const [existingCompany] = await db
             .select()
             .from(companies)
-            .where(eq(companies.name, companyName))
+            .where(eq(companies.name, companyNameTrimmed))
             .limit(1);
           
           if (existingCompany) {
             contactData.companyId = existingCompany.id;
+            console.log('Empresa encontrada:', existingCompany.id);
           } else {
             // Create new company if it doesn't exist
             const [newCompany] = await db
               .insert(companies)
-              .values({ name: companyName })
+              .values({ name: companyNameTrimmed })
               .returning();
             contactData.companyId = newCompany.id;
+            console.log('Nova empresa criada:', newCompany.id);
           }
         }
 
         // Add any additional tags from the row
-        if (row.Tags || row.tags) {
-          const rowTags = Array.isArray(row.Tags || row.tags) 
-            ? row.Tags || row.tags 
-            : (row.Tags || row.tags).split(',').map((t: string) => t.trim());
-          contactData.tags = [...(contactData.tags || []), ...rowTags];
+        const rowTags = row.Tags || row.tags || row.TAGS;
+        if (rowTags) {
+          const tagsArray = Array.isArray(rowTags) 
+            ? rowTags 
+            : rowTags.toString().split(',').map((t: string) => t.trim()).filter(Boolean);
+          contactData.tags = [...(contactData.tags || []), ...tagsArray];
+          console.log('Tags adicionadas:', tagsArray);
         }
 
         // Validate required fields
         if (!contactData.name || contactData.name.trim() === '') {
-          errors.push(`Linha ${data.indexOf(row) + 1}: Nome é obrigatório`);
+          const error = `Linha ${i + 1}: Nome é obrigatório (valor encontrado: "${name}")`;
+          console.log('ERRO:', error);
+          errors.push(error);
           continue;
         }
 
+        // Validate email format if provided
+        if (contactData.email && contactData.email.trim() !== '') {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(contactData.email)) {
+            console.log('Email inválido, removendo:', contactData.email);
+            contactData.email = null;
+          }
+        }
+
+        console.log('Dados finais do contato:', contactData);
+
         // Create contact
-        await this.createContact(contactData);
+        const createdContact = await this.createContact(contactData);
+        console.log('Contato criado com sucesso:', createdContact.id);
         success++;
 
       } catch (error) {
-        errors.push(`Linha ${data.indexOf(row) + 1}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        const errorMsg = `Linha ${i + 1}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`;
+        console.error('ERRO na linha:', errorMsg);
+        console.error('Stack trace:', error);
+        errors.push(errorMsg);
       }
     }
+
+    console.log('\n=== FINAL DA IMPORTAÇÃO ===');
+    console.log('Sucessos:', success);
+    console.log('Erros:', errors.length);
+    console.log('Lista de erros:', errors);
 
     return { success, errors };
   }

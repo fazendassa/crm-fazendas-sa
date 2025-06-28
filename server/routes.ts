@@ -544,21 +544,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     upload.single('file'),
     async (req, res) => {
       try {
+        console.log('=== INÍCIO DO PROCESSAMENTO DA IMPORTAÇÃO ===');
+        
         if (!req.file) {
+          console.log('ERRO: Nenhum arquivo foi enviado');
           return res.status(400).json({ message: 'Nenhum arquivo foi enviado' });
         }
 
+        console.log('Arquivo recebido:', {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        });
+
         const { pipelineId, tags } = req.body;
+        console.log('Parâmetros recebidos:', { pipelineId, tags });
+        
         let data: any[] = [];
 
         // Parse file based on type
         if (req.file.mimetype.includes('spreadsheet') || req.file.mimetype.includes('excel')) {
+          console.log('Processando arquivo Excel...');
           // Parse Excel file
           const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+          console.log('Planilhas disponíveis:', workbook.SheetNames);
+          
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          data = XLSX.utils.sheet_to_json(worksheet);
+          data = XLSX.utils.sheet_to_json(worksheet, { 
+            header: 1,
+            defval: '',
+            raw: false
+          });
+          
+          // Convert array of arrays to array of objects with first row as headers
+          if (data.length > 0) {
+            const headers = data[0] as string[];
+            console.log('Cabeçalhos encontrados:', headers);
+            
+            data = data.slice(1).map((row: any[]) => {
+              const obj: any = {};
+              headers.forEach((header, index) => {
+                obj[header] = row[index] || '';
+              });
+              return obj;
+            });
+          }
+          
         } else if (req.file.mimetype === 'text/csv') {
+          console.log('Processando arquivo CSV...');
           // Parse CSV file
           const csvData: any[] = [];
           const stream = Readable.from(req.file.buffer);
@@ -566,14 +600,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await new Promise((resolve, reject) => {
             stream
               .pipe(csv())
-              .on('data', (row) => csvData.push(row))
+              .on('data', (row) => {
+                console.log('Linha CSV lida:', row);
+                csvData.push(row);
+              })
               .on('end', resolve)
               .on('error', reject);
           });
           data = csvData;
+        } else {
+          console.log('ERRO: Tipo de arquivo não suportado:', req.file.mimetype);
+          return res.status(400).json({ message: 'Tipo de arquivo não suportado' });
         }
 
+        console.log('Total de linhas processadas:', data.length);
+        console.log('Amostra dos dados processados:', data.slice(0, 2));
+
         if (data.length === 0) {
+          console.log('ERRO: Arquivo vazio ou formato inválido');
           return res.status(400).json({ message: 'Arquivo vazio ou formato inválido' });
         }
 
@@ -584,6 +628,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           tags ? JSON.parse(tags) : []
         );
 
+        console.log('Resultado da importação:', result);
+
         res.json({
           message: `Importação concluída: ${result.success} contatos importados`,
           success: result.success,
@@ -592,6 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       } catch (error) {
         console.error('Erro na importação:', error);
+        console.error('Stack trace completo:', error instanceof Error ? error.stack : 'Erro sem stack trace');
         res.status(500).json({ 
           message: 'Erro interno do servidor',
           error: error instanceof Error ? error.message : 'Erro desconhecido'
