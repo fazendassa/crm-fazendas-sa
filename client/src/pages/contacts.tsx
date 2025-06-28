@@ -20,7 +20,7 @@ export default function Contacts() {
   const [page, setPage] = useState(0);
   const [selectedContact, setSelectedContact] = useState<ContactWithCompany | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const limit = 10;
@@ -154,25 +154,24 @@ export default function Contacts() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Empresa</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead>Contato</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ações</TableHead>
+                  <TableHead>E-mail</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead>Empresa</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {contactsData?.contacts?.map((contact: ContactWithCompany) => (
                     <TableRow key={contact.id}>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{contact.name}</div>
-                          <div className="text-sm text-gray-500">{contact.email}</div>
-                        </div>
+                        <Link href={`/contacts/${contact.id}`} className="text-blue-600 hover:underline">
+                          {contact.name}
+                        </Link>
                       </TableCell>
-                      <TableCell>{contact.company?.name || 'N/A'}</TableCell>
-                      <TableCell>{contact.position || 'N/A'}</TableCell>
-                      <TableCell>{contact.phone || 'N/A'}</TableCell>
+                      <TableCell>{contact.email || '-'}</TableCell>
+                      <TableCell>{contact.phone || '-'}</TableCell>
+                      <TableCell>{contact.company?.name || '-'}</TableCell>
                       <TableCell>{getStatusBadge(contact.status)}</TableCell>
                       <TableCell>
                         <div className="flex space-x-2">

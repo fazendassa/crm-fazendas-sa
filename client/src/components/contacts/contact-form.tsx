@@ -45,6 +45,11 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
       companyId: contact?.companyId || undefined,
       status: contact?.status || 'active',
       tags: contact?.tags || [],
+      street: contact?.street || '',
+      city: contact?.city || '',
+      state: contact?.state || '',
+      zipCode: contact?.zipCode || '',
+      country: contact?.country || 'Brasil',
     },
   });
 
@@ -168,6 +173,58 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
             <SelectItem value="inactive">Inativo</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Address Fields */}
+      <div className="space-y-4 border-t pt-4">
+        <h3 className="text-lg font-semibold">Endereço</h3>
+        
+        <div>
+          <Label htmlFor="street">Rua/Endereço</Label>
+          <Input
+            id="street"
+            {...register('street')}
+            placeholder="Ex: Rua das Flores, 123"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="city">Cidade</Label>
+            <Input
+              id="city"
+              {...register('city')}
+              placeholder="Ex: São Paulo"
+            />
+          </div>
+          <div>
+            <Label htmlFor="state">Estado</Label>
+            <Input
+              id="state"
+              {...register('state')}
+              placeholder="Ex: SP"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="zipCode">CEP</Label>
+            <Input
+              id="zipCode"
+              {...register('zipCode')}
+              placeholder="Ex: 01234-567"
+            />
+          </div>
+          <div>
+            <Label htmlFor="country">País</Label>
+            <Input
+              id="country"
+              {...register('country')}
+              placeholder="Brasil"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="flex space-x-2 pt-4">

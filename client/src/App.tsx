@@ -16,6 +16,7 @@ import UserManagement from "@/pages/user-management";
 import ContactImport from "@/pages/contact-import";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
+import { lazy } from 'react';
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -45,8 +46,9 @@ function Router() {
         <main className="flex-1 overflow-x-hidden overflow-y-auto">
           <Switch>
             <Route path="/" component={Dashboard} />
-            <Route path="/contacts" component={Contacts} />
-            <Route path="/contacts/import" component={ContactImport} />
+            <Route path="/contacts" component={lazy(() => import("./pages/contacts"))} />
+            <Route path="/contacts/:id" component={lazy(() => import("./pages/contact-detail"))} />
+            <Route path="/contact-import" component={lazy(() => import("./pages/contact-import"))} />
             <Route path="/companies" component={Companies} />
             <Route path="/pipeline" component={Pipeline} />
             <Route path="/activities" component={Activities} />

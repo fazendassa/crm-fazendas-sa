@@ -56,7 +56,7 @@ export interface IStorage {
   createContactsFromImport(data: any[], pipelineId?: number, tags?: string[]): Promise<{ success: number; errors: string[] }>;
 
   // Deal operations
-  getDeals(stage?: string, limit?: number, offset?: number): Promise<DealWithRelations[]>;
+  getDeals(stage?: string, limit?: number, offset?: number, contactId?: number): Promise<DealWithRelations[]>;
   getDeal(id: number): Promise<DealWithRelations | undefined>;
   createDeal(deal: InsertDeal): Promise<Deal>;
   updateDeal(id: number, deal: Partial<InsertDeal>): Promise<Deal>;
@@ -277,7 +277,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Deal operations
-  async getDeals(stage?: string, limit = 50, offset = 0): Promise<DealWithRelations[]> {
+  async getDeals(stage?: string, limit: number = 50, offset: number = 0, contactId?: number): Promise<DealWithRelations[]> {
     const query = db
       .select({
         id: deals.id,
@@ -316,8 +316,16 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(contacts, eq(deals.contactId, contacts.id))
       .leftJoin(companies, eq(deals.companyId, companies.id));
 
+    const conditions = [];
     if (stage) {
-      query.where(eq(deals.stage, stage));
+      conditions.push(eq(deals.stage, stage));
+    }
+    if (contactId) {
+      conditions.push(eq(deals.contactId, contactId));
+    }
+
+    if (conditions.length > 0) {
+      query.where(and(...conditions));
     }
 
     return await query.limit(limit).offset(offset).orderBy(desc(deals.createdAt));
@@ -871,9 +879,9 @@ export class DatabaseStorage implements IStorage {
         Object.keys(fieldMapping).forEach(column => {
           const field = fieldMapping[column];
           const value = row[column];
-          
+
           if (!value || field === 'ignore') return;
-          
+
           switch (field) {
             case 'name':
               name = value.toString().trim();
@@ -992,7 +1000,7 @@ export class DatabaseStorage implements IStorage {
             // Get first stage of the pipeline
             const pipelineStages = await this.getPipelineStages(pipelineId);
             const firstStage = pipelineStages.find(stage => stage.position === 0) || pipelineStages[0];
-            
+
             if (firstStage) {
               const dealData = {
                 title: `Oportunidade - ${createdContact.name}`,

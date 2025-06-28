@@ -226,11 +226,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Deal routes
   app.get('/api/deals', isAuthenticated, async (req, res) => {
     try {
-      const { stage, limit = '50', offset = '0' } = req.query;
+      const { stage, contactId, limit = '50', offset = '0' } = req.query;
       const deals = await storage.getDeals(
         stage as string,
         parseInt(limit as string),
-        parseInt(offset as string)
+        parseInt(offset as string),
+        contactId ? parseInt(contactId as string) : undefined
       );
       res.json(deals);
     } catch (error) {
