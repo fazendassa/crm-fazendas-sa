@@ -76,12 +76,27 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Update deal mutation for drag and drop
   const updateDealMutation = useMutation({
     mutationFn: async ({ dealId, stage }: { dealId: number; stage: string }) => {
-      await apiRequest(`/api/deals/${dealId}`, "PUT", { stage });
+      const response = await fetch(`/api/deals/${dealId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ stage }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Failed to update deal: ${response.status} ${errorData}`);
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       // Data is already updated optimistically, just ensure all related queries are fresh
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       
       toast({
         title: "Sucesso",
@@ -95,7 +110,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
       toast({
         title: "Erro",
-        description: "Erro ao mover oportunidade",
+        description: `Erro ao mover oportunidade: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -131,6 +146,32 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     const dealId = parseInt(draggableId.replace("deal-", ""));
     const newStage = destination.droppableId;
 
+    // Validate deal ID
+    if (isNaN(dealId)) {
+      toast({
+        title: "Erro",
+        description: "ID da oportunidade inválido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Find the deal that's being moved
+    const sourceStageData = Array.isArray(dealsData) 
+      ? dealsData.find((s: any) => s.stage === source.droppableId)
+      : null;
+    
+    const dealToMove = sourceStageData?.deals.find((deal: any) => deal.id === dealId);
+    
+    if (!dealToMove) {
+      toast({
+        title: "Erro",
+        description: "Oportunidade não encontrada",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Optimistically update the cache first
     queryClient.setQueryData([`/api/deals/by-stage?pipelineId=${pipelineId}`], (oldData: any) => {
       if (!Array.isArray(oldData)) return oldData;
@@ -141,23 +182,17 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
           return {
             ...stageData,
             deals: stageData.deals.filter((deal: any) => deal.id !== dealId),
-            count: stageData.count - 1
+            count: Math.max(0, stageData.count - 1)
           };
         }
         
         // Add deal to destination stage
         if (stageData.stage === destination.droppableId) {
-          const dealToMove = oldData
-            .find((s: any) => s.stage === source.droppableId)
-            ?.deals.find((deal: any) => deal.id === dealId);
-          
-          if (dealToMove) {
-            return {
-              ...stageData,
-              deals: [...stageData.deals, { ...dealToMove, stage: newStage }],
-              count: stageData.count + 1
-            };
-          }
+          return {
+            ...stageData,
+            deals: [...stageData.deals, { ...dealToMove, stage: newStage }],
+            count: stageData.count + 1
+          };
         }
         
         return stageData;

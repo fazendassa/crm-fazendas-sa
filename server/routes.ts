@@ -286,15 +286,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/deals/:id', isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid deal ID" });
+      }
+
+      console.log(`Updating deal ${id} with data:`, req.body);
+      
       const validatedData = insertDealSchema.partial().parse(req.body);
       const deal = await storage.updateDeal(id, validatedData);
+      
+      if (!deal) {
+        return res.status(404).json({ message: "Deal not found" });
+      }
+      
+      console.log(`Deal ${id} updated successfully:`, deal);
       res.json(deal);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation error updating deal:", error.errors);
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
       console.error("Error updating deal:", error);
-      res.status(500).json({ message: "Failed to update deal" });
+      res.status(500).json({ message: "Failed to update deal", error: error.message });
     }
   });
 
