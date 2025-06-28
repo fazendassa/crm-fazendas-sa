@@ -386,6 +386,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/pipelines/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // Check if pipeline has active deals
+      const dealsByStage = await storage.getDealsByStage(id);
+      const totalActiveDeals = dealsByStage.reduce((sum, stage) => sum + stage.count, 0);
+      
+      if (totalActiveDeals > 0) {
+        return res.status(400).json({ 
+          message: `Não é possível excluir o pipeline. Existem ${totalActiveDeals} oportunidade(s) ativa(s) neste pipeline. Remova ou transfira as oportunidades antes de excluir o pipeline.` 
+        });
+      }
+      
       await storage.deletePipeline(id);
       res.status(204).send();
     } catch (error) {
