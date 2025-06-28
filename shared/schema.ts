@@ -53,8 +53,10 @@ export const contacts = pgTable("contacts", {
   phone: varchar("phone"),
   position: varchar("position"),
   companyId: integer("company_id").references(() => companies.id),
+  pipelineId: integer("pipeline_id").references(() => pipelines.id),
   tags: text("tags").array().default([]),
   status: varchar("status").notNull().default("active"), // 'active', 'inactive', 'prospect'
+  source: varchar("source").default("manual"), // 'manual', 'import', 'api'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -119,6 +121,10 @@ export const contactsRelations = relations(contacts, ({ one, many }) => ({
   company: one(companies, {
     fields: [contacts.companyId],
     references: [companies.id],
+  }),
+  pipeline: one(pipelines, {
+    fields: [contacts.pipelineId],
+    references: [pipelines.id],
   }),
   deals: many(deals),
   activities: many(activities),

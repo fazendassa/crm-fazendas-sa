@@ -2,6 +2,12 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import multer from "multer";
+import * as XLSX from "xlsx";
+import csv from "csv-parser";
+import { Readable } from "stream";
+import { promisify } from "util";
+import fs from "fs";
 import { requirePermission, requireAnyPermission, applyDataFiltering } from "./rbac";
 import {
   insertCompanySchema,
@@ -495,6 +501,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching dashboard metrics:", error);
       res.status(500).json({ message: "Failed to fetch dashboard metrics" });
     }
+  });
+
+  // Configure multer for file uploads
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+        'text/csv' // .csv
+      ];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Apenas arquivos Excel (.xlsx, .xls) e CSV (.csv) são permitidos'));
+      }
+    }
+  });
+
+  // Import contacts from Excel/CSV
+  app.post('/api/contacts/import', 
+    isAuthenticated, 
+    requirePermission('create:contacts'),
+    upload.single('file'),
+    async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: 'Nenhum arquivo foi enviado' });
+        }
+
+        const { pipelineId, tags } = req.body;
+        let data: any[] = [];
+
+        // Parse file based on type
+        if (req.file.mimetype.includes('spreadsheet') || req.file.mimetype.includes('excel')) {
+          // Parse Excel file
+          const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          data = XLSX.utils.sheet_to_json(worksheet);
+        } else if (req.file.mimetype === 'text/csv') {
+          // Parse CSV file
+          const csvData: any[] = [];
+          const stream = Readable.from(req.file.buffer);
+          
+          await new Promise((resolve, reject) => {
+            stream
+              .pipe(csv())
+              .on('data', (row) => csvData.push(row))
+              .on('end', resolve)
+              .on('error', reject);
+          });
+          data = csvData;
+        }
+
+        if (data.length === 0) {
+          return res.status(400).json({ message: 'Arquivo vazio ou formato inválido' });
+        }
+
+        // Process and import contacts
+        const result = await storage.createContactsFromImport(
+          data, 
+          pipelineId ? parseInt(pipelineId) : undefined,
+          tags ? JSON.parse(tags) : []
+        );
+
+        res.json({
+          message: `Importação concluída: ${result.success} contatos importados`,
+          success: result.success,
+          errors: result.errors
+        });
+
+      } catch (error) {
+        console.error('Erro na importação:', error);
+        res.status(500).json({ 
+          message: 'Erro interno do servidor',
+          error: error instanceof Error ? error.message : 'Erro desconhecido'
+        });
+      }
+    }
+  );
+
+  // Get available tags
+  app.get('/api/contacts/tags', isAuthenticated, async (req, res) => {
+    try {
+      const tags = await storage.getAvailableTags();
+      res.json(tags);
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      res.status(500).json({ message: 'Erro ao buscar tags' });
+    }
+  });
+
+  // Download import template
+  app.get('/api/contacts/import-template', isAuthenticated, (req, res) => {
+    const templateData = [
+      {
+        'Nome': 'João Silva',
+        'Email': 'joao.silva@empresa.com',
+        'Telefone': '(11) 99999-9999',
+        'Cargo': 'Gerente de Vendas',
+        'Empresa': 'Empresa Exemplo',
+        'Status': 'active'
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Contatos');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename=template-contatos.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
   });
 
   const httpServer = createServer(app);
