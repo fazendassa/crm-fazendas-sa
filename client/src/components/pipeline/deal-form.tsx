@@ -175,8 +175,8 @@ export default function DealForm({ deal, onSuccess }: DealFormProps) {
       <div>
         <Label htmlFor="contactId">Contato</Label>
         <Select 
-          value={watch('contactId')?.toString() || ''} 
-          onValueChange={(value) => setValue('contactId', value ? parseInt(value) : undefined)}
+          value={watch('contactId')?.toString() || 'none'} 
+          onValueChange={(value) => setValue('contactId', value === 'none' ? undefined : parseInt(value))}
         >
           <SelectTrigger>
             <SelectValue placeholder="Selecione um contato" />
@@ -195,8 +195,8 @@ export default function DealForm({ deal, onSuccess }: DealFormProps) {
       <div>
         <Label htmlFor="companyId">Empresa</Label>
         <Select 
-          value={watch('companyId')?.toString() || ''} 
-          onValueChange={(value) => setValue('companyId', value ? parseInt(value) : undefined)}
+          value={watch('companyId')?.toString() || 'none'} 
+          onValueChange={(value) => setValue('companyId', value === 'none' ? undefined : parseInt(value))}
         >
           <SelectTrigger>
             <SelectValue placeholder="Selecione uma empresa" />
