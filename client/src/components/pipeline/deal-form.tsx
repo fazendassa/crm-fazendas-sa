@@ -88,9 +88,11 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
     },
     onError: (error) => {
       console.error("Deal form error:", error);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
       toast({
         title: "Erro",
-        description: deal ? "Falha ao atualizar oportunidade" : "Falha ao criar oportunidade",
+        description: `${deal ? "Falha ao atualizar" : "Falha ao criar"} oportunidade: ${error.message}`,
         variant: "destructive",
       });
     },
