@@ -102,6 +102,7 @@ export const pipelineStages = pgTable("pipeline_stages", {
   title: varchar("title", { length: 100 }).notNull(),
   position: integer("position").notNull(),
   color: varchar("color", { length: 20 }).default("#3b82f6"),
+  isDefault: boolean("is_default").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

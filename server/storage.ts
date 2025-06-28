@@ -25,7 +25,7 @@ import {
   type InsertPipelineStage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, and, count, desc } from "drizzle-orm";
+import { eq, ilike, and, count, desc, ne, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -670,6 +670,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePipelineStage(id: number): Promise<void> {
+    // Check if stage is default
+    const [stage] = await db.select().from(pipelineStages).where(eq(pipelineStages.id, id));
+    if (stage?.isDefault) {
+      throw new Error("Cannot delete default pipeline stage");
+    }
     await db.delete(pipelineStages).where(eq(pipelineStages.id, id));
   }
 
@@ -694,6 +699,22 @@ export class DatabaseStorage implements IStorage {
 
   async createPipeline(pipeline: InsertPipeline): Promise<Pipeline> {
     const [created] = await db.insert(pipelines).values(pipeline).returning();
+    
+    // Create default stages for new pipeline
+    const defaultStages = [
+      { title: "Prospecção", position: 0, color: "#3b82f6", isDefault: true },
+      { title: "Qualificação", position: 1, color: "#f59e0b", isDefault: true },
+      { title: "Proposta", position: 2, color: "#10b981", isDefault: true },
+      { title: "Fechamento", position: 3, color: "#ef4444", isDefault: true },
+    ];
+
+    for (const stage of defaultStages) {
+      await db.insert(pipelineStages).values({
+        ...stage,
+        pipelineId: created.id,
+      });
+    }
+
     return created;
   }
 
@@ -716,28 +737,36 @@ export class DatabaseStorage implements IStorage {
     activeCompanies: number;
     openDeals: number;
     projectedRevenue: string;
+    stageMetrics: Array<{
+      stage: string;
+      count: number;
+      totalValue: string;
+    }>;
   }> {
     const [contactsCount] = await db.select({ count: count() }).from(contacts);
     const [companiesCount] = await db.select({ count: count() }).from(companies);
-    const [openDealsCount] = await db
-      .select({ count: count() })
-      .from(deals)
-      .where(eq(deals.stage, 'prospecting'));
+    const [openDealsCount] = await db.select({ count: count() }).from(deals);
 
-    // Calculate projected revenue from all open deals
+    // Calculate projected revenue from all open deals (excluding closed)
     const openDeals = await db
       .select({ value: deals.value })
       .from(deals)
-      .where(and(
-        eq(deals.stage, 'prospecting'),
-        eq(deals.stage, 'qualification'),
-        eq(deals.stage, 'proposal'),
-        eq(deals.stage, 'closing')
-      ));
+      .where(ne(deals.stage, 'fechamento'));
 
     const projectedRevenue = openDeals.reduce((sum, deal) => {
       return sum + (parseFloat(deal.value || '0'));
     }, 0);
+
+    // Get metrics by stage
+    const stageMetrics = await db
+      .select({
+        stage: deals.stage,
+        count: count(),
+        totalValue: sql<string>`coalesce(sum(cast(${deals.value} as decimal)), 0)`
+      })
+      .from(deals)
+      .groupBy(deals.stage)
+      .orderBy(deals.stage);
 
     return {
       totalContacts: contactsCount.count,
@@ -747,6 +776,14 @@ export class DatabaseStorage implements IStorage {
         style: 'currency',
         currency: 'BRL',
       }).format(projectedRevenue),
+      stageMetrics: stageMetrics.map(metric => ({
+        stage: metric.stage,
+        count: metric.count,
+        totalValue: new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        }).format(parseFloat(metric.totalValue || '0')),
+      })),
     };
   }
 }
