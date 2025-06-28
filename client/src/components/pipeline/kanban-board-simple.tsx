@@ -194,15 +194,38 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     // Handle stage reordering
     if (type === "STAGE") {
       const stageId = parseInt(draggableId.replace("stage-", ""));
+      
+      // Validate stage ID
+      if (isNaN(stageId)) {
+        toast({
+          title: "Erro",
+          description: "ID do estágio inválido",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const reorderedStages = Array.from(stages);
       const [movedStage] = reorderedStages.splice(source.index, 1);
       reorderedStages.splice(destination.index, 0, movedStage);
 
-      // Update positions
-      const updatedStages = reorderedStages.map((stage, index) => ({
-        id: stage.id,
-        position: index,
-      }));
+      // Update positions - ensure all IDs are valid
+      const updatedStages = reorderedStages
+        .filter(stage => stage && typeof stage.id === 'number')
+        .map((stage, index) => ({
+          id: stage.id,
+          position: index,
+        }));
+
+      // Validate that we have valid stages to update
+      if (updatedStages.length === 0) {
+        toast({
+          title: "Erro",
+          description: "Nenhum estágio válido encontrado",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Optimistically update the cache
       queryClient.setQueryData([`/api/pipeline-stages?pipelineId=${pipelineId}`], reorderedStages.map((stage, index) => ({
