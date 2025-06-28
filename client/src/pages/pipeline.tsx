@@ -85,11 +85,11 @@ export default function Pipeline() {
 
   const deletePipelineMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/pipelines/${id}`);
+      return await apiRequest(`/api/pipelines/${id}`, "DELETE");
     },
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/pipelines"] });
-      if (selectedPipelineId === deletePipelineMutation.variables) {
+      if (selectedPipelineId === deletedId) {
         setSelectedPipelineId(null);
       }
       toast({
@@ -97,10 +97,11 @@ export default function Pipeline() {
         description: "Pipeline removido com sucesso!",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const errorMessage = error.message || "Erro ao remover pipeline";
       toast({
         title: "Erro",
-        description: "Erro ao remover pipeline",
+        description: errorMessage,
         variant: "destructive",
       });
     },
