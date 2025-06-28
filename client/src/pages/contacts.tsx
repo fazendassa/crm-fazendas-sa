@@ -88,7 +88,7 @@ export default function Contacts() {
           <div className="flex items-center justify-between">
             <CardTitle>Gestão de Contatos</CardTitle>
             <div className="flex gap-2">
-              <Link href="/contacts/import">
+              <Link href="/contact-import">
                 <Button variant="outline">
                   <Upload className="w-4 h-4 mr-2" />
                   Importar
