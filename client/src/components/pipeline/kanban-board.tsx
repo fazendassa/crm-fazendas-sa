@@ -46,7 +46,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const createStageMutation = useMutation({
     mutationFn: async (title: string) => {
       const maxPosition = Math.max(...stages.map(s => s.position), -1);
-      return apiRequest("/api/pipeline-stages", "POST", {
+      return apiRequest("POST", "/api/pipeline-stages", {
         title,
         pipelineId,
         position: maxPosition + 1,
@@ -54,7 +54,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages", { pipelineId }] });
       setNewStageTitle("");
       setIsAddingStage(false);
       toast({
@@ -70,7 +70,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return apiRequest("DELETE", `/api/pipeline-stages/${stageId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages", { pipelineId }] });
       toast({
         title: "Sucesso",
         description: "Estágio excluído",
