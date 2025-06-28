@@ -985,6 +985,35 @@ export class DatabaseStorage implements IStorage {
         // Create contact
         const createdContact = await this.createContact(contactData);
         console.log('Contato criado com sucesso:', createdContact.id);
+
+        // If pipeline is provided, create a deal automatically
+        if (pipelineId) {
+          try {
+            // Get first stage of the pipeline
+            const pipelineStages = await this.getPipelineStages(pipelineId);
+            const firstStage = pipelineStages.find(stage => stage.position === 0) || pipelineStages[0];
+            
+            if (firstStage) {
+              const dealData = {
+                title: `Oportunidade - ${createdContact.name}`,
+                description: `Oportunidade criada automaticamente via importação de contatos`,
+                stage: firstStage.title,
+                pipelineId: pipelineId,
+                contactId: createdContact.id,
+                companyId: createdContact.companyId,
+                value: null,
+                expectedCloseDate: null,
+              };
+
+              const createdDeal = await this.createDeal(dealData);
+              console.log('Oportunidade criada automaticamente:', createdDeal.id);
+            }
+          } catch (dealError) {
+            console.error('Erro ao criar oportunidade automática:', dealError);
+            // Don't fail the contact import if deal creation fails
+          }
+        }
+
         success++;
 
       } catch (error) {
