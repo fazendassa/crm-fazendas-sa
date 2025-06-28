@@ -71,7 +71,7 @@ export const deals = pgTable("deals", {
   id: serial("id").primaryKey(),
   title: varchar("title").notNull(),
   value: decimal("value", { precision: 12, scale: 2 }),
-  stage: varchar("stage").notNull().default("prospecting"),
+  stage: varchar("stage").notNull().default("prospecção"),
   pipelineId: integer("pipeline_id").references(() => pipelines.id, { onDelete: "cascade" }).notNull(),
   expectedCloseDate: timestamp("expected_close_date"),
   contactId: integer("contact_id").references(() => contacts.id),
