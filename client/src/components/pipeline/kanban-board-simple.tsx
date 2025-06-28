@@ -37,7 +37,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const createStageMutation = useMutation({
     mutationFn: async (title: string) => {
       const maxPosition = Math.max(...stages.map(s => s.position), -1);
-      return apiRequest("/api/pipeline-stages", "POST", {
+      return apiRequest("POST", "/api/pipeline-stages", {
         title,
         pipelineId,
         position: maxPosition + 1,
