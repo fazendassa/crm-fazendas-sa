@@ -192,6 +192,11 @@ export const insertDealSchema = createInsertSchema(deals).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  expectedCloseDate: z.string().optional().nullable().transform((val) => {
+    if (!val) return null;
+    return new Date(val);
+  }),
 });
 
 export const insertActivitySchema = createInsertSchema(activities).omit({

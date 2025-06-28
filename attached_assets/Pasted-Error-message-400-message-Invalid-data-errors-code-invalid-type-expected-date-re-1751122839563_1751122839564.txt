@@ -1,0 +1,16 @@
+Error message: 400: {"message":"Invalid data","errors":[{"code":"invalid_type","expected":"date","received":"string","path":["expectedCloseDate"],"message":"Expected date, received string"}]}
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Error stack: Error: 400: {"message":"Invalid data","errors":[{"code":"invalid_type","expected":"date","received":"string","path":["expectedCloseDate"],"message":"Expected date, received string"}]}
+    at throwIfResNotOk (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/lib/queryClient.ts:5:11)
+    at async apiRequest (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/lib/queryClient.ts:15:3)
+    at async Object.mutationFn (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/components/pipeline/deal-form.tsx:90:16)
+at throwIfResNotOk (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/lib/queryClient.ts:5:11)
+at async apiRequest (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/lib/queryClient.ts:15:3)
+at async Object.mutationFn (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/components/pipeline/deal-form.tsx:90:16)
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
