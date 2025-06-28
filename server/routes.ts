@@ -621,11 +621,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: 'Arquivo vazio ou formato inválido' });
         }
 
+        // Get field mapping from form data
+        const fieldMapping = req.body.fieldMapping ? JSON.parse(req.body.fieldMapping) : {};
+        console.log('Mapeamento de campos:', fieldMapping);
+
         // Process and import contacts
         const result = await storage.createContactsFromImport(
           data, 
           pipelineId ? parseInt(pipelineId) : undefined,
-          tags ? JSON.parse(tags) : []
+          tags ? JSON.parse(tags) : [],
+          fieldMapping
         );
 
         console.log('Resultado da importação:', result);
@@ -648,6 +653,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   
+
+  // Preview import file to get columns
+  app.post('/api/contacts/preview-import', isAuthenticated, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'Arquivo não fornecido' });
+      }
+
+      console.log('=== PREVIEW DE IMPORTAÇÃO ===');
+      console.log('Arquivo recebido:', {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
+
+      let data: any[] = [];
+
+      // Parse file based on type
+      if (req.file.mimetype.includes('spreadsheet') || req.file.mimetype.includes('excel')) {
+        console.log('Processando arquivo Excel para preview...');
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { 
+          header: 1,
+          defval: '',
+          raw: false
+        });
+        
+        if (rawData.length > 0) {
+          const headers = rawData[0] as string[];
+          console.log('Cabeçalhos encontrados:', headers);
+          return res.json({ columns: headers.filter(h => h && h.trim() !== '') });
+        }
+        
+      } else if (req.file.mimetype === 'text/csv') {
+        console.log('Processando arquivo CSV para preview...');
+        const csvData: any[] = [];
+        const stream = Readable.from(req.file.buffer);
+        
+        await new Promise((resolve, reject) => {
+          stream
+            .pipe(csv())
+            .on('data', (row) => {
+              csvData.push(row);
+            })
+            .on('end', resolve)
+            .on('error', reject);
+        });
+        
+        if (csvData.length > 0) {
+          const headers = Object.keys(csvData[0]);
+          console.log('Cabeçalhos CSV encontrados:', headers);
+          return res.json({ columns: headers.filter(h => h && h.trim() !== '') });
+        }
+        
+      } else {
+        return res.status(400).json({ message: 'Tipo de arquivo não suportado' });
+      }
+
+      return res.status(400).json({ message: 'Arquivo vazio ou sem cabeçalhos válidos' });
+
+    } catch (error) {
+      console.error('Erro no preview da importação:', error);
+      res.status(500).json({ 
+        message: 'Erro interno do servidor',
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
 
   // Download import template
   app.get('/api/contacts/import-template', isAuthenticated, (req, res) => {

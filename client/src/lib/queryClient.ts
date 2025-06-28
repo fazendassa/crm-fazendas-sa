@@ -12,7 +12,9 @@ export async function apiRequest(
   endpoint: string,
   data?: any
 ): Promise<any> {
-  const url = `/api${endpoint}`;
+  // Remove leading /api if present to avoid duplication
+  const cleanEndpoint = endpoint.startsWith('/api') ? endpoint.substring(4) : endpoint;
+  const url = `/api${cleanEndpoint}`;
 
   const config: RequestInit = {
     method,

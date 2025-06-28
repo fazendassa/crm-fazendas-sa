@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,9 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Upload, Download, FileText, X, Plus } from "lucide-react";
+import { Upload, Download, FileText, X, Plus, ArrowRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface FieldMapping {
+  [key: string]: string; // column name -> field name
+}
 
 export default function ContactImport() {
   const { toast } = useToast();
@@ -22,6 +27,21 @@ export default function ContactImport() {
     success: number;
     errors: string[];
   } | null>(null);
+  const [fileColumns, setFileColumns] = useState<string[]>([]);
+  const [fieldMapping, setFieldMapping] = useState<FieldMapping>({});
+  const [showMapping, setShowMapping] = useState(false);
+
+  // Available system fields
+  const systemFields = [
+    { value: "name", label: "Nome" },
+    { value: "email", label: "Email" },
+    { value: "phone", label: "Telefone" },
+    { value: "position", label: "Cargo" },
+    { value: "company", label: "Empresa" },
+    { value: "status", label: "Status" },
+    { value: "tags", label: "Tags" },
+    { value: "", label: "Ignorar campo" }
+  ];
 
   // Fetch pipelines
   const { data: pipelines } = useQuery({
@@ -31,6 +51,58 @@ export default function ContactImport() {
   // Fetch available tags
   const { data: availableTags } = useQuery({
     queryKey: ["/api/contacts/tags"],
+  });
+
+  // Preview file mutation to get columns
+  const previewMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const response = await fetch("/api/contacts/preview-import", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Erro ao analisar arquivo");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setFileColumns(data.columns);
+      
+      // Auto-map common fields
+      const autoMapping: FieldMapping = {};
+      data.columns.forEach((column: string) => {
+        const lowerColumn = column.toLowerCase();
+        if (lowerColumn.includes('nome') || lowerColumn.includes('name')) {
+          autoMapping[column] = 'name';
+        } else if (lowerColumn.includes('email') || lowerColumn.includes('e-mail')) {
+          autoMapping[column] = 'email';
+        } else if (lowerColumn.includes('telefone') || lowerColumn.includes('phone')) {
+          autoMapping[column] = 'phone';
+        } else if (lowerColumn.includes('cargo') || lowerColumn.includes('position')) {
+          autoMapping[column] = 'position';
+        } else if (lowerColumn.includes('empresa') || lowerColumn.includes('company')) {
+          autoMapping[column] = 'company';
+        } else if (lowerColumn.includes('status')) {
+          autoMapping[column] = 'status';
+        } else if (lowerColumn.includes('tags')) {
+          autoMapping[column] = 'tags';
+        }
+      });
+      
+      setFieldMapping(autoMapping);
+      setShowMapping(true);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao Analisar Arquivo",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Import mutation
@@ -56,6 +128,10 @@ export default function ContactImport() {
         title: "Importação Concluída",
         description: `${data.success} contatos importados com sucesso`,
       });
+      setShowMapping(false);
+      setFile(null);
+      setFileColumns([]);
+      setFieldMapping({});
     },
     onError: (error: Error) => {
       toast({
@@ -71,7 +147,18 @@ export default function ContactImport() {
     if (selectedFile) {
       setFile(selectedFile);
       setImportResult(null);
+      setShowMapping(false);
+      setFileColumns([]);
+      setFieldMapping({});
     }
+  };
+
+  const analyzeFile = () => {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    previewMutation.mutate(formData);
   };
 
   const addTag = () => {
@@ -91,6 +178,13 @@ export default function ContactImport() {
     }
   };
 
+  const updateFieldMapping = (column: string, field: string) => {
+    setFieldMapping(prev => ({
+      ...prev,
+      [column]: field
+    }));
+  };
+
   const handleImport = () => {
     if (!file) {
       toast({
@@ -101,8 +195,20 @@ export default function ContactImport() {
       return;
     }
 
+    // Check if at least name field is mapped
+    const nameMapping = Object.values(fieldMapping).includes('name');
+    if (!nameMapping) {
+      toast({
+        title: "Erro",
+        description: "É obrigatório mapear pelo menos o campo Nome",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("fieldMapping", JSON.stringify(fieldMapping));
     
     if (selectedPipeline && selectedPipeline !== "none") {
       formData.append("pipelineId", selectedPipeline);
@@ -172,7 +278,56 @@ export default function ContactImport() {
               )}
             </div>
 
-            <Separator />
+            {file && !showMapping && (
+              <Button 
+                onClick={analyzeFile} 
+                disabled={previewMutation.isPending}
+                className="w-full"
+              >
+                {previewMutation.isPending ? "Analisando..." : "Analisar Arquivo"}
+              </Button>
+            )}
+
+            {showMapping && (
+              <>
+                <Separator />
+                
+                <div className="space-y-3">
+                  <Label>Mapeamento de Campos</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Selecione qual campo do sistema cada coluna da planilha representa:
+                  </p>
+                  
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {fileColumns.map((column) => (
+                      <div key={column} className="flex items-center gap-2 p-2 border rounded">
+                        <span className="text-sm font-medium min-w-0 flex-1 truncate">
+                          {column}
+                        </span>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        <Select
+                          value={fieldMapping[column] || ""}
+                          onValueChange={(value) => updateFieldMapping(column, value)}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="Campo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {systemFields.map((field) => (
+                              <SelectItem key={field.value} value={field.value}>
+                                {field.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="pipeline">Pipeline (Opcional)</Label>
@@ -246,7 +401,7 @@ export default function ContactImport() {
 
             <Button 
               onClick={handleImport} 
-              disabled={!file || importMutation.isPending}
+              disabled={!showMapping || importMutation.isPending}
               className="w-full"
             >
               {importMutation.isPending ? "Importando..." : "Importar Contatos"}
@@ -262,30 +417,31 @@ export default function ContactImport() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-sm space-y-2">
-                <p><strong>Formatos aceitos:</strong> Excel (.xlsx, .xls) e CSV (.csv)</p>
-                <p><strong>Campos obrigatórios:</strong> Nome</p>
-                <p><strong>Campos opcionais:</strong> Email, Telefone, Cargo, Empresa, Status</p>
+                <p><strong>Novo processo de importação:</strong></p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Selecione seu arquivo Excel ou CSV</li>
+                  <li>Clique em "Analisar Arquivo"</li>
+                  <li>Mapeie os campos da planilha</li>
+                  <li>Configure pipeline e tags (opcional)</li>
+                  <li>Finalize a importação</li>
+                </ol>
               </div>
               
               <Separator />
               
               <div className="text-sm space-y-1">
-                <p><strong>Nomes de colunas aceitos:</strong></p>
+                <p><strong>Campos disponíveis:</strong></p>
                 <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-2">
-                  <li>Nome / Name</li>
-                  <li>Email / E-mail</li>
-                  <li>Telefone / Phone</li>
-                  <li>Cargo / Position</li>
-                  <li>Empresa / Company</li>
-                  <li>Status</li>
-                  <li>Tags</li>
+                  <li><strong>Nome:</strong> Obrigatório</li>
+                  <li>Email, Telefone, Cargo</li>
+                  <li>Empresa, Status, Tags</li>
                 </ul>
               </div>
 
               <Alert>
                 <AlertDescription>
+                  O mapeamento permite usar qualquer nome de coluna na sua planilha.
                   Se a empresa não existir, ela será criada automaticamente.
-                  Tags podem ser separadas por vírgula na planilha.
                 </AlertDescription>
               </Alert>
             </CardContent>
