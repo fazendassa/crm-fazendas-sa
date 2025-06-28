@@ -45,7 +45,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pipeline-stages", { pipelineId }] });
       setNewStageTitle("");
       setIsAddingStage(false);
       toast({
