@@ -733,68 +733,36 @@ export class DatabaseStorage implements IStorage {
     for (const stage of stages) {
       console.log('Validating stage in storage:', stage);
       
-      const id = Number(stage.id);
-      const position = Number(stage.position);
-      
-      console.log('Converted values in storage:', { id, position });
-      
-      if (
-        isNaN(id) ||
-        !Number.isInteger(id) || 
-        id <= 0
-      ) {
-        console.error('Invalid stage ID in storage:', { 
-          originalStage: stage, 
-          convertedId: id,
-          isNaN: isNaN(id),
-          isInteger: Number.isInteger(id),
-          isPositive: id > 0
-        });
-        throw new Error(`Invalid stage ID: ${stage.id} (converted to ${id})`);
+      // Stages should already be validated at this point, but double-check
+      if (!Number.isInteger(stage.id) || stage.id <= 0) {
+        throw new Error(`Invalid stage ID: ${stage.id}`);
       }
       
-      if (
-        isNaN(position) ||
-        !Number.isInteger(position) || 
-        position < 0
-      ) {
-        console.error('Invalid stage position in storage:', { 
-          originalStage: stage, 
-          convertedPosition: position,
-          isNaN: isNaN(position),
-          isInteger: Number.isInteger(position),
-          isNonNegative: position >= 0
-        });
-        throw new Error(`Invalid stage position: ${stage.position} (converted to ${position})`);
+      if (!Number.isInteger(stage.position) || stage.position < 0) {
+        throw new Error(`Invalid stage position: ${stage.position}`);
       }
       
       // Check if stage exists in database
       const existingStage = await db
         .select()
         .from(pipelineStages)
-        .where(eq(pipelineStages.id, id))
+        .where(eq(pipelineStages.id, stage.id))
         .limit(1);
       
       if (existingStage.length === 0) {
-        console.error('Stage not found in database:', id);
-        throw new Error(`Stage with ID ${id} not found`);
+        console.error('Stage not found in database:', stage.id);
+        throw new Error(`Stage with ID ${stage.id} not found`);
       }
     }
     
     // Update all stages
     for (const stage of stages) {
-      const id = Number(stage.id);
-      const position = Number(stage.position);
+      console.log(`Updating stage ${stage.id} to position ${stage.position}`);
       
-      console.log(`Updating stage ${id} to position ${position}`);
-      
-      const result = await db
+      await db
         .update(pipelineStages)
-        .set({ position: position, updatedAt: new Date() })
-        .where(eq(pipelineStages.id, id))
-        .returning();
-      
-      console.log(`Stage ${id} updated successfully:`, result);
+        .set({ position: stage.position, updatedAt: new Date() })
+        .where(eq(pipelineStages.id, stage.id));
     }
     
     console.log('All stage positions updated successfully');

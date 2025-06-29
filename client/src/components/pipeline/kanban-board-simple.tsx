@@ -197,17 +197,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const handleStagePositionChange = (stageId: number, newPosition: number) => {
     console.log('handleStagePositionChange called:', { stageId, newPosition });
     
-    // Validate inputs
-    if (typeof stageId !== 'number' || isNaN(stageId) || stageId <= 0) {
-      console.error('Invalid stageId:', stageId);
-      return;
-    }
-    
-    if (typeof newPosition !== 'number' || isNaN(newPosition) || newPosition < 0) {
-      console.error('Invalid newPosition:', newPosition);
-      return;
-    }
-    
     setReorderStages(prev => {
       console.log('Previous stages:', prev);
       
@@ -223,7 +212,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       
       // Insert the stage at the new position
       const newStages = [...otherStages];
-      newStages.splice(newPosition, 0, { ...stageToUpdate, position: newPosition });
+      newStages.splice(newPosition, 0, { ...stageToUpdate });
       
       // Reassign sequential positions
       const finalStages = newStages.map((stage, index) => ({
@@ -251,65 +240,23 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return;
     }
     
-    // Ensure all positions are valid sequential integers
-    const sortedStages = reorderStages.sort((a, b) => a.position - b.position);
-    console.log('Sorted stages:', sortedStages);
+    // Create the stage updates with proper integer conversion
+    const stageUpdates = reorderStages.map((stage) => ({
+      id: parseInt(String(stage.id), 10),
+      position: parseInt(String(stage.position), 10)
+    }));
     
-    const stageUpdates = sortedStages.map((stage, index) => {
-      // Ensure we have valid numeric IDs
-      const stageId = stage.id;
-      const newPosition = index;
-      
-      console.log('Processing stage:', { 
-        originalStage: stage, 
-        stageId, 
-        newPosition,
-        stageIdType: typeof stageId,
-        newPositionType: typeof newPosition
-      });
-      
-      // Convert to numbers and validate
-      const numericId = Number(stageId);
-      const numericPosition = Number(newPosition);
-      
-      if (isNaN(numericId) || !Number.isInteger(numericId) || numericId <= 0) {
-        console.error('Invalid stage ID detected:', { stageId, numericId });
-        throw new Error(`Invalid stage ID: ${stageId}`);
-      }
-      
-      if (isNaN(numericPosition) || !Number.isInteger(numericPosition) || numericPosition < 0) {
-        console.error('Invalid position detected:', { newPosition, numericPosition });
-        throw new Error(`Invalid position: ${newPosition}`);
-      }
-      
-      const update = {
-        id: numericId,
-        position: numericPosition
-      };
-      
-      console.log('Created valid update:', update);
-      return update;
-    });
+    console.log('Stage updates to send:', stageUpdates);
     
-    console.log('All stage updates created:', stageUpdates);
-    
-    // Final validation before sending
+    // Validate all updates
     const allValid = stageUpdates.every(update => {
       const idValid = Number.isInteger(update.id) && update.id > 0;
       const positionValid = Number.isInteger(update.position) && update.position >= 0;
-      
-      if (!idValid) {
-        console.error('Final validation failed for ID:', update);
-      }
-      if (!positionValid) {
-        console.error('Final validation failed for position:', update);
-      }
-      
       return idValid && positionValid;
     });
     
     if (!allValid) {
-      console.error('Final validation failed');
+      console.error('Validation failed for stage updates:', stageUpdates);
       toast({
         title: "Erro",
         description: "Dados de estágio inválidos",
@@ -318,7 +265,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return;
     }
     
-    console.log('Sending validated mutation with:', stageUpdates);
     updateStagePositionsMutation.mutate(stageUpdates);
   };
 

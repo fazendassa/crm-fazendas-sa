@@ -542,28 +542,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Stages array cannot be empty" });
       }
 
-      // Validate each stage before processing
+      // Convert and validate each stage
+      const validatedStages = [];
+      
       for (const stage of stages) {
-        console.log("Validating stage:", stage);
+        console.log("Processing stage:", stage);
         
-        const stageId = Number(stage.id);
-        const stagePosition = Number(stage.position);
+        // Convert to integers
+        const stageId = parseInt(String(stage.id), 10);
+        const stagePosition = parseInt(String(stage.position), 10);
         
         console.log("Converted values:", { stageId, stagePosition });
         
-        if (!stage.id || isNaN(stageId) || !Number.isInteger(stageId) || stageId <= 0) {
-          console.error("Invalid stage ID:", stage, "converted:", stageId);
+        // Validate converted values
+        if (isNaN(stageId) || stageId <= 0) {
+          console.error("Invalid stage ID after conversion:", { original: stage.id, converted: stageId });
           return res.status(400).json({ message: `Invalid stage ID: ${stage.id}` });
         }
         
-        if (stage.position === undefined || isNaN(stagePosition) || !Number.isInteger(stagePosition) || stagePosition < 0) {
-          console.error("Invalid stage position:", stage, "converted:", stagePosition);
+        if (isNaN(stagePosition) || stagePosition < 0) {
+          console.error("Invalid stage position after conversion:", { original: stage.position, converted: stagePosition });
           return res.status(400).json({ message: `Invalid stage position: ${stage.position}` });
         }
+        
+        validatedStages.push({
+          id: stageId,
+          position: stagePosition
+        });
       }
 
-      console.log("All validations passed, calling storage.updateStagePositions");
-      await storage.updateStagePositions(stages);
+      console.log("All validations passed, calling storage.updateStagePositions with:", validatedStages);
+      await storage.updateStagePositions(validatedStages);
       res.json({ message: "Stage positions updated successfully" });
     } catch (error) {
       console.error("Error updating stage positions:", error);
