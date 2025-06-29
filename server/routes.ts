@@ -533,21 +533,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (let i = 0; i < stages.length; i++) {
         const stage = stages[i];
         
-        if (!stage) {
-          console.error(`Stage at index ${i} is null/undefined:`, stage);
+        if (!stage || typeof stage !== 'object') {
+          console.error(`Stage at index ${i} is invalid:`, stage);
           return res.status(400).json({ 
             message: `Stage at index ${i} is invalid` 
           });
         }
         
-        // Convert to numbers and validate
-        const id = Number(stage.id);
-        const position = Number(stage.position);
+        // Convert to numbers and validate thoroughly
+        const rawId = stage.id;
+        const rawPosition = stage.position;
         
-        if (isNaN(id) || isNaN(position) || id <= 0 || position < 0) {
-          console.error(`Stage at index ${i} has invalid values:`, stage, { id, position });
+        // Check if values are present
+        if (rawId === null || rawId === undefined || rawPosition === null || rawPosition === undefined) {
+          console.error(`Stage at index ${i} has missing values:`, { id: rawId, position: rawPosition });
           return res.status(400).json({ 
-            message: `Stage at index ${i} has invalid id (${stage.id}) or position (${stage.position}) values` 
+            message: `Stage at index ${i} has missing id or position` 
+          });
+        }
+        
+        const id = Number(rawId);
+        const position = Number(rawPosition);
+        
+        // Validate converted numbers
+        if (!Number.isInteger(id) || !Number.isInteger(position) || id <= 0 || position < 0) {
+          console.error(`Stage at index ${i} has invalid values:`, { 
+            originalId: rawId, 
+            originalPosition: rawPosition, 
+            convertedId: id, 
+            convertedPosition: position,
+            isIntegerId: Number.isInteger(id),
+            isIntegerPosition: Number.isInteger(position)
+          });
+          return res.status(400).json({ 
+            message: `Stage at index ${i} has invalid id (${rawId}) or position (${rawPosition}) values` 
           });
         }
         

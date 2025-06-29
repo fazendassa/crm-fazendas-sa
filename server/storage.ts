@@ -707,19 +707,42 @@ export class DatabaseStorage implements IStorage {
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
     console.log('updateStagePositions called with:', stages);
     
-    for (const stage of stages) {
-      // Validate that id and position are valid numbers
-      if (isNaN(stage.id) || isNaN(stage.position) || stage.id <= 0 || stage.position < 0) {
-        console.error('Invalid stage data:', stage);
-        throw new Error(`Invalid stage data: id=${stage.id}, position=${stage.position}`);
+    // Validate and sanitize input data
+    const validStages = stages.filter(stage => {
+      const id = Number(stage.id);
+      const position = Number(stage.position);
+      
+      // Check if conversion was successful and values are valid
+      const isValidId = !isNaN(id) && isFinite(id) && id > 0 && Number.isInteger(id);
+      const isValidPosition = !isNaN(position) && isFinite(position) && position >= 0 && Number.isInteger(position);
+      
+      if (!isValidId || !isValidPosition) {
+        console.error('Invalid stage data filtered out:', { 
+          original: stage, 
+          converted: { id, position }, 
+          isValidId, 
+          isValidPosition 
+        });
+        return false;
       }
       
-      console.log(`Updating stage ${stage.id} to position ${stage.position}`);
+      return true;
+    });
+    
+    if (validStages.length === 0) {
+      throw new Error('No valid stages provided for position update');
+    }
+    
+    for (const stage of validStages) {
+      const id = Number(stage.id);
+      const position = Number(stage.position);
+      
+      console.log(`Updating stage ${id} to position ${position}`);
       
       await db
         .update(pipelineStages)
-        .set({ position: stage.position, updatedAt: new Date() })
-        .where(eq(pipelineStages.id, stage.id));
+        .set({ position: position, updatedAt: new Date() })
+        .where(eq(pipelineStages.id, id));
     }
     
     console.log('All stage positions updated successfully');
