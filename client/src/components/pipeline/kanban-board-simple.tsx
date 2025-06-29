@@ -241,56 +241,85 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     console.log('=== SAVING REORDER ===');
     console.log('Current reorderStages:', reorderStages);
     
-    // Ensure all positions are valid sequential integers
-    const sortedStages = reorderStages.sort((a, b) => a.position - b.position);
-    console.log('Sorted stages:', sortedStages);
-    
-    const stageUpdates = sortedStages.map((stage, index) => {
-      const update = {
-        id: Number(stage.id),
-        position: Number(index)
-      };
-      console.log('Creating update:', update, 'from stage:', stage);
-      return update;
-    });
-    
-    console.log('Stage updates before filtering:', stageUpdates);
-    
-    const validUpdates = stageUpdates.filter(stage => {
-      const isValidId = Number.isInteger(stage.id) && stage.id > 0;
-      const isValidPosition = Number.isInteger(stage.position) && stage.position >= 0;
-      
-      console.log('Validating update:', stage, {
-        isValidId,
-        isValidPosition,
-        idType: typeof stage.id,
-        positionType: typeof stage.position
-      });
-      
-      return isValidId && isValidPosition;
-    });
-    
-    console.log('Valid stage updates:', validUpdates);
-    
-    if (validUpdates.length === 0) {
-      console.error('No valid stage updates found');
+    if (!Array.isArray(reorderStages) || reorderStages.length === 0) {
+      console.error('No stages to reorder');
       toast({
         title: "Erro",
-        description: "Nenhum estágio válido para reordenar",
+        description: "Nenhum estágio para reordenar",
         variant: "destructive",
       });
       return;
     }
     
-    if (validUpdates.length !== reorderStages.length) {
-      console.warn('Some stages were filtered out:', {
-        original: reorderStages.length,
-        valid: validUpdates.length
+    // Ensure all positions are valid sequential integers
+    const sortedStages = reorderStages.sort((a, b) => a.position - b.position);
+    console.log('Sorted stages:', sortedStages);
+    
+    const stageUpdates = sortedStages.map((stage, index) => {
+      // Ensure we have valid numeric IDs
+      const stageId = stage.id;
+      const newPosition = index;
+      
+      console.log('Processing stage:', { 
+        originalStage: stage, 
+        stageId, 
+        newPosition,
+        stageIdType: typeof stageId,
+        newPositionType: typeof newPosition
       });
+      
+      // Convert to numbers and validate
+      const numericId = Number(stageId);
+      const numericPosition = Number(newPosition);
+      
+      if (isNaN(numericId) || !Number.isInteger(numericId) || numericId <= 0) {
+        console.error('Invalid stage ID detected:', { stageId, numericId });
+        throw new Error(`Invalid stage ID: ${stageId}`);
+      }
+      
+      if (isNaN(numericPosition) || !Number.isInteger(numericPosition) || numericPosition < 0) {
+        console.error('Invalid position detected:', { newPosition, numericPosition });
+        throw new Error(`Invalid position: ${newPosition}`);
+      }
+      
+      const update = {
+        id: numericId,
+        position: numericPosition
+      };
+      
+      console.log('Created valid update:', update);
+      return update;
+    });
+    
+    console.log('All stage updates created:', stageUpdates);
+    
+    // Final validation before sending
+    const allValid = stageUpdates.every(update => {
+      const idValid = Number.isInteger(update.id) && update.id > 0;
+      const positionValid = Number.isInteger(update.position) && update.position >= 0;
+      
+      if (!idValid) {
+        console.error('Final validation failed for ID:', update);
+      }
+      if (!positionValid) {
+        console.error('Final validation failed for position:', update);
+      }
+      
+      return idValid && positionValid;
+    });
+    
+    if (!allValid) {
+      console.error('Final validation failed');
+      toast({
+        title: "Erro",
+        description: "Dados de estágio inválidos",
+        variant: "destructive",
+      });
+      return;
     }
     
-    console.log('Sending mutation with:', validUpdates);
-    updateStagePositionsMutation.mutate(validUpdates);
+    console.log('Sending validated mutation with:', stageUpdates);
+    updateStagePositionsMutation.mutate(stageUpdates);
   };
 
   

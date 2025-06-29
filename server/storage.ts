@@ -725,27 +725,59 @@ export class DatabaseStorage implements IStorage {
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
     console.log('updateStagePositions called with:', stages);
     
+    if (!Array.isArray(stages) || stages.length === 0) {
+      throw new Error('Stages array is required and cannot be empty');
+    }
+    
     // Validate all stages before making any database changes
     for (const stage of stages) {
+      console.log('Validating stage in storage:', stage);
+      
       const id = Number(stage.id);
       const position = Number(stage.position);
       
+      console.log('Converted values in storage:', { id, position });
+      
       if (
-        !Number.isInteger(id) || 
-        !Number.isInteger(position) || 
-        id <= 0 || 
-        position < 0 ||
         isNaN(id) ||
-        isNaN(position)
+        !Number.isInteger(id) || 
+        id <= 0
       ) {
-        console.error('Invalid stage data:', { 
+        console.error('Invalid stage ID in storage:', { 
           originalStage: stage, 
-          convertedId: id, 
-          convertedPosition: position,
-          isValidId: Number.isInteger(id) && id > 0,
-          isValidPosition: Number.isInteger(position) && position >= 0
+          convertedId: id,
+          isNaN: isNaN(id),
+          isInteger: Number.isInteger(id),
+          isPositive: id > 0
         });
-        throw new Error(`Invalid stage data: id=${stage.id}, position=${stage.position}`);
+        throw new Error(`Invalid stage ID: ${stage.id} (converted to ${id})`);
+      }
+      
+      if (
+        isNaN(position) ||
+        !Number.isInteger(position) || 
+        position < 0
+      ) {
+        console.error('Invalid stage position in storage:', { 
+          originalStage: stage, 
+          convertedPosition: position,
+          isNaN: isNaN(position),
+          isInteger: Number.isInteger(position),
+          isNonNegative: position >= 0
+        });
+        throw new Error(`Invalid stage position: ${stage.position} (converted to ${position})`);
+      }
+      
+      // Check if stage exists in database
+      const existingStage = await db
+        .select()
+        .from(pipelineStages)
+        .where(eq(pipelineStages.id, id))
+        .limit(1);
+      
+      if (existingStage.length === 0) {
+        console.error('Stage not found in database:', id);
+        throw new Error(`Stage with ID ${id} not found`);
       }
     }
     
@@ -756,10 +788,13 @@ export class DatabaseStorage implements IStorage {
       
       console.log(`Updating stage ${id} to position ${position}`);
       
-      await db
+      const result = await db
         .update(pipelineStages)
         .set({ position: position, updatedAt: new Date() })
-        .where(eq(pipelineStages.id, id));
+        .where(eq(pipelineStages.id, id))
+        .returning();
+      
+      console.log(`Stage ${id} updated successfully:`, result);
     }
     
     console.log('All stage positions updated successfully');

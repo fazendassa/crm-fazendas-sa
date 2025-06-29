@@ -544,13 +544,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate each stage before processing
       for (const stage of stages) {
-        if (!stage.id || !Number.isInteger(Number(stage.id)) || Number(stage.id) <= 0) {
-          console.error("Invalid stage ID:", stage);
+        console.log("Validating stage:", stage);
+        
+        const stageId = Number(stage.id);
+        const stagePosition = Number(stage.position);
+        
+        console.log("Converted values:", { stageId, stagePosition });
+        
+        if (!stage.id || isNaN(stageId) || !Number.isInteger(stageId) || stageId <= 0) {
+          console.error("Invalid stage ID:", stage, "converted:", stageId);
           return res.status(400).json({ message: `Invalid stage ID: ${stage.id}` });
         }
         
-        if (stage.position === undefined || !Number.isInteger(Number(stage.position)) || Number(stage.position) < 0) {
-          console.error("Invalid stage position:", stage);
+        if (stage.position === undefined || isNaN(stagePosition) || !Number.isInteger(stagePosition) || stagePosition < 0) {
+          console.error("Invalid stage position:", stage, "converted:", stagePosition);
           return res.status(400).json({ message: `Invalid stage position: ${stage.position}` });
         }
       }
