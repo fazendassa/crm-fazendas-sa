@@ -723,49 +723,132 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
-    console.log('updateStagePositions called with:', stages);
+    console.log('\n=== Storage.updateStagePositions called ===');
+    console.log('Input stages:', JSON.stringify(stages, null, 2));
     
-    if (!Array.isArray(stages) || stages.length === 0) {
-      throw new Error('Stages array is required and cannot be empty');
+    if (!Array.isArray(stages)) {
+      const error = `Stages must be an array, received: ${typeof stages}`;
+      console.error('VALIDATION ERROR:', error);
+      throw new Error(error);
     }
     
+    if (stages.length === 0) {
+      const error = 'Stages array cannot be empty';
+      console.error('VALIDATION ERROR:', error);
+      throw new Error(error);
+    }
+    
+    console.log(`Processing ${stages.length} stages...`);
+    
     // Validate all stages before making any database changes
-    for (const stage of stages) {
-      console.log('Validating stage in storage:', stage);
+    for (let i = 0; i < stages.length; i++) {
+      const stage = stages[i];
+      console.log(`\n--- Validating stage ${i + 1}/${stages.length} ---`);
+      console.log('Stage data:', stage);
+      console.log('ID type:', typeof stage.id, 'Value:', stage.id);
+      console.log('Position type:', typeof stage.position, 'Value:', stage.position);
       
-      // Stages should already be validated at this point, but double-check
+      // Validate ID
       if (!Number.isInteger(stage.id) || stage.id <= 0) {
-        throw new Error(`Invalid stage ID: ${stage.id}`);
+        const error = `Invalid stage ID: ${stage.id} (type: ${typeof stage.id})`;
+        console.error('VALIDATION ERROR:', error);
+        throw new Error(error);
       }
       
+      // Validate position
       if (!Number.isInteger(stage.position) || stage.position < 0) {
-        throw new Error(`Invalid stage position: ${stage.position}`);
+        const error = `Invalid stage position: ${stage.position} (type: ${typeof stage.position})`;
+        console.error('VALIDATION ERROR:', error);
+        throw new Error(error);
       }
       
       // Check if stage exists in database
-      const existingStage = await db
-        .select()
-        .from(pipelineStages)
-        .where(eq(pipelineStages.id, stage.id))
-        .limit(1);
-      
-      if (existingStage.length === 0) {
-        console.error('Stage not found in database:', stage.id);
-        throw new Error(`Stage with ID ${stage.id} not found`);
+      console.log(`Checking database for stage ID ${stage.id}...`);
+      try {
+        const existingStage = await db
+          .select({
+            id: pipelineStages.id,
+            title: pipelineStages.title,
+            pipelineId: pipelineStages.pipelineId,
+            position: pipelineStages.position
+          })
+          .from(pipelineStages)
+          .where(eq(pipelineStages.id, stage.id))
+          .limit(1);
+        
+        console.log('Database query result:', existingStage);
+        
+        if (existingStage.length === 0) {
+          const error = `Stage with ID ${stage.id} not found in database`;
+          console.error('DATABASE ERROR:', error);
+          throw new Error(error);
+        }
+        
+        console.log(`✓ Stage ${stage.id} found: "${existingStage[0].title}" (current position: ${existingStage[0].position})`);
+        
+      } catch (dbError) {
+        console.error('Database query error:', dbError);
+        throw new Error(`Database validation failed for stage ${stage.id}: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
       }
     }
     
-    // Update all stages
-    for (const stage of stages) {
-      console.log(`Updating stage ${stage.id} to position ${stage.position}`);
+    console.log('\n=== All validations passed, updating database ===');
+    
+    // Update all stages with transaction-like approach
+    for (let i = 0; i < stages.length; i++) {
+      const stage = stages[i];
+      console.log(`\n--- Updating stage ${i + 1}/${stages.length} ---`);
+      console.log(`Setting stage ${stage.id} to position ${stage.position}`);
       
-      await db
-        .update(pipelineStages)
-        .set({ position: stage.position, updatedAt: new Date() })
-        .where(eq(pipelineStages.id, stage.id));
+      try {
+        const result = await db
+          .update(pipelineStages)
+          .set({ 
+            position: stage.position, 
+            updatedAt: new Date() 
+          })
+          .where(eq(pipelineStages.id, stage.id))
+          .returning({
+            id: pipelineStages.id,
+            title: pipelineStages.title,
+            position: pipelineStages.position
+          });
+        
+        console.log('Update result:', result);
+        
+        if (result.length === 0) {
+          const error = `No stage was updated for ID ${stage.id}`;
+          console.error('UPDATE ERROR:', error);
+          throw new Error(error);
+        }
+        
+        console.log(`✓ Stage ${stage.id} updated successfully to position ${result[0].position}`);
+        
+      } catch (updateError) {
+        console.error(`Error updating stage ${stage.id}:`, updateError);
+        throw new Error(`Failed to update stage ${stage.id}: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
+      }
     }
     
-    console.log('All stage positions updated successfully');
+    console.log('\n✓ All stage positions updated successfully');
+    
+    // Verify final state
+    console.log('\n=== Verifying final state ===');
+    try {
+      const updatedStages = await db
+        .select({
+          id: pipelineStages.id,
+          title: pipelineStages.title,
+          position: pipelineStages.position
+        })
+        .from(pipelineStages)
+        .where(eq(pipelineStages.id, stages[0].id))
+        .orderBy(pipelineStages.position);
+      
+      console.log('Final database state (sample):', updatedStages);
+    } catch (verifyError) {
+      console.warn('Could not verify final state:', verifyError);
+    }
   }
 
   

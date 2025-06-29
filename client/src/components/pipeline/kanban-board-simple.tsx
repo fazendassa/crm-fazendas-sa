@@ -137,34 +137,65 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Update stage positions mutation
   const updateStagePositionsMutation = useMutation({
     mutationFn: async (stages: Array<{ id: number; position: number }>) => {
-      console.log('Updating stage positions:', stages);
+      console.log('\n=== CLIENT MUTATION: Updating stage positions ===');
+      console.log('Stages to send:', JSON.stringify(stages, null, 2));
+      
+      const payload = { stages };
+      console.log('Request payload:', JSON.stringify(payload, null, 2));
+      
       const response = await fetch('/api/pipeline-stages/positions', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ stages }),
+        body: JSON.stringify(payload),
       });
 
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Failed to update stage positions: ${response.status} - ${errorData}`);
+        const errorText = await response.text();
+        console.error('Response error text:', errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+          console.error('Parsed error data:', errorData);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        const errorMessage = errorData.message || errorText || 'Unknown error';
+        console.error('Final error message:', errorMessage);
+        
+        throw new Error(`Failed to update stage positions: ${response.status} - ${errorMessage}`);
       }
 
-      return response.json();
+      const responseData = await response.json();
+      console.log('✓ Success response:', responseData);
+      return responseData;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('✓ CLIENT MUTATION: Success callback triggered');
+      console.log('Success data:', data);
+      
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       setIsReorderModalOpen(false);
+      
       toast({
         title: "Sucesso",
         description: "Ordem dos estágios atualizada com sucesso",
       });
     },
     onError: (error) => {
-      console.error("Error updating stage positions:", error);
+      console.error('\n=== CLIENT MUTATION: Error callback triggered ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
       toast({
         title: "Erro",
         description: `Erro ao atualizar ordem dos estágios: ${error.message}`,
@@ -227,11 +258,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   };
 
   const handleSaveReorder = () => {
-    console.log('=== SAVING REORDER ===');
-    console.log('Current reorderStages:', reorderStages);
+    console.log('\n=== CLIENT: SAVING REORDER ===');
+    console.log('Current reorderStages:', JSON.stringify(reorderStages, null, 2));
     
     if (!Array.isArray(reorderStages) || reorderStages.length === 0) {
-      console.error('No stages to reorder');
+      console.error('CLIENT ERROR: No stages to reorder');
       toast({
         title: "Erro",
         description: "Nenhum estágio para reordenar",
@@ -240,31 +271,95 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return;
     }
     
-    // Create the stage updates with proper integer conversion
-    const stageUpdates = reorderStages.map((stage) => ({
-      id: parseInt(String(stage.id), 10),
-      position: parseInt(String(stage.position), 10)
-    }));
+    console.log(`CLIENT: Processing ${reorderStages.length} stages...`);
     
-    console.log('Stage updates to send:', stageUpdates);
-    
-    // Validate all updates
-    const allValid = stageUpdates.every(update => {
-      const idValid = Number.isInteger(update.id) && update.id > 0;
-      const positionValid = Number.isInteger(update.position) && update.position >= 0;
-      return idValid && positionValid;
+    // Create the stage updates with strict integer conversion and validation
+    const stageUpdates = reorderStages.map((stage, index) => {
+      console.log(`\n--- CLIENT: Processing stage ${index + 1}/${reorderStages.length} ---`);
+      console.log('Original stage:', stage);
+      console.log('Original ID type:', typeof stage.id, 'Value:', stage.id);
+      console.log('Original position type:', typeof stage.position, 'Value:', stage.position);
+      
+      // Force conversion to integers
+      const id = Number(stage.id);
+      const position = Number(stage.position);
+      
+      console.log('After Number() conversion:');
+      console.log('- ID:', id, 'Type:', typeof id, 'IsInteger:', Number.isInteger(id));
+      console.log('- Position:', position, 'Type:', typeof position, 'IsInteger:', Number.isInteger(position));
+      
+      if (!Number.isInteger(id) || id <= 0) {
+        console.error(`CLIENT ERROR: Invalid ID conversion for stage ${index + 1}:`, { original: stage.id, converted: id });
+        throw new Error(`Invalid stage ID: ${stage.id}`);
+      }
+      
+      if (!Number.isInteger(position) || position < 0) {
+        console.error(`CLIENT ERROR: Invalid position conversion for stage ${index + 1}:`, { original: stage.position, converted: position });
+        throw new Error(`Invalid stage position: ${stage.position}`);
+      }
+      
+      const update = { id, position };
+      console.log(`✓ CLIENT: Stage ${index + 1} converted:`, update);
+      return update;
     });
     
+    console.log('\n=== CLIENT: Final stage updates ===');
+    console.log('Stage updates to send:', JSON.stringify(stageUpdates, null, 2));
+    
+    // Additional validation
+    console.log('\n=== CLIENT: Validating updates ===');
+    const validationResults = stageUpdates.map((update, index) => {
+      const idValid = Number.isInteger(update.id) && update.id > 0;
+      const positionValid = Number.isInteger(update.position) && update.position >= 0;
+      const valid = idValid && positionValid;
+      
+      console.log(`Stage ${index + 1}: ID valid=${idValid}, Position valid=${positionValid}, Overall=${valid}`);
+      
+      return { valid, idValid, positionValid, update };
+    });
+    
+    const allValid = validationResults.every(result => result.valid);
+    console.log('All validations passed:', allValid);
+    
     if (!allValid) {
-      console.error('Validation failed for stage updates:', stageUpdates);
+      const invalidStages = validationResults.filter(result => !result.valid);
+      console.error('CLIENT ERROR: Validation failed for stages:', invalidStages);
       toast({
         title: "Erro",
-        description: "Dados de estágio inválidos",
+        description: `Dados de estágio inválidos: ${invalidStages.length} estágio(s) com erro`,
         variant: "destructive",
       });
       return;
     }
     
+    // Check for duplicate positions
+    const positions = stageUpdates.map(update => update.position);
+    const uniquePositions = new Set(positions);
+    if (positions.length !== uniquePositions.size) {
+      console.error('CLIENT ERROR: Duplicate positions detected:', positions);
+      toast({
+        title: "Erro",
+        description: "Posições duplicadas detectadas",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check for gaps in positions
+    const sortedPositions = [...positions].sort((a, b) => a - b);
+    for (let i = 0; i < sortedPositions.length; i++) {
+      if (sortedPositions[i] !== i) {
+        console.error('CLIENT ERROR: Position gaps detected:', sortedPositions);
+        toast({
+          title: "Erro",
+          description: "Posições devem ser sequenciais começando em 0",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    console.log('✓ CLIENT: All validations passed, sending mutation...');
     updateStagePositionsMutation.mutate(stageUpdates);
   };
 
