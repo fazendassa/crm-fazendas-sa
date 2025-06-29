@@ -193,7 +193,13 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
     // Handle stage reordering
     if (type === "STAGE") {
-      const stageId = parseInt(draggableId.replace("stage-", ""));
+      console.log("Handling stage reordering:", { draggableId, source, destination });
+      
+      // Extract stage ID more carefully
+      const stageIdStr = draggableId.replace("stage-", "");
+      const stageId = parseInt(stageIdStr, 10);
+      
+      console.log("Extracted stage ID:", { stageIdStr, stageId });
       
       // Validate stage ID
       if (isNaN(stageId) || stageId <= 0) {
@@ -217,58 +223,35 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         return;
       }
 
-      // Find the stage being moved
-      const stageToMove = stages.find(stage => stage.id === stageId);
-      if (!stageToMove) {
-        console.error("Stage not found:", stageId, "in stages:", stages);
-        toast({
-          title: "Erro",
-          description: "Estágio não encontrado",
-          variant: "destructive",
-        });
-        return;
-      }
+      // Sort stages by position to ensure consistent ordering
+      const sortedStages = [...stages].sort((a, b) => a.position - b.position);
+      console.log("Sorted stages:", sortedStages);
 
-      const reorderedStages = Array.from(stages);
+      // Create new array with reordered stages
+      const reorderedStages = Array.from(sortedStages);
       const [movedStage] = reorderedStages.splice(source.index, 1);
       reorderedStages.splice(destination.index, 0, movedStage);
 
-      // Update positions - ensure all IDs are valid numbers
-      const updatedStages = reorderedStages
-        .filter(stage => stage && typeof stage.id === 'number' && stage.id > 0 && !isNaN(stage.id))
-        .map((stage, index) => ({
-          id: stage.id,
-          position: index,
-        }));
+      console.log("Reordered stages:", reorderedStages);
 
-      // Validate that we have valid stages to update
-      if (updatedStages.length === 0) {
-        console.error("No valid stages to update:", reorderedStages);
-        toast({
-          title: "Erro",
-          description: "Nenhum estágio válido encontrado",
-          variant: "destructive",
-        });
-        return;
-      }
+      // Create update data with new positions
+      const updatedStages = reorderedStages.map((stage, index) => {
+        const stageUpdate = {
+          id: Number(stage.id),
+          position: Number(index),
+        };
+        
+        // Validate each stage update
+        if (isNaN(stageUpdate.id) || isNaN(stageUpdate.position) || 
+            stageUpdate.id <= 0 || stageUpdate.position < 0) {
+          console.error("Invalid stage update data:", stageUpdate, "from stage:", stage);
+          throw new Error(`Invalid stage data: id=${stageUpdate.id}, position=${stageUpdate.position}`);
+        }
+        
+        return stageUpdate;
+      });
 
-      // Additional validation - check for any NaN values
-      const hasInvalidData = updatedStages.some(stage => 
-        isNaN(stage.id) || isNaN(stage.position) || 
-        stage.id <= 0 || stage.position < 0
-      );
-
-      if (hasInvalidData) {
-        console.error("Invalid data detected in updatedStages:", updatedStages);
-        toast({
-          title: "Erro",
-          description: "Dados inválidos detectados",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log("Updating stage positions:", updatedStages);
+      console.log("Final stage updates to send:", updatedStages);
 
       // Optimistically update the cache
       queryClient.setQueryData([`/api/pipeline-stages?pipelineId=${pipelineId}`], reorderedStages.map((stage, index) => ({
