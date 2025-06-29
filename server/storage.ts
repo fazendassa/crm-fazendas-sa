@@ -83,6 +83,7 @@ export interface IStorage {
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
   updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
+  
 
   // Dashboard metrics
   getDashboardMetrics(): Promise<{
@@ -687,6 +688,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage> {
+    // Validate numeric fields
+    if (stage.position !== undefined) {
+      const position = Number(stage.position);
+      if (isNaN(position) || !Number.isInteger(position) || position < 0) {
+        throw new Error(`Invalid position value: ${stage.position}`);
+      }
+      stage.position = position;
+    }
+
+    if (stage.pipelineId !== undefined) {
+      const pipelineId = Number(stage.pipelineId);
+      if (isNaN(pipelineId) || !Number.isInteger(pipelineId) || pipelineId <= 0) {
+        throw new Error(`Invalid pipelineId value: ${stage.pipelineId}`);
+      }
+      stage.pipelineId = pipelineId;
+    }
+
     const [updatedStage] = await db
       .update(pipelineStages)
       .set({ ...stage, updatedAt: new Date() })
@@ -705,19 +723,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
+    console.log('updateStagePositions called with:', stages);
+    
+    // Validate all stages before making any database changes
     for (const stage of stages) {
-      // Validate that id and position are valid numbers
-      if (isNaN(stage.id) || isNaN(stage.position) || stage.id <= 0 || stage.position < 0) {
-        console.error('Invalid stage data:', stage);
+      const id = Number(stage.id);
+      const position = Number(stage.position);
+      
+      if (
+        !Number.isInteger(id) || 
+        !Number.isInteger(position) || 
+        id <= 0 || 
+        position < 0 ||
+        isNaN(id) ||
+        isNaN(position)
+      ) {
+        console.error('Invalid stage data:', { 
+          originalStage: stage, 
+          convertedId: id, 
+          convertedPosition: position,
+          isValidId: Number.isInteger(id) && id > 0,
+          isValidPosition: Number.isInteger(position) && position >= 0
+        });
         throw new Error(`Invalid stage data: id=${stage.id}, position=${stage.position}`);
       }
+    }
+    
+    // Update all stages
+    for (const stage of stages) {
+      const id = Number(stage.id);
+      const position = Number(stage.position);
+      
+      console.log(`Updating stage ${id} to position ${position}`);
       
       await db
         .update(pipelineStages)
-        .set({ position: stage.position, updatedAt: new Date() })
-        .where(eq(pipelineStages.id, stage.id));
+        .set({ position: position, updatedAt: new Date() })
+        .where(eq(pipelineStages.id, id));
     }
+    
+    console.log('All stage positions updated successfully');
   }
+
+  
 
   // Pipeline operations
   async getPipelines(): Promise<Pipeline[]> {

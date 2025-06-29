@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, DollarSign, ArrowUp, ArrowDown, Settings } from "lucide-react";
+import { Plus, DollarSign, ArrowUpDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import DealForm from "./deal-form";
 import type { DealWithRelations, PipelineStage } from "@shared/schema";
@@ -25,6 +26,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [newStageTitle, setNewStageTitle] = useState("");
   const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
   const [reorderStages, setReorderStages] = useState<PipelineStage[]>([]);
+  
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -134,42 +136,44 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
   // Update stage positions mutation
   const updateStagePositionsMutation = useMutation({
-    mutationFn: async (stagesData: Array<{ id: number; position: number }>) => {
-      const response = await fetch("/api/pipeline-stages/positions", {
-        method: "PUT",
+    mutationFn: async (stages: Array<{ id: number; position: number }>) => {
+      console.log('Updating stage positions:', stages);
+      const response = await fetch('/api/pipeline-stages/positions', {
+        method: 'PUT',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        credentials: "include",
-        body: JSON.stringify({ stages: stagesData }),
+        credentials: 'include',
+        body: JSON.stringify({ stages }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to update stage positions: ${response.status} - ${errorText}`);
+        const errorData = await response.text();
+        throw new Error(`Failed to update stage positions: ${response.status} - ${errorData}`);
       }
 
-      const result = await response.json();
-      return result;
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       setIsReorderModalOpen(false);
       toast({
         title: "Sucesso",
-        description: "Ordem dos estágios atualizada",
+        description: "Ordem dos estágios atualizada com sucesso",
       });
     },
     onError: (error) => {
       console.error("Error updating stage positions:", error);
-      queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
       toast({
         title: "Erro",
-        description: `Erro ao reordenar estágios: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        description: `Erro ao atualizar ordem dos estágios: ${error.message}`,
         variant: "destructive",
       });
     },
   });
+
+  
 
   const handleCreateStage = () => {
     if (newStageTitle.trim()) {
@@ -182,54 +186,95 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     setIsDealDialogOpen(true);
   };
 
-  const openReorderModal = () => {
-    // Sort stages by position and set them in local state
-    const sortedStages = [...stages]
-      .filter(stage => stage && typeof stage.id === 'number' && !isNaN(stage.id))
-      .sort((a, b) => (a.position || 0) - (b.position || 0));
+  const handleOpenReorderModal = () => {
+    if (Array.isArray(stages)) {
+      const sortedStages = [...stages].sort((a, b) => a.position - b.position);
+      setReorderStages(sortedStages);
+      setIsReorderModalOpen(true);
+    }
+  };
+
+  const handleStagePositionChange = (stageId: number, newPosition: number) => {
+    console.log('handleStagePositionChange called:', { stageId, newPosition });
     
-    if (sortedStages.length === 0) {
-      toast({
-        title: "Erro",
-        description: "Nenhum estágio disponível para reordenar",
-        variant: "destructive",
-      });
+    // Validate inputs
+    if (typeof stageId !== 'number' || isNaN(stageId) || stageId <= 0) {
+      console.error('Invalid stageId:', stageId);
       return;
     }
     
-    setReorderStages(sortedStages);
-    setIsReorderModalOpen(true);
-  };
-
-  const moveStageUp = (index: number) => {
-    if (index > 0) {
-      const newStages = [...reorderStages];
-      [newStages[index - 1], newStages[index]] = [newStages[index], newStages[index - 1]];
-      setReorderStages(newStages);
+    if (typeof newPosition !== 'number' || isNaN(newPosition) || !Number.isInteger(newPosition) || newPosition < 0) {
+      console.error('Invalid newPosition:', newPosition);
+      return;
     }
+    
+    setReorderStages(prev => {
+      console.log('Previous stages:', prev);
+      
+      // Find the stage being updated
+      const stageToUpdate = prev.find(stage => stage.id === stageId);
+      if (!stageToUpdate) {
+        console.error('Stage not found:', stageId);
+        return prev;
+      }
+      
+      // Update the specific stage
+      const updatedStages = prev.map(stage => 
+        stage.id === stageId 
+          ? { ...stage, position: newPosition }
+          : stage
+      );
+      
+      console.log('Updated stages before sorting:', updatedStages);
+      
+      // Sort by position and reassign sequential positions to avoid gaps
+      const finalStages = updatedStages
+        .sort((a, b) => a.position - b.position)
+        .map((stage, index) => ({ ...stage, position: index }));
+      
+      console.log('Final stages:', finalStages);
+      
+      return finalStages;
+    });
   };
 
-  const moveStageDown = (index: number) => {
-    if (index < reorderStages.length - 1) {
-      const newStages = [...reorderStages];
-      [newStages[index], newStages[index + 1]] = [newStages[index + 1], newStages[index]];
-      setReorderStages(newStages);
-    }
-  };
-
-  const saveStageOrder = () => {
-    // Validate reorderStages array and create clean position data
-    const stagesData = reorderStages
-      .filter(stage => stage && typeof stage.id === 'number' && !isNaN(stage.id))
-      .map((stage, index) => ({
+  const handleSaveReorder = () => {
+    console.log('=== SAVING REORDER ===');
+    console.log('Current reorderStages:', reorderStages);
+    
+    // Ensure all positions are valid sequential integers
+    const sortedStages = reorderStages.sort((a, b) => a.position - b.position);
+    console.log('Sorted stages:', sortedStages);
+    
+    const stageUpdates = sortedStages.map((stage, index) => {
+      const update = {
         id: Number(stage.id),
-        position: Number(index),
-      }))
-      .filter(stageData => !isNaN(stageData.id) && !isNaN(stageData.position));
+        position: Number(index)
+      };
+      console.log('Creating update:', update, 'from stage:', stage);
+      return update;
+    });
     
-    console.log("Updating stage positions:", stagesData);
+    console.log('Stage updates before filtering:', stageUpdates);
     
-    if (stagesData.length === 0) {
+    const validUpdates = stageUpdates.filter(stage => {
+      const isValidId = Number.isInteger(stage.id) && stage.id > 0;
+      const isValidPosition = Number.isInteger(stage.position) && stage.position >= 0;
+      
+      console.log('Validating update:', stage, {
+        isValidId,
+        isValidPosition,
+        idType: typeof stage.id,
+        positionType: typeof stage.position
+      });
+      
+      return isValidId && isValidPosition;
+    });
+    
+    console.log('Valid stage updates:', validUpdates);
+    
+    if (validUpdates.length === 0) {
+      console.error('No valid stage updates found');
       toast({
         title: "Erro",
         description: "Nenhum estágio válido para reordenar",
@@ -238,8 +283,18 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return;
     }
     
-    updateStagePositionsMutation.mutate(stagesData);
+    if (validUpdates.length !== reorderStages.length) {
+      console.warn('Some stages were filtered out:', {
+        original: reorderStages.length,
+        valid: validUpdates.length
+      });
+    }
+    
+    console.log('Sending mutation with:', validUpdates);
+    updateStagePositionsMutation.mutate(validUpdates);
   };
+
+  
 
   // Handle drag and drop for deals only
   const handleDragEnd = (result: DropResult) => {
@@ -340,12 +395,12 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
           <h3 className="text-lg font-semibold">Pipeline Kanban</h3>
           <div className="flex gap-2">
             <Button
-              onClick={openReorderModal}
+              onClick={handleOpenReorderModal}
               size="sm"
               variant="outline"
             >
-              <Settings className="h-4 w-4 mr-2" />
-              Reordenar Estágios
+              <ArrowUpDown className="h-4 w-4 mr-2" />
+              Reordenar Etapas
             </Button>
             <Button
               onClick={() => setIsAddingStage(true)}
@@ -494,58 +549,90 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
             })}
         </div>
 
-        {/* Stage reorder modal */}
+        
+
+        {/* Reorder stages modal */}
         <Dialog open={isReorderModalOpen} onOpenChange={setIsReorderModalOpen}>
-          <DialogContent className="max-w-md" aria-describedby="reorder-description">
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Reordenar Estágios</DialogTitle>
+              <DialogTitle>Reordenar Etapas do Pipeline</DialogTitle>
             </DialogHeader>
-            <div id="reorder-description" className="sr-only">
-              Use os botões de seta para reordenar os estágios do pipeline
-            </div>
             <div className="space-y-4">
-              <div className="space-y-2">
-                {reorderStages.map((stage, index) => (
-                  <div key={stage.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{stage.title}</span>
-                      {stage.isDefault && (
-                        <Badge variant="outline" className="text-xs">
-                          Padrão
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveStageUp(index)}
-                        disabled={index === 0}
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveStageDown(index)}
-                        disabled={index === reorderStages.length - 1}
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
-                    </div>
+              <p className="text-sm text-muted-foreground">
+                Defina a ordem das etapas numerando de 1 a {reorderStages.length}:
+              </p>
+              {reorderStages.map((stage, index) => (
+                <div key={stage.id} className="flex items-center gap-3">
+                  <Label className="w-4 text-sm font-medium">{index + 1}.</Label>
+                  <div className="flex-1">
+                    <Label className="text-sm">{stage.title}</Label>
                   </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
+                  <div className="w-20">
+                    <Input
+                      type="number"
+                      min="1"
+                      max={reorderStages.length}
+                      value={stage.position + 1}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        console.log('Input value changed:', inputValue, 'for stage', stage.id);
+                        
+                        if (inputValue === '' || inputValue === '0') {
+                          console.log('Empty or zero input, skipping');
+                          return;
+                        }
+                        
+                        const parsedValue = parseInt(inputValue, 10);
+                        console.log('Parsed value:', parsedValue);
+                        
+                        if (isNaN(parsedValue)) {
+                          console.log('NaN detected, skipping');
+                          return;
+                        }
+                        
+                        const newPosition = parsedValue - 1;
+                        console.log('New position calculated:', newPosition);
+                        
+                        if (
+                          Number.isInteger(newPosition) &&
+                          newPosition >= 0 && 
+                          newPosition < reorderStages.length
+                        ) {
+                          handleStagePositionChange(stage.id, newPosition);
+                        } else {
+                          console.log('Invalid position, not updating:', { newPosition, min: 0, max: reorderStages.length - 1 });
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Reset to current position if invalid value
+                        const inputValue = e.target.value;
+                        const newPosition = parseInt(inputValue) - 1;
+                        if (
+                          isNaN(newPosition) || 
+                          !Number.isInteger(newPosition) ||
+                          newPosition < 0 || 
+                          newPosition >= reorderStages.length
+                        ) {
+                          e.target.value = (stage.position + 1).toString();
+                        }
+                      }}
+                      className="text-center"
+                    />
+                  </div>
+                </div>
+              ))}
+              <div className="flex gap-2 pt-4">
                 <Button
-                  onClick={saveStageOrder}
+                  onClick={handleSaveReorder}
                   disabled={updateStagePositionsMutation.isPending}
+                  className="flex-1"
                 >
-                  Salvar Ordem
+                  {updateStagePositionsMutation.isPending ? "Salvando..." : "Salvar Ordem"}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setIsReorderModalOpen(false)}
+                  className="flex-1"
                 >
                   Cancelar
                 </Button>
