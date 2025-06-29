@@ -513,7 +513,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
-      await storage.updateStagePositions(req.body.stages);
+      const { stages } = req.body;
+      
+      // Validate that stages is an array
+      if (!Array.isArray(stages)) {
+        return res.status(400).json({ message: "Stages must be an array" });
+      }
+
+      // Validate each stage entry
+      for (const stage of stages) {
+        if (!stage || typeof stage.id !== 'number' || typeof stage.position !== 'number') {
+          return res.status(400).json({ 
+            message: "Each stage must have valid id and position numbers" 
+          });
+        }
+        
+        if (isNaN(stage.id) || isNaN(stage.position)) {
+          return res.status(400).json({ 
+            message: "Stage id and position must be valid numbers" 
+          });
+        }
+      }
+
+      await storage.updateStagePositions(stages);
       res.status(204).send();
     } catch (error) {
       console.error("Error updating stage positions:", error);
