@@ -705,6 +705,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
+    console.log('updateStagePositions called with:', stages);
+    
     for (const stage of stages) {
       // Validate that id and position are valid numbers
       if (isNaN(stage.id) || isNaN(stage.position) || stage.id <= 0 || stage.position < 0) {
@@ -712,11 +714,15 @@ export class DatabaseStorage implements IStorage {
         throw new Error(`Invalid stage data: id=${stage.id}, position=${stage.position}`);
       }
       
+      console.log(`Updating stage ${stage.id} to position ${stage.position}`);
+      
       await db
         .update(pipelineStages)
         .set({ position: stage.position, updatedAt: new Date() })
         .where(eq(pipelineStages.id, stage.id));
     }
+    
+    console.log('All stage positions updated successfully');
   }
 
   // Pipeline operations
