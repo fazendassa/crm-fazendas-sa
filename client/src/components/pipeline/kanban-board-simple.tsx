@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, DollarSign, ArrowUp, ArrowDown, Settings } from "lucide-react";
+import { Plus, DollarSign } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import DealForm from "./deal-form";
 import type { DealWithRelations, PipelineStage } from "@shared/schema";
@@ -23,8 +23,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [defaultStage, setDefaultStage] = useState<string | undefined>();
   const [isAddingStage, setIsAddingStage] = useState(false);
   const [newStageTitle, setNewStageTitle] = useState("");
-  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
-  const [reorderStages, setReorderStages] = useState<PipelineStage[]>([]);
+  
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -132,44 +131,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     },
   });
 
-  // Update stage positions mutation
-  const updateStagePositionsMutation = useMutation({
-    mutationFn: async (stagesData: Array<{ id: number; position: number }>) => {
-      const response = await fetch("/api/pipeline-stages/positions", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ stages: stagesData }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to update stage positions: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      return result;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
-      setIsReorderModalOpen(false);
-      toast({
-        title: "Sucesso",
-        description: "Ordem dos estágios atualizada",
-      });
-    },
-    onError: (error) => {
-      console.error("Error updating stage positions:", error);
-      queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
-      toast({
-        title: "Erro",
-        description: `Erro ao reordenar estágios: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
-        variant: "destructive",
-      });
-    },
-  });
+  
 
   const handleCreateStage = () => {
     if (newStageTitle.trim()) {
@@ -182,64 +144,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     setIsDealDialogOpen(true);
   };
 
-  const openReorderModal = () => {
-    // Sort stages by position and set them in local state
-    const sortedStages = [...stages]
-      .filter(stage => stage && typeof stage.id === 'number' && !isNaN(stage.id))
-      .sort((a, b) => (a.position || 0) - (b.position || 0));
-    
-    if (sortedStages.length === 0) {
-      toast({
-        title: "Erro",
-        description: "Nenhum estágio disponível para reordenar",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setReorderStages(sortedStages);
-    setIsReorderModalOpen(true);
-  };
-
-  const moveStageUp = (index: number) => {
-    if (index > 0) {
-      const newStages = [...reorderStages];
-      [newStages[index - 1], newStages[index]] = [newStages[index], newStages[index - 1]];
-      setReorderStages(newStages);
-    }
-  };
-
-  const moveStageDown = (index: number) => {
-    if (index < reorderStages.length - 1) {
-      const newStages = [...reorderStages];
-      [newStages[index], newStages[index + 1]] = [newStages[index + 1], newStages[index]];
-      setReorderStages(newStages);
-    }
-  };
-
-  const saveStageOrder = () => {
-    // Validate reorderStages array and create clean position data
-    const stagesData = reorderStages
-      .filter(stage => stage && typeof stage.id === 'number' && !isNaN(stage.id))
-      .map((stage, index) => ({
-        id: Number(stage.id),
-        position: Number(index),
-      }))
-      .filter(stageData => !isNaN(stageData.id) && !isNaN(stageData.position));
-    
-    console.log("Updating stage positions:", stagesData);
-    
-    if (stagesData.length === 0) {
-      toast({
-        title: "Erro",
-        description: "Nenhum estágio válido para reordenar",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    updateStagePositionsMutation.mutate(stagesData);
-  };
+  
 
   // Handle drag and drop for deals only
   const handleDragEnd = (result: DropResult) => {
@@ -339,14 +244,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Pipeline Kanban</h3>
           <div className="flex gap-2">
-            <Button
-              onClick={openReorderModal}
-              size="sm"
-              variant="outline"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Reordenar Estágios
-            </Button>
             <Button
               onClick={() => setIsAddingStage(true)}
               size="sm"
@@ -494,65 +391,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
             })}
         </div>
 
-        {/* Stage reorder modal */}
-        <Dialog open={isReorderModalOpen} onOpenChange={setIsReorderModalOpen}>
-          <DialogContent className="max-w-md" aria-describedby="reorder-description">
-            <DialogHeader>
-              <DialogTitle>Reordenar Estágios</DialogTitle>
-            </DialogHeader>
-            <div id="reorder-description" className="sr-only">
-              Use os botões de seta para reordenar os estágios do pipeline
-            </div>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                {reorderStages.map((stage, index) => (
-                  <div key={stage.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{stage.title}</span>
-                      {stage.isDefault && (
-                        <Badge variant="outline" className="text-xs">
-                          Padrão
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveStageUp(index)}
-                        disabled={index === 0}
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => moveStageDown(index)}
-                        disabled={index === reorderStages.length - 1}
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={saveStageOrder}
-                  disabled={updateStagePositionsMutation.isPending}
-                >
-                  Salvar Ordem
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsReorderModalOpen(false)}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        
 
         {/* Deal form dialog */}
         <Dialog open={isDealDialogOpen} onOpenChange={setIsDealDialogOpen}>

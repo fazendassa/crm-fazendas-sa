@@ -82,7 +82,7 @@ export interface IStorage {
   createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage>;
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
-  updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
+  
 
   // Dashboard metrics
   getDashboardMetrics(): Promise<{
@@ -704,49 +704,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(pipelineStages).where(eq(pipelineStages.id, id));
   }
 
-  async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
-    console.log('updateStagePositions called with:', stages);
-    
-    // Validate and sanitize input data
-    const validStages = stages.filter(stage => {
-      const id = Number(stage.id);
-      const position = Number(stage.position);
-      
-      // Check if conversion was successful and values are valid
-      const isValidId = !isNaN(id) && isFinite(id) && id > 0 && Number.isInteger(id);
-      const isValidPosition = !isNaN(position) && isFinite(position) && position >= 0 && Number.isInteger(position);
-      
-      if (!isValidId || !isValidPosition) {
-        console.error('Invalid stage data filtered out:', { 
-          original: stage, 
-          converted: { id, position }, 
-          isValidId, 
-          isValidPosition 
-        });
-        return false;
-      }
-      
-      return true;
-    });
-    
-    if (validStages.length === 0) {
-      throw new Error('No valid stages provided for position update');
-    }
-    
-    for (const stage of validStages) {
-      const id = Number(stage.id);
-      const position = Number(stage.position);
-      
-      console.log(`Updating stage ${id} to position ${position}`);
-      
-      await db
-        .update(pipelineStages)
-        .set({ position: position, updatedAt: new Date() })
-        .where(eq(pipelineStages.id, id));
-    }
-    
-    console.log('All stage positions updated successfully');
-  }
+  
 
   // Pipeline operations
   async getPipelines(): Promise<Pipeline[]> {
