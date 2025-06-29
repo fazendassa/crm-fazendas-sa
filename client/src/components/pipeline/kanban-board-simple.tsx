@@ -394,7 +394,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         )}
 
         {/* Kanban columns */}
-        <div className="flex gap-6 overflow-x-auto pb-6">
+        <div className="flex gap-6 pb-6">
           {Array.isArray(stages) &&
             stages
             .sort((a: any, b: any) => a.position - b.position)
@@ -424,7 +424,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className="space-y-3 min-h-[200px] bg-gray-50 rounded-lg p-4"
+                        className="space-y-3 min-h-[200px] bg-gray-50 rounded-lg p-4 overflow-x-auto"
                       >
                         {stageDeals.map((deal, index) => (
                           <Draggable
