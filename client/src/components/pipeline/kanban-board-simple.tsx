@@ -195,20 +195,48 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   };
 
   const handleStagePositionChange = (stageId: number, newPosition: number) => {
-    setReorderStages(prev => 
-      prev.map(stage => 
+    // Validate that newPosition is a valid number
+    if (isNaN(newPosition) || !Number.isInteger(newPosition) || newPosition < 0) {
+      return;
+    }
+    
+    setReorderStages(prev => {
+      const updatedStages = prev.map(stage => 
         stage.id === stageId 
           ? { ...stage, position: newPosition }
           : stage
-      ).sort((a, b) => a.position - b.position)
-    );
+      );
+      
+      // Sort by position and reassign sequential positions to avoid gaps
+      return updatedStages
+        .sort((a, b) => a.position - b.position)
+        .map((stage, index) => ({ ...stage, position: index }));
+    });
   };
 
   const handleSaveReorder = () => {
-    const stageUpdates = reorderStages.map((stage, index) => ({
-      id: stage.id,
-      position: index
-    }));
+    // Ensure all positions are valid sequential integers
+    const stageUpdates = reorderStages
+      .sort((a, b) => a.position - b.position)
+      .map((stage, index) => ({
+        id: stage.id,
+        position: index
+      }))
+      .filter(stage => 
+        Number.isInteger(stage.id) && 
+        Number.isInteger(stage.position) && 
+        stage.id > 0 && 
+        stage.position >= 0
+      );
+    
+    if (stageUpdates.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Nenhum estágio válido para reordenar",
+        variant: "destructive",
+      });
+      return;
+    }
     
     updateStagePositionsMutation.mutate(stageUpdates);
   };
@@ -493,9 +521,30 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                       max={reorderStages.length}
                       value={stage.position + 1}
                       onChange={(e) => {
-                        const newPosition = parseInt(e.target.value) - 1;
-                        if (!isNaN(newPosition) && newPosition >= 0 && newPosition < reorderStages.length) {
+                        const inputValue = e.target.value;
+                        if (inputValue === '') return;
+                        
+                        const newPosition = parseInt(inputValue) - 1;
+                        if (
+                          !isNaN(newPosition) && 
+                          Number.isInteger(newPosition) &&
+                          newPosition >= 0 && 
+                          newPosition < reorderStages.length
+                        ) {
                           handleStagePositionChange(stage.id, newPosition);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Reset to current position if invalid value
+                        const inputValue = e.target.value;
+                        const newPosition = parseInt(inputValue) - 1;
+                        if (
+                          isNaN(newPosition) || 
+                          !Number.isInteger(newPosition) ||
+                          newPosition < 0 || 
+                          newPosition >= reorderStages.length
+                        ) {
+                          e.target.value = (stage.position + 1).toString();
                         }
                       }}
                       className="text-center"
