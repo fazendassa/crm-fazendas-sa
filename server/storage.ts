@@ -688,6 +688,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage> {
+    // Validate numeric fields
+    if (stage.position !== undefined) {
+      const position = Number(stage.position);
+      if (isNaN(position) || !Number.isInteger(position) || position < 0) {
+        throw new Error(`Invalid position value: ${stage.position}`);
+      }
+      stage.position = position;
+    }
+
+    if (stage.pipelineId !== undefined) {
+      const pipelineId = Number(stage.pipelineId);
+      if (isNaN(pipelineId) || !Number.isInteger(pipelineId) || pipelineId <= 0) {
+        throw new Error(`Invalid pipelineId value: ${stage.pipelineId}`);
+      }
+      stage.pipelineId = pipelineId;
+    }
+
     const [updatedStage] = await db
       .update(pipelineStages)
       .set({ ...stage, updatedAt: new Date() })

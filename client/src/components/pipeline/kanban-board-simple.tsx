@@ -195,41 +195,86 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   };
 
   const handleStagePositionChange = (stageId: number, newPosition: number) => {
-    // Validate that newPosition is a valid number
-    if (isNaN(newPosition) || !Number.isInteger(newPosition) || newPosition < 0) {
+    console.log('handleStagePositionChange called:', { stageId, newPosition });
+    
+    // Validate inputs
+    if (typeof stageId !== 'number' || isNaN(stageId) || stageId <= 0) {
+      console.error('Invalid stageId:', stageId);
+      return;
+    }
+    
+    if (typeof newPosition !== 'number' || isNaN(newPosition) || !Number.isInteger(newPosition) || newPosition < 0) {
+      console.error('Invalid newPosition:', newPosition);
       return;
     }
     
     setReorderStages(prev => {
+      console.log('Previous stages:', prev);
+      
+      // Find the stage being updated
+      const stageToUpdate = prev.find(stage => stage.id === stageId);
+      if (!stageToUpdate) {
+        console.error('Stage not found:', stageId);
+        return prev;
+      }
+      
+      // Update the specific stage
       const updatedStages = prev.map(stage => 
         stage.id === stageId 
           ? { ...stage, position: newPosition }
           : stage
       );
       
+      console.log('Updated stages before sorting:', updatedStages);
+      
       // Sort by position and reassign sequential positions to avoid gaps
-      return updatedStages
+      const finalStages = updatedStages
         .sort((a, b) => a.position - b.position)
         .map((stage, index) => ({ ...stage, position: index }));
+      
+      console.log('Final stages:', finalStages);
+      
+      return finalStages;
     });
   };
 
   const handleSaveReorder = () => {
-    // Ensure all positions are valid sequential integers
-    const stageUpdates = reorderStages
-      .sort((a, b) => a.position - b.position)
-      .map((stage, index) => ({
-        id: stage.id,
-        position: index
-      }))
-      .filter(stage => 
-        Number.isInteger(stage.id) && 
-        Number.isInteger(stage.position) && 
-        stage.id > 0 && 
-        stage.position >= 0
-      );
+    console.log('=== SAVING REORDER ===');
+    console.log('Current reorderStages:', reorderStages);
     
-    if (stageUpdates.length === 0) {
+    // Ensure all positions are valid sequential integers
+    const sortedStages = reorderStages.sort((a, b) => a.position - b.position);
+    console.log('Sorted stages:', sortedStages);
+    
+    const stageUpdates = sortedStages.map((stage, index) => {
+      const update = {
+        id: Number(stage.id),
+        position: Number(index)
+      };
+      console.log('Creating update:', update, 'from stage:', stage);
+      return update;
+    });
+    
+    console.log('Stage updates before filtering:', stageUpdates);
+    
+    const validUpdates = stageUpdates.filter(stage => {
+      const isValidId = Number.isInteger(stage.id) && stage.id > 0;
+      const isValidPosition = Number.isInteger(stage.position) && stage.position >= 0;
+      
+      console.log('Validating update:', stage, {
+        isValidId,
+        isValidPosition,
+        idType: typeof stage.id,
+        positionType: typeof stage.position
+      });
+      
+      return isValidId && isValidPosition;
+    });
+    
+    console.log('Valid stage updates:', validUpdates);
+    
+    if (validUpdates.length === 0) {
+      console.error('No valid stage updates found');
       toast({
         title: "Erro",
         description: "Nenhum estágio válido para reordenar",
@@ -238,7 +283,15 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return;
     }
     
-    updateStagePositionsMutation.mutate(stageUpdates);
+    if (validUpdates.length !== reorderStages.length) {
+      console.warn('Some stages were filtered out:', {
+        original: reorderStages.length,
+        valid: validUpdates.length
+      });
+    }
+    
+    console.log('Sending mutation with:', validUpdates);
+    updateStagePositionsMutation.mutate(validUpdates);
   };
 
   
@@ -522,16 +575,32 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                       value={stage.position + 1}
                       onChange={(e) => {
                         const inputValue = e.target.value;
-                        if (inputValue === '') return;
+                        console.log('Input value changed:', inputValue, 'for stage', stage.id);
                         
-                        const newPosition = parseInt(inputValue) - 1;
+                        if (inputValue === '' || inputValue === '0') {
+                          console.log('Empty or zero input, skipping');
+                          return;
+                        }
+                        
+                        const parsedValue = parseInt(inputValue, 10);
+                        console.log('Parsed value:', parsedValue);
+                        
+                        if (isNaN(parsedValue)) {
+                          console.log('NaN detected, skipping');
+                          return;
+                        }
+                        
+                        const newPosition = parsedValue - 1;
+                        console.log('New position calculated:', newPosition);
+                        
                         if (
-                          !isNaN(newPosition) && 
                           Number.isInteger(newPosition) &&
                           newPosition >= 0 && 
                           newPosition < reorderStages.length
                         ) {
                           handleStagePositionChange(stage.id, newPosition);
+                        } else {
+                          console.log('Invalid position, not updating:', { newPosition, min: 0, max: reorderStages.length - 1 });
                         }
                       }}
                       onBlur={(e) => {

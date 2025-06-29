@@ -493,7 +493,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/:id", isAuthenticated, async (req, res) => {
     try {
-      const stage = await storage.updatePipelineStage(parseInt(req.params.id), req.body);
+      const stageId = parseInt(req.params.id);
+      
+      if (isNaN(stageId) || stageId <= 0) {
+        return res.status(400).json({ message: "Invalid stage ID" });
+      }
+
+      // Validate position if it's being updated
+      if (req.body.position !== undefined) {
+        const position = Number(req.body.position);
+        if (isNaN(position) || !Number.isInteger(position) || position < 0) {
+          return res.status(400).json({ message: "Position must be a valid integer >= 0" });
+        }
+        req.body.position = position;
+      }
+
+      const stage = await storage.updatePipelineStage(stageId, req.body);
       res.json(stage);
     } catch (error) {
       console.error("Error updating pipeline stage:", error);
