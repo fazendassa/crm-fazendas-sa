@@ -196,10 +196,34 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       const stageId = parseInt(draggableId.replace("stage-", ""));
       
       // Validate stage ID
-      if (isNaN(stageId)) {
+      if (isNaN(stageId) || stageId <= 0) {
+        console.error("Invalid stage ID:", stageId, "from draggableId:", draggableId);
         toast({
           title: "Erro",
           description: "ID do estágio inválido",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate stages array
+      if (!Array.isArray(stages) || stages.length === 0) {
+        console.error("Invalid stages array:", stages);
+        toast({
+          title: "Erro",
+          description: "Lista de estágios inválida",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Find the stage being moved
+      const stageToMove = stages.find(stage => stage.id === stageId);
+      if (!stageToMove) {
+        console.error("Stage not found:", stageId, "in stages:", stages);
+        toast({
+          title: "Erro",
+          description: "Estágio não encontrado",
           variant: "destructive",
         });
         return;
@@ -209,9 +233,9 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       const [movedStage] = reorderedStages.splice(source.index, 1);
       reorderedStages.splice(destination.index, 0, movedStage);
 
-      // Update positions - ensure all IDs are valid
+      // Update positions - ensure all IDs are valid numbers
       const updatedStages = reorderedStages
-        .filter(stage => stage && typeof stage.id === 'number')
+        .filter(stage => stage && typeof stage.id === 'number' && stage.id > 0 && !isNaN(stage.id))
         .map((stage, index) => ({
           id: stage.id,
           position: index,
@@ -219,6 +243,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
       // Validate that we have valid stages to update
       if (updatedStages.length === 0) {
+        console.error("No valid stages to update:", reorderedStages);
         toast({
           title: "Erro",
           description: "Nenhum estágio válido encontrado",
@@ -226,6 +251,24 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         });
         return;
       }
+
+      // Additional validation - check for any NaN values
+      const hasInvalidData = updatedStages.some(stage => 
+        isNaN(stage.id) || isNaN(stage.position) || 
+        stage.id <= 0 || stage.position < 0
+      );
+
+      if (hasInvalidData) {
+        console.error("Invalid data detected in updatedStages:", updatedStages);
+        toast({
+          title: "Erro",
+          description: "Dados inválidos detectados",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("Updating stage positions:", updatedStages);
 
       // Optimistically update the cache
       queryClient.setQueryData([`/api/pipeline-stages?pipelineId=${pipelineId}`], reorderedStages.map((stage, index) => ({

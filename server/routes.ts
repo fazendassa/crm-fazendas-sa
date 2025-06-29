@@ -515,27 +515,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { stages } = req.body;
       
+      console.log("Received stage position update request:", req.body);
+      
       // Validate that stages is an array
       if (!Array.isArray(stages)) {
+        console.error("Stages is not an array:", stages);
         return res.status(400).json({ message: "Stages must be an array" });
       }
 
+      if (stages.length === 0) {
+        console.error("Empty stages array");
+        return res.status(400).json({ message: "Stages array cannot be empty" });
+      }
+
       // Validate each stage entry
-      for (const stage of stages) {
-        if (!stage || typeof stage.id !== 'number' || typeof stage.position !== 'number') {
+      for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
+        
+        if (!stage) {
+          console.error(`Stage at index ${i} is null/undefined:`, stage);
           return res.status(400).json({ 
-            message: "Each stage must have valid id and position numbers" 
+            message: `Stage at index ${i} is invalid` 
           });
         }
         
-        if (isNaN(stage.id) || isNaN(stage.position)) {
+        if (typeof stage.id !== 'number' || typeof stage.position !== 'number') {
+          console.error(`Stage at index ${i} has invalid types:`, stage, typeof stage.id, typeof stage.position);
           return res.status(400).json({ 
-            message: "Stage id and position must be valid numbers" 
+            message: `Stage at index ${i} must have valid id and position numbers` 
+          });
+        }
+        
+        if (isNaN(stage.id) || isNaN(stage.position) || stage.id <= 0 || stage.position < 0) {
+          console.error(`Stage at index ${i} has invalid values:`, stage);
+          return res.status(400).json({ 
+            message: `Stage at index ${i} has invalid id or position values` 
           });
         }
       }
 
+      console.log("All validations passed, updating stage positions:", stages);
       await storage.updateStagePositions(stages);
+      console.log("Stage positions updated successfully");
       res.status(204).send();
     } catch (error) {
       console.error("Error updating stage positions:", error);
