@@ -1,0 +1,46 @@
+Warning: Connect(Droppable): Support for defaultProps will be removed from memo components in a future major release. Use JavaScript default parameters instead.
+    at div
+    at div
+    at div
+    at Provider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=6a04c960:1738:20)
+    at App (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=6a04c960:8281:25)
+    at ErrorBoundary2 (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=6a04c960:2778:35)
+    at DragDropContext (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=6a04c960:8401:19)
+    at KanbanBoard (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/components/pipeline/kanban-board-simple.tsx:29:39)
+    at div
+    at Pipeline (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/pages/pipeline.tsx:37:55)
+    at Route (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=6a04c960:323:16)
+    at Switch (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=6a04c960:379:17)
+    at main
+    at div
+    at div
+    at Router (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/App.tsx?v=_4IEtZ4eglfRE6EeZ3hVJ:38:42)
+    at Provider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=6a04c960:38:15)
+    at TooltipProvider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=6a04c960:61:5)
+    at QueryClientProvider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=6a04c960:2805:3)
+    at App
+at div
+at div
+at div
+at Provider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=6a04c960:1738:20)
+at App (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=6a04c960:8281:25)
+at ErrorBoundary2 (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=6a04c960:2778:35)
+at DragDropContext (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/react-beautiful-dnd.js?v=6a04c960:8401:19)
+at KanbanBoard (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/components/pipeline/kanban-board-simple.tsx:29:39)
+at div
+at Pipeline (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/pages/pipeline.tsx:37:55)
+at Route (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=6a04c960:323:16)
+at Switch (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=6a04c960:379:17)
+at main
+at div
+at div
+at Router (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/App.tsx?v=_4IEtZ4eglfRE6EeZ3hVJ:38:42)
+at Provider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=6a04c960:38:15)
+at TooltipProvider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=6a04c960:61:5)
+at QueryClientProvider (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=6a04c960:2805:3)
+at App
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.

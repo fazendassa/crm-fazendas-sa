@@ -706,6 +706,12 @@ export class DatabaseStorage implements IStorage {
 
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
     for (const stage of stages) {
+      // Validate that id and position are valid numbers
+      if (isNaN(stage.id) || isNaN(stage.position) || stage.id <= 0 || stage.position < 0) {
+        console.error('Invalid stage data:', stage);
+        throw new Error(`Invalid stage data: id=${stage.id}, position=${stage.position}`);
+      }
+      
       await db
         .update(pipelineStages)
         .set({ position: stage.position, updatedAt: new Date() })

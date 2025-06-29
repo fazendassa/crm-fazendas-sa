@@ -515,31 +515,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { stages } = req.body;
       
+      console.log("Received stage position update request:", req.body);
+      
       // Validate that stages is an array
       if (!Array.isArray(stages)) {
+        console.error("Stages is not an array:", stages);
         return res.status(400).json({ message: "Stages must be an array" });
       }
 
-      // Validate each stage entry
-      for (const stage of stages) {
-        if (!stage || typeof stage.id !== 'number' || typeof stage.position !== 'number') {
+      if (stages.length === 0) {
+        console.error("Empty stages array");
+        return res.status(400).json({ message: "Stages array cannot be empty" });
+      }
+
+      // Validate and sanitize each stage entry
+      const validStages = [];
+      for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
+        
+        if (!stage) {
+          console.error(`Stage at index ${i} is null/undefined:`, stage);
           return res.status(400).json({ 
-            message: "Each stage must have valid id and position numbers" 
+            message: `Stage at index ${i} is invalid` 
           });
         }
         
-        if (isNaN(stage.id) || isNaN(stage.position)) {
+        // Convert to numbers and validate
+        const id = Number(stage.id);
+        const position = Number(stage.position);
+        
+        if (isNaN(id) || isNaN(position) || id <= 0 || position < 0) {
+          console.error(`Stage at index ${i} has invalid values:`, stage, { id, position });
           return res.status(400).json({ 
-            message: "Stage id and position must be valid numbers" 
+            message: `Stage at index ${i} has invalid id (${stage.id}) or position (${stage.position}) values` 
           });
         }
+        
+        validStages.push({ id, position });
       }
 
-      await storage.updateStagePositions(stages);
+      console.log("All validations passed, updating stage positions:", validStages);
+      await storage.updateStagePositions(validStages);
+      console.log("Stage positions updated successfully");
       res.status(204).send();
     } catch (error) {
       console.error("Error updating stage positions:", error);
-      res.status(500).json({ message: "Failed to update stage positions" });
+      res.status(500).json({ 
+        message: "Failed to update stage positions",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
