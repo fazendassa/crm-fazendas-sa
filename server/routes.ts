@@ -528,17 +528,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
+      console.log("PUT /api/pipeline-stages/positions - Request body:", req.body);
+      
       const { stages } = req.body;
       
       if (!Array.isArray(stages)) {
+        console.error("Stages is not an array:", stages);
         return res.status(400).json({ message: "Stages array is required" });
       }
 
+      if (stages.length === 0) {
+        console.error("Empty stages array");
+        return res.status(400).json({ message: "Stages array cannot be empty" });
+      }
+
+      // Validate each stage before processing
+      for (const stage of stages) {
+        if (!stage.id || !Number.isInteger(Number(stage.id)) || Number(stage.id) <= 0) {
+          console.error("Invalid stage ID:", stage);
+          return res.status(400).json({ message: `Invalid stage ID: ${stage.id}` });
+        }
+        
+        if (stage.position === undefined || !Number.isInteger(Number(stage.position)) || Number(stage.position) < 0) {
+          console.error("Invalid stage position:", stage);
+          return res.status(400).json({ message: `Invalid stage position: ${stage.position}` });
+        }
+      }
+
+      console.log("All validations passed, calling storage.updateStagePositions");
       await storage.updateStagePositions(stages);
       res.json({ message: "Stage positions updated successfully" });
     } catch (error) {
       console.error("Error updating stage positions:", error);
-      res.status(500).json({ message: "Failed to update pipeline stage" });
+      res.status(500).json({ 
+        message: "Failed to update stage positions", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 

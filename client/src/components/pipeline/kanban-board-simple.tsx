@@ -203,7 +203,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return;
     }
     
-    if (typeof newPosition !== 'number' || isNaN(newPosition) || !Number.isInteger(newPosition) || newPosition < 0) {
+    if (typeof newPosition !== 'number' || isNaN(newPosition) || newPosition < 0) {
       console.error('Invalid newPosition:', newPosition);
       return;
     }
@@ -218,21 +218,20 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         return prev;
       }
       
-      // Update the specific stage
-      const updatedStages = prev.map(stage => 
-        stage.id === stageId 
-          ? { ...stage, position: newPosition }
-          : stage
-      );
+      // Create a new array without the stage being moved
+      const otherStages = prev.filter(stage => stage.id !== stageId);
       
-      console.log('Updated stages before sorting:', updatedStages);
+      // Insert the stage at the new position
+      const newStages = [...otherStages];
+      newStages.splice(newPosition, 0, { ...stageToUpdate, position: newPosition });
       
-      // Sort by position and reassign sequential positions to avoid gaps
-      const finalStages = updatedStages
-        .sort((a, b) => a.position - b.position)
-        .map((stage, index) => ({ ...stage, position: index }));
+      // Reassign sequential positions
+      const finalStages = newStages.map((stage, index) => ({
+        ...stage,
+        position: index
+      }));
       
-      console.log('Final stages:', finalStages);
+      console.log('Final stages after reorder:', finalStages);
       
       return finalStages;
     });
@@ -577,8 +576,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                         const inputValue = e.target.value;
                         console.log('Input value changed:', inputValue, 'for stage', stage.id);
                         
-                        if (inputValue === '' || inputValue === '0') {
-                          console.log('Empty or zero input, skipping');
+                        // Allow temporary empty state while typing
+                        if (inputValue === '') {
                           return;
                         }
                         
@@ -590,26 +589,30 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                           return;
                         }
                         
+                        // Convert to 0-based position
                         const newPosition = parsedValue - 1;
                         console.log('New position calculated:', newPosition);
                         
-                        if (
-                          Number.isInteger(newPosition) &&
-                          newPosition >= 0 && 
-                          newPosition < reorderStages.length
-                        ) {
+                        // Allow any valid position within range
+                        if (newPosition >= 0 && newPosition < reorderStages.length) {
                           handleStagePositionChange(stage.id, newPosition);
                         } else {
-                          console.log('Invalid position, not updating:', { newPosition, min: 0, max: reorderStages.length - 1 });
+                          console.log('Position out of range:', { newPosition, min: 0, max: reorderStages.length - 1 });
                         }
                       }}
                       onBlur={(e) => {
                         // Reset to current position if invalid value
                         const inputValue = e.target.value;
-                        const newPosition = parseInt(inputValue) - 1;
+                        if (inputValue === '') {
+                          e.target.value = (stage.position + 1).toString();
+                          return;
+                        }
+                        
+                        const parsedValue = parseInt(inputValue, 10);
+                        const newPosition = parsedValue - 1;
+                        
                         if (
-                          isNaN(newPosition) || 
-                          !Number.isInteger(newPosition) ||
+                          isNaN(parsedValue) || 
                           newPosition < 0 || 
                           newPosition >= reorderStages.length
                         ) {
