@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "react-beautiful-dnd";
@@ -7,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, DollarSign, GripVertical } from "lucide-react";
+import { Plus, DollarSign, ArrowUp, ArrowDown, Settings } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import DealForm from "./deal-form";
 import type { DealWithRelations, PipelineStage } from "@shared/schema";
@@ -22,6 +23,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [defaultStage, setDefaultStage] = useState<string | undefined>();
   const [isAddingStage, setIsAddingStage] = useState(false);
   const [newStageTitle, setNewStageTitle] = useState("");
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
+  const [reorderStages, setReorderStages] = useState<PipelineStage[]>([]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -149,6 +152,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
+      setIsReorderModalOpen(false);
       toast({
         title: "Sucesso",
         description: "Ordem dos estágios atualizada",
@@ -176,9 +180,41 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     setIsDealDialogOpen(true);
   };
 
-  // Handle drag and drop
+  const openReorderModal = () => {
+    // Sort stages by position and set them in local state
+    const sortedStages = [...stages].sort((a, b) => a.position - b.position);
+    setReorderStages(sortedStages);
+    setIsReorderModalOpen(true);
+  };
+
+  const moveStageUp = (index: number) => {
+    if (index > 0) {
+      const newStages = [...reorderStages];
+      [newStages[index - 1], newStages[index]] = [newStages[index], newStages[index - 1]];
+      setReorderStages(newStages);
+    }
+  };
+
+  const moveStageDown = (index: number) => {
+    if (index < reorderStages.length - 1) {
+      const newStages = [...reorderStages];
+      [newStages[index], newStages[index + 1]] = [newStages[index + 1], newStages[index]];
+      setReorderStages(newStages);
+    }
+  };
+
+  const saveStageOrder = () => {
+    const stagesData = reorderStages.map((stage, index) => ({
+      id: stage.id,
+      position: index,
+    }));
+    
+    updateStagePositionsMutation.mutate(stagesData);
+  };
+
+  // Handle drag and drop for deals only
   const handleDragEnd = (result: DropResult) => {
-    const { destination, source, draggableId, type } = result;
+    const { destination, source, draggableId } = result;
 
     // If no destination, return
     if (!destination) return;
@@ -188,79 +224,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       destination.droppableId === source.droppableId &&
       destination.index === source.index
     ) {
-      return;
-    }
-
-    // Handle stage reordering
-    if (type === "STAGE") {
-      console.log("Handling stage reordering:", { draggableId, source, destination });
-      
-      // Extract stage ID more carefully
-      const stageIdStr = draggableId.replace("stage-", "");
-      const stageId = parseInt(stageIdStr, 10);
-      
-      console.log("Extracted stage ID:", { stageIdStr, stageId });
-      
-      // Validate stage ID
-      if (isNaN(stageId) || stageId <= 0) {
-        console.error("Invalid stage ID:", stageId, "from draggableId:", draggableId);
-        toast({
-          title: "Erro",
-          description: "ID do estágio inválido",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validate stages array
-      if (!Array.isArray(stages) || stages.length === 0) {
-        console.error("Invalid stages array:", stages);
-        toast({
-          title: "Erro",
-          description: "Lista de estágios inválida",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Sort stages by position to ensure consistent ordering
-      const sortedStages = [...stages].sort((a, b) => a.position - b.position);
-      console.log("Sorted stages:", sortedStages);
-
-      // Create new array with reordered stages
-      const reorderedStages = Array.from(sortedStages);
-      const [movedStage] = reorderedStages.splice(source.index, 1);
-      reorderedStages.splice(destination.index, 0, movedStage);
-
-      console.log("Reordered stages:", reorderedStages);
-
-      // Create update data with new positions
-      const updatedStages = reorderedStages.map((stage, index) => {
-        const stageUpdate = {
-          id: Number(stage.id),
-          position: Number(index),
-        };
-        
-        // Validate each stage update
-        if (isNaN(stageUpdate.id) || isNaN(stageUpdate.position) || 
-            stageUpdate.id <= 0 || stageUpdate.position < 0) {
-          console.error("Invalid stage update data:", stageUpdate, "from stage:", stage);
-          throw new Error(`Invalid stage data: id=${stageUpdate.id}, position=${stageUpdate.position}`);
-        }
-        
-        return stageUpdate;
-      });
-
-      console.log("Final stage updates to send:", updatedStages);
-
-      // Optimistically update the cache
-      queryClient.setQueryData([`/api/pipeline-stages?pipelineId=${pipelineId}`], reorderedStages.map((stage, index) => ({
-        ...stage,
-        position: index,
-      })));
-
-      // Update positions on server
-      updateStagePositionsMutation.mutate(updatedStages);
       return;
     }
 
@@ -346,14 +309,24 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Pipeline Kanban</h3>
-          <Button
-            onClick={() => setIsAddingStage(true)}
-            size="sm"
-            variant="outline"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Estágio
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={openReorderModal}
+              size="sm"
+              variant="outline"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Reordenar Estágios
+            </Button>
+            <Button
+              onClick={() => setIsAddingStage(true)}
+              size="sm"
+              variant="outline"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Estágio
+            </Button>
+          </div>
         </div>
 
         {/* Add new stage form */}
@@ -394,132 +367,160 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         )}
 
         {/* Kanban columns */}
-        <Droppable droppableId="stages" direction="horizontal" type="STAGE">
-          {(provided) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              className="flex gap-6 overflow-x-auto pb-6"
-            >
-              {Array.isArray(stages) &&
-                stages
-                .sort((a: any, b: any) => a.position - b.position)
-                .map((stage: any, index: number) => {
-                  const stageDeals = stageDealsMap.get(stage.title) || [];
-                  
-                  return (
-                    <Draggable
-                      key={stage.id}
-                      draggableId={`stage-${stage.id}`}
-                      index={index}
-                    >
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          className={`flex-shrink-0 w-80 space-y-4 ${
-                            snapshot.isDragging ? 'opacity-50' : ''
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div
-                                {...provided.dragHandleProps}
-                                className="cursor-grab hover:bg-gray-100 p-1 rounded"
-                              >
-                                <GripVertical className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-                                {stage.title}
-                              </h4>
-                              {stage.isDefault && (
-                                <Badge variant="outline" className="text-xs">
-                                  Padrão
-                                </Badge>
-                              )}
-                            </div>
-                            <Badge variant="secondary" className="text-xs">
-                              {stageDeals.length}
-                            </Badge>
-                          </div>
-
-                          <Droppable droppableId={stage.title}>
-                            {(provided) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.droppableProps}
-                                className="space-y-3 min-h-[200px] bg-gray-50 rounded-lg p-4"
-                              >
-                                {stageDeals.map((deal, index) => (
-                                  <Draggable
-                                    key={deal.id}
-                                    draggableId={`deal-${deal.id}`}
-                                    index={index}
-                                  >
-                                    {(provided, snapshot) => (
-                                      <Card
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        {...provided.dragHandleProps}
-                                        className={`cursor-pointer hover:shadow-md transition-shadow bg-white ${
-                                          snapshot.isDragging ? 'shadow-lg rotate-2' : ''
-                                        }`}
-                                        onClick={() => handleEditDeal(deal)}
-                                      >
-                                        <CardHeader className="pb-2">
-                                          <CardTitle className="text-sm font-medium">
-                                            {deal.title}
-                                          </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="pt-0">
-                                          <div className="space-y-2">
-                                            {deal.value && (
-                                              <div className="flex items-center text-sm text-muted-foreground">
-                                                <DollarSign className="h-3 w-3 mr-1" />
-                                                {new Intl.NumberFormat('pt-BR', {
-                                                  style: 'currency',
-                                                  currency: 'BRL'
-                                                }).format(parseFloat(deal.value))}
-                                              </div>
-                                            )}
-                                            {deal.company && (
-                                              <div className="text-xs text-muted-foreground">
-                                                {deal.company.name}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </CardContent>
-                                      </Card>
-                                    )}
-                                  </Draggable>
-                                ))}
-                                {provided.placeholder}
-                                
-                                {/* Add new deal button */}
-                                <Button
-                                  variant="outline"
-                                  className="w-full h-20 border-2 border-dashed"
-                                  onClick={() => {
-                                    setSelectedDeal(null);
-                                    setDefaultStage(stage.title);
-                                    setIsDealDialogOpen(true);
-                                  }}
-                                >
-                                  <Plus className="h-4 w-4 mr-2" />
-                                  Nova Oportunidade
-                                </Button>
-                              </div>
-                            )}
-                          </Droppable>
-                        </div>
+        <div className="flex gap-6 overflow-x-auto pb-6">
+          {Array.isArray(stages) &&
+            stages
+            .sort((a: any, b: any) => a.position - b.position)
+            .map((stage: any) => {
+              const stageDeals = stageDealsMap.get(stage.title) || [];
+              
+              return (
+                <div key={stage.id} className="flex-shrink-0 w-80 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                        {stage.title}
+                      </h4>
+                      {stage.isDefault && (
+                        <Badge variant="outline" className="text-xs">
+                          Padrão
+                        </Badge>
                       )}
-                    </Draggable>
-                  );
-                })}
-              {provided.placeholder}
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {stageDeals.length}
+                    </Badge>
+                  </div>
+
+                  <Droppable droppableId={stage.title}>
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className="space-y-3 min-h-[200px] bg-gray-50 rounded-lg p-4"
+                      >
+                        {stageDeals.map((deal, index) => (
+                          <Draggable
+                            key={deal.id}
+                            draggableId={`deal-${deal.id}`}
+                            index={index}
+                          >
+                            {(provided, snapshot) => (
+                              <Card
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className={`cursor-pointer hover:shadow-md transition-shadow bg-white ${
+                                  snapshot.isDragging ? 'shadow-lg rotate-2' : ''
+                                }`}
+                                onClick={() => handleEditDeal(deal)}
+                              >
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="text-sm font-medium">
+                                    {deal.title}
+                                  </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                  <div className="space-y-2">
+                                    {deal.value && (
+                                      <div className="flex items-center text-sm text-muted-foreground">
+                                        <DollarSign className="h-3 w-3 mr-1" />
+                                        {new Intl.NumberFormat('pt-BR', {
+                                          style: 'currency',
+                                          currency: 'BRL'
+                                        }).format(parseFloat(deal.value))}
+                                      </div>
+                                    )}
+                                    {deal.company && (
+                                      <div className="text-xs text-muted-foreground">
+                                        {deal.company.name}
+                                      </div>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                        
+                        {/* Add new deal button */}
+                        <Button
+                          variant="outline"
+                          className="w-full h-20 border-2 border-dashed"
+                          onClick={() => {
+                            setSelectedDeal(null);
+                            setDefaultStage(stage.title);
+                            setIsDealDialogOpen(true);
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Nova Oportunidade
+                        </Button>
+                      </div>
+                    )}
+                  </Droppable>
+                </div>
+              );
+            })}
+        </div>
+
+        {/* Stage reorder modal */}
+        <Dialog open={isReorderModalOpen} onOpenChange={setIsReorderModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reordenar Estágios</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                {reorderStages.map((stage, index) => (
+                  <div key={stage.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{stage.title}</span>
+                      {stage.isDefault && (
+                        <Badge variant="outline" className="text-xs">
+                          Padrão
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => moveStageUp(index)}
+                        disabled={index === 0}
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => moveStageDown(index)}
+                        disabled={index === reorderStages.length - 1}
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={saveStageOrder}
+                  disabled={updateStagePositionsMutation.isPending}
+                >
+                  Salvar Ordem
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsReorderModalOpen(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
             </div>
-          )}
-        </Droppable>
+          </DialogContent>
+        </Dialog>
 
         {/* Deal form dialog */}
         <Dialog open={isDealDialogOpen} onOpenChange={setIsDealDialogOpen}>
