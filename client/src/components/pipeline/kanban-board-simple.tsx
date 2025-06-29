@@ -145,10 +145,12 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to update stage positions: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Failed to update stage positions: ${response.status} - ${errorText}`);
       }
 
-      return response.json();
+      const result = await response.json();
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
@@ -163,7 +165,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
       toast({
         title: "Erro",
-        description: "Erro ao reordenar estágios",
+        description: `Erro ao reordenar estágios: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         variant: "destructive",
       });
     },

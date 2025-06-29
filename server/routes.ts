@@ -308,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
       console.error("Error updating deal:", error);
-      res.status(500).json({ message: "Failed to update deal", error: error.message });
+      res.status(500).json({ message: "Failed to update deal", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -557,7 +557,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("All validations passed, updating stage positions:", validStages);
       await storage.updateStagePositions(validStages);
       console.log("Stage positions updated successfully");
-      res.status(204).send();
+      res.json({ success: true, message: "Stage positions updated successfully" });
     } catch (error) {
       console.error("Error updating stage positions:", error);
       res.status(500).json({ 
