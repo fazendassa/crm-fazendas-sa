@@ -145,10 +145,12 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to update stage positions: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Failed to update stage positions: ${response.status} - ${errorText}`);
       }
 
-      return response.json();
+      const result = await response.json();
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
@@ -163,7 +165,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
       toast({
         title: "Erro",
-        description: "Erro ao reordenar estágios",
+        description: `Erro ao reordenar estágios: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         variant: "destructive",
       });
     },
@@ -182,7 +184,19 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
   const openReorderModal = () => {
     // Sort stages by position and set them in local state
-    const sortedStages = [...stages].sort((a, b) => a.position - b.position);
+    const sortedStages = [...stages]
+      .filter(stage => stage && typeof stage.id === 'number' && !isNaN(stage.id))
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
+    
+    if (sortedStages.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Nenhum estágio disponível para reordenar",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setReorderStages(sortedStages);
     setIsReorderModalOpen(true);
   };
@@ -204,10 +218,25 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   };
 
   const saveStageOrder = () => {
-    const stagesData = reorderStages.map((stage, index) => ({
-      id: stage.id,
-      position: index,
-    }));
+    // Validate reorderStages array and create clean position data
+    const stagesData = reorderStages
+      .filter(stage => stage && typeof stage.id === 'number' && !isNaN(stage.id))
+      .map((stage, index) => ({
+        id: Number(stage.id),
+        position: Number(index),
+      }))
+      .filter(stageData => !isNaN(stageData.id) && !isNaN(stageData.position));
+    
+    console.log("Updating stage positions:", stagesData);
+    
+    if (stagesData.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Nenhum estágio válido para reordenar",
+        variant: "destructive",
+      });
+      return;
+    }
     
     updateStagePositionsMutation.mutate(stagesData);
   };
@@ -467,10 +496,13 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
         {/* Stage reorder modal */}
         <Dialog open={isReorderModalOpen} onOpenChange={setIsReorderModalOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md" aria-describedby="reorder-description">
             <DialogHeader>
               <DialogTitle>Reordenar Estágios</DialogTitle>
             </DialogHeader>
+            <div id="reorder-description" className="sr-only">
+              Use os botões de seta para reordenar os estágios do pipeline
+            </div>
             <div className="space-y-4">
               <div className="space-y-2">
                 {reorderStages.map((stage, index) => (
