@@ -82,6 +82,7 @@ export interface IStorage {
   createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage>;
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
+  updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
   
 
   // Dashboard metrics
@@ -702,6 +703,27 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Cannot delete default pipeline stage");
     }
     await db.delete(pipelineStages).where(eq(pipelineStages.id, id));
+  }
+
+  async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
+    console.log('updateStagePositions called with:', stages);
+    
+    for (const stage of stages) {
+      // Validate that id and position are valid numbers
+      if (isNaN(stage.id) || isNaN(stage.position) || stage.id <= 0 || stage.position < 0) {
+        console.error('Invalid stage data:', stage);
+        throw new Error(`Invalid stage data: id=${stage.id}, position=${stage.position}`);
+      }
+      
+      console.log(`Updating stage ${stage.id} to position ${stage.position}`);
+      
+      await db
+        .update(pipelineStages)
+        .set({ position: stage.position, updatedAt: new Date() })
+        .where(eq(pipelineStages.id, stage.id));
+    }
+    
+    console.log('All stage positions updated successfully');
   }
 
   

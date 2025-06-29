@@ -511,6 +511,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
+    try {
+      const { stages } = req.body;
+      
+      if (!Array.isArray(stages)) {
+        return res.status(400).json({ message: "Stages array is required" });
+      }
+
+      await storage.updateStagePositions(stages);
+      res.json({ message: "Stage positions updated successfully" });
+    } catch (error) {
+      console.error("Error updating stage positions:", error);
+      res.status(500).json({ message: "Failed to update pipeline stage" });
+    }
+  });
+
   
 
   // Dashboard metrics
