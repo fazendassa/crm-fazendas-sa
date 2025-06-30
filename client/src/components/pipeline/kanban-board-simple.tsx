@@ -428,7 +428,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
               <p className="text-sm text-muted-foreground">
                 Use os botões para reordenar as etapas:
               </p>
-              {reorderStages.map((stage, index) => (
+              {Array.isArray(reorderStages) && reorderStages.length > 0 ? reorderStages.map((stage, index) => (
                 <div key={stage.id} className="flex items-center gap-3 p-3 border rounded-lg">
                   <div className="flex-1">
                     <Label className="text-sm font-medium">{stage.title}</Label>
@@ -453,7 +453,9 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                     </Button>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <p className="text-center text-muted-foreground">Nenhum estágio disponível</p>
+              )}
               <div className="flex gap-2 pt-4">
                 <Button
                   onClick={saveStageOrder}

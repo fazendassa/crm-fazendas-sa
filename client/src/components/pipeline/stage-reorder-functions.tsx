@@ -64,18 +64,20 @@ export function useStageReorder(pipelineId: number) {
     setIsReorderModalOpen(true);
   };
 
-  const moveStageUp = (index: number) => {
-    if (index > 0) {
+  const moveStageUp = (stageId: number) => {
+    const currentIndex = reorderStages.findIndex(stage => stage.id === stageId);
+    if (currentIndex > 0) {
       const newStages = [...reorderStages];
-      [newStages[index - 1], newStages[index]] = [newStages[index], newStages[index - 1]];
+      [newStages[currentIndex - 1], newStages[currentIndex]] = [newStages[currentIndex], newStages[currentIndex - 1]];
       setReorderStages(newStages);
     }
   };
 
-  const moveStageDown = (index: number) => {
-    if (index < reorderStages.length - 1) {
+  const moveStageDown = (stageId: number) => {
+    const currentIndex = reorderStages.findIndex(stage => stage.id === stageId);
+    if (currentIndex >= 0 && currentIndex < reorderStages.length - 1) {
       const newStages = [...reorderStages];
-      [newStages[index], newStages[index + 1]] = [newStages[index + 1], newStages[index]];
+      [newStages[currentIndex], newStages[currentIndex + 1]] = [newStages[currentIndex + 1], newStages[currentIndex]];
       setReorderStages(newStages);
     }
   };
