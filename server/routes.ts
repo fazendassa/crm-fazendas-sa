@@ -508,6 +508,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.body.position = position;
       }
 
+      // Verificar existência no banco
+        const existing = await storage.getPipelineStage(stageId);
+
+        if (!existing) {
+          const error = `Stage ID not found in DB: ${stageId}`;
+          console.error("VALIDATION ERROR:", error);
+          return res.status(404).json({ message: error });
+        }
+
       const stage = await storage.updatePipelineStage(stageId, req.body);
       res.json(stage);
     } catch (error) {
@@ -530,12 +539,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('\n=== API: RECEIVED REQUEST ===');
       console.log('Request body:', JSON.stringify(req.body, null, 2));
-      
+
       const { stages } = req.body;
       console.log('Extracted stages:', stages);
       console.log('Stages type:', typeof stages);
       console.log('Is array:', Array.isArray(stages));
-      
+
       // Basic validation
       if (!Array.isArray(stages) || stages.length === 0) {
         console.log('❌ API: Invalid stages array');
@@ -544,49 +553,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('✓ API: Stages array is valid');
 
-      // Validate each stage object
+      // Validate each stage object and check DB existence
       for (let i = 0; i < stages.length; i++) {
         const stage = stages[i];
         console.log(`\n--- API: Validating stage ${i + 1}/${stages.length} ---`);
         console.log('Stage object:', stage);
         console.log('Stage type:', typeof stage);
-        
+
         if (!stage) {
           console.log('❌ API: Stage is null/undefined');
           return res.status(400).json({ message: `Stage ${i + 1} is null or undefined` });
         }
-        
+
         console.log('Stage ID:', stage.id, 'Type:', typeof stage.id);
         console.log('Stage position:', stage.position, 'Type:', typeof stage.position);
-        
+
         if (typeof stage.id !== 'number') {
           console.log('❌ API: Invalid stage ID type');
           return res.status(400).json({ 
             message: `Invalid stage ID for stage ${i + 1}: expected number, got ${typeof stage.id}` 
           });
         }
-        
+
         if (typeof stage.position !== 'number') {
           console.log('❌ API: Invalid stage position type');
           return res.status(400).json({ 
             message: `Invalid stage position for stage ${i + 1}: expected number, got ${typeof stage.position}` 
           });
         }
-        
+
         if (stage.id <= 0) {
           console.log('❌ API: Invalid stage ID value');
           return res.status(400).json({ 
             message: `Invalid stage ID for stage ${i + 1}: ${stage.id} (must be positive)` 
           });
         }
-        
+
         if (stage.position < 0) {
           console.log('❌ API: Invalid stage position value');
           return res.status(400).json({ 
             message: `Invalid stage position value for stage ${i + 1}: ${stage.position} (must be non-negative)` 
           });
         }
-        
+
+        // Check if stage exists in database
+        console.log(`--- Checking DB existence for stage ID ${stage.id} ---`);
+        try {
+          const existingStage = await storage.getPipelineStage(stage.id);
+          console.log(`DB lookup result for stage ${stage.id}:`, existingStage);
+          
+          if (!existingStage) {
+            const errorMsg = `Stage ID ${stage.id} not found in database`;
+            console.log('❌ API:', errorMsg);
+            return res.status(400).json({ message: "Invalid stage ID" });
+          }
+          
+          console.log(`✓ API: Stage ${stage.id} exists in DB`);
+        } catch (dbError) {
+          console.error(`❌ API: DB error checking stage ${stage.id}:`, dbError);
+          return res.status(500).json({ message: "Database error validating stage" });
+        }
+
         console.log(`✓ API: Stage ${i + 1} is valid`);
       }
 
@@ -595,7 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update positions
       await storage.updateStagePositions(stages);
-      
+
       console.log('✓ API: Positions updated successfully');
       res.json({ success: true, message: "Positions updated successfully" });
     } catch (error) {
@@ -803,7 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               csvData.push(row);
             })
             .on('end', resolve)
-            .on('error', reject);
+.on('error', reject);
         });
 
         if (csvData.length > 0) {
