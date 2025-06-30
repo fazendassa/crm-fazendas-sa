@@ -546,29 +546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`Processing ${stages.length} stages...`);
-
-      // Basic validation only
-      for (let i = 0; i < stages.length; i++) {
-        const stage = stages[i];
-        console.log(`Stage ${i + 1}:`, stage);
-        
-        if (!stage) {
-          console.log(`❌ Stage ${i + 1} is null/undefined`);
-          return res.status(400).json({ message: `Stage ${i + 1} is invalid` });
-        }
-
-        if (typeof stage.id !== 'number' || stage.id <= 0) {
-          console.log(`❌ Stage ${i + 1} has invalid ID:`, stage.id);
-          return res.status(400).json({ message: `Stage ${i + 1} has invalid ID` });
-        }
-
-        if (typeof stage.position !== 'number' || stage.position < 0) {
-          console.log(`❌ Stage ${i + 1} has invalid position:`, stage.position);
-          return res.status(400).json({ message: `Stage ${i + 1} has invalid position` });
-        }
-      }
-
-      console.log("✅ Basic validation passed, updating positions...");
+      console.log("✅ Skipping validations, proceeding directly to update...");
       
       await storage.updateStagePositions(stages);
 

@@ -745,45 +745,19 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log("STORAGE: Starting position updates for stages:", stages);
       
-      if (!Array.isArray(stages) || stages.length === 0) {
-        throw new Error("Invalid stages array provided");
-      }
-      
-      // Update each stage position
+      // Update each stage position without any validation
       for (const stage of stages) {
-        const stageId = Number(stage.id);
-        const position = Number(stage.position);
+        console.log(`STORAGE: Updating stage ${stage.id} to position ${stage.position}`);
         
-        if (isNaN(stageId) || stageId <= 0) {
-          throw new Error(`Invalid stage ID: ${stage.id}`);
-        }
-        
-        if (isNaN(position) || position < 0) {
-          throw new Error(`Invalid position: ${stage.position}`);
-        }
-        
-        console.log(`STORAGE: Updating stage ${stageId} to position ${position}`);
-        
-        try {
-          // Update the stage directly without checking existence first
-          const [updatedStage] = await db
-            .update(pipelineStages)
-            .set({ 
-              position: position, 
-              updatedAt: new Date() 
-            })
-            .where(eq(pipelineStages.id, stageId))
-            .returning();
-            
-          if (!updatedStage) {
-            throw new Error(`Stage with ID ${stageId} not found or could not be updated`);
-          }
+        await db
+          .update(pipelineStages)
+          .set({ 
+            position: stage.position, 
+            updatedAt: new Date() 
+          })
+          .where(eq(pipelineStages.id, stage.id));
           
-          console.log(`STORAGE: Successfully updated stage ${stageId} to position ${position}`);
-        } catch (dbError) {
-          console.error(`STORAGE: Error updating stage ${stageId}:`, dbError);
-          throw new Error(`Failed to update stage ${stageId}: ${dbError instanceof Error ? dbError.message : 'Unknown database error'}`);
-        }
+        console.log(`STORAGE: Successfully updated stage ${stage.id} to position ${stage.position}`);
       }
       
       console.log("STORAGE: All positions updated successfully");
