@@ -82,8 +82,8 @@ export interface IStorage {
   createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage>;
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
-  // Stage positions are auto-managed by position field
-  
+  updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
+
 
   // Dashboard metrics
   getDashboardMetrics(): Promise<{
@@ -724,26 +724,64 @@ export class DatabaseStorage implements IStorage {
 
   async getPipelineStage(stageId: number): Promise<PipelineStage | undefined> {
     try {
-      console.log(`STORAGE: Querying pipeline stage with ID ${stageId}`);
-      
+      console.log(`📊 STORAGE: Querying pipeline stage with ID ${stageId} (type: ${typeof stageId})`);
+
+      if (!Number.isInteger(stageId) || stageId <= 0) {
+        console.log(`❌ STORAGE: Invalid stage ID format: ${stageId}`);
+        return undefined;
+      }
+
       const [stage] = await db
         .select()
         .from(pipelineStages)
         .where(eq(pipelineStages.id, stageId))
         .limit(1);
-      
-      console.log(`STORAGE: Stage found:`, stage);
-      
+
+      if (stage) {
+        console.log(`✅ STORAGE: Stage found - ID: ${stage.id}, Title: "${stage.title}", Position: ${stage.position}`);
+      } else {
+        console.log(`❌ STORAGE: Stage with ID ${stageId} not found`);
+      }
+
       return stage;
     } catch (error) {
-      console.error(`STORAGE ERROR: Failed to get pipeline stage ${stageId}:`, error);
+      console.error(`💥 STORAGE ERROR: Failed to get pipeline stage ${stageId}:`, error);
+      console.error(`💥 STORAGE ERROR STACK:`, error instanceof Error ? error.stack : "No stack trace");
       throw error;
     }
   }
 
-  // Stage positions are now auto-managed by position field - no manual reordering needed
+  async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
+    try {
+      console.log("=== STORAGE: Updating stage positions ===");
 
-  
+      // Update each stage position in database
+      for (const stage of stages) {
+        const stageId = Number(stage.id);
+        const position = Number(stage.position);
+
+        console.log(`📝 STORAGE: Updating stage ${stageId} to position ${position}`);
+
+        const result = await db
+          .update(pipelineStages)
+          .set({ 
+            position: position, 
+            updatedAt: new Date() 
+          })
+          .where(eq(pipelineStages.id, stageId))
+          .returning();
+
+        console.log(`📝 STORAGE: Updated stage ${stageId}, result:`, result);
+      }
+
+      console.log("✅ STORAGE: All positions updated successfully");
+    } catch (error) {
+      console.error("❌ STORAGE: Failed to update stage positions:", error);
+      throw error;
+    }
+  }
+
+
 
   // Pipeline operations
   async getPipelines(): Promise<Pipeline[]> {
