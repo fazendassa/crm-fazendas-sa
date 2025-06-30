@@ -50,7 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.params.id;
       const { role } = req.body;
-
+      
       if (!role || !['admin', 'gestor', 'vendedor', 'financeiro', 'externo'].includes(role)) {
         return res.status(400).json({ message: "Papel inválido" });
       }
@@ -286,20 +286,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/deals/:id', isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-
+      
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid deal ID" });
       }
 
       console.log(`Updating deal ${id} with data:`, req.body);
-
+      
       const validatedData = insertDealSchema.partial().parse(req.body);
       const deal = await storage.updateDeal(id, validatedData);
-
+      
       if (!deal) {
         return res.status(404).json({ message: "Deal not found" });
       }
-
+      
       console.log(`Deal ${id} updated successfully:`, deal);
       res.json(deal);
     } catch (error) {
@@ -450,17 +450,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/pipelines/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-
+      
       // Check if pipeline has active deals
       const dealsByStage = await storage.getDealsByStage(id);
       const totalActiveDeals = dealsByStage.reduce((sum, stage) => sum + stage.count, 0);
-
+      
       if (totalActiveDeals > 0) {
         return res.status(400).json({ 
           message: `Não é possível excluir o pipeline. Existem ${totalActiveDeals} oportunidade(s) ativa(s) neste pipeline. Remova ou transfira as oportunidades antes de excluir o pipeline.` 
         });
       }
-
+      
       await storage.deletePipeline(id);
       res.status(204).send();
     } catch (error) {
@@ -494,7 +494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/pipeline-stages/:id", isAuthenticated, async (req, res) => {
     try {
       const stageId = parseInt(req.params.id);
-
+      
       if (isNaN(stageId) || stageId <= 0) {
         return res.status(400).json({ message: "Invalid stage ID" });
       }
@@ -528,138 +528,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
-      console.log("\n=== 1. VERIFICAÇÃO DO PAYLOAD DA REQUISIÇÃO ===");
-      console.log("Request body completo:", JSON.stringify(req.body, null, 2));
-      console.log("Headers da requisição:", JSON.stringify(req.headers, null, 2));
-
+      console.log("=== PUT /api/pipeline-stages/positions ===");
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
+      
       const { stages } = req.body;
-
-      console.log("\n=== 2. VALIDAÇÃO INICIAL DO ARRAY ===");
-      console.log("Type of stages:", typeof stages);
-      console.log("Is array:", Array.isArray(stages));
-      console.log("Stages value:", stages);
-
+      
       if (!Array.isArray(stages)) {
-        console.error("❌ ERROR: Stages is not an array:", typeof stages, stages);
+        console.error("ERROR: Stages is not an array:", typeof stages, stages);
         return res.status(400).json({ message: "Stages array is required" });
       }
 
       if (stages.length === 0) {
-        console.error("❌ ERROR: Empty stages array");
+        console.error("ERROR: Empty stages array");
         return res.status(400).json({ message: "Stages array cannot be empty" });
       }
 
-      console.log(`✓ Array válido com ${stages.length} estágios`);
+      console.log(`Processing ${stages.length} stages...`);
 
-      console.log("\n=== 3. VALIDAÇÃO DE CADA ESTÁGIO ===");
+      // Validate each stage
       const validatedStages = [];
-
+      
       for (let i = 0; i < stages.length; i++) {
         const stage = stages[i];
-        console.log(`\nValidating stage ${i + 1}/${stages.length}:`);
-        console.log(`- Raw data:`, JSON.stringify(stage, null, 2));
-        console.log(`- ID: ${stage.id} (type: ${typeof stage.id})`);
-        console.log(`- Position: ${stage.position} (type: ${typeof stage.position})`);
-
-        // Convert to integers with strict validation
-        let stageId: number;
-        let stagePosition: number;
-
-        if (typeof stage.id === 'string') {
-          console.log(`⚠️ Converting string ID: "${stage.id}"`);
-          stageId = parseInt(stage.id, 10);
-          if (isNaN(stageId)) {
-            const error = `Invalid string ID cannot be converted to number: "${stage.id}"`;
-            console.error("VALIDATION ERROR:", error);
-            return res.status(400).json({ message: error });
-          }
-        } else if (typeof stage.id === 'number') {
-          stageId = Math.floor(stage.id); // Garantir que seja inteiro
-        } else {
-          const error = `Invalid stage ID type: ${typeof stage.id}`;
-          console.error("VALIDATION ERROR:", error);
-          return res.status(400).json({ message: error });
+        console.log(`\n--- Processing stage ${i + 1}/${stages.length} ---`);
+        console.log("Original stage data:", stage);
+        
+        // Ensure we have proper values
+        let stageId = stage.id;
+        let stagePosition = stage.position;
+        
+        // Convert to numbers if they're strings
+        if (typeof stageId === 'string') {
+          stageId = parseInt(stageId, 10);
         }
-
-        if (typeof stage.position === 'string') {
-          console.log(`⚠️ Converting string position: "${stage.position}"`);
-          stagePosition = parseInt(stage.position, 10);
-          if (isNaN(stagePosition)) {
-            const error = `Invalid string position cannot be converted to number: "${stage.position}"`;
-            console.error("VALIDATION ERROR:", error);
-            return res.status(400).json({ message: error });
-          }
-        } else if (typeof stage.position === 'number') {
-          stagePosition = Math.floor(stage.position); // Garantir que seja inteiro
-        } else {
-          const error = `Invalid stage position type: ${typeof stage.position}`;
-          console.error("VALIDATION ERROR:", error);
-          return res.status(400).json({ message: error });
+        if (typeof stagePosition === 'string') {
+          stagePosition = parseInt(stagePosition, 10);
         }
-
-        console.log(`- Converted ID: ${stageId} (type: ${typeof stageId}, isInteger: ${Number.isInteger(stageId)})`);
-        console.log(`- Converted Position: ${stagePosition} (type: ${typeof stagePosition}, isInteger: ${Number.isInteger(stagePosition)})`);
-
-        // Validar ID
+        
+        console.log("Converted values:", { id: stageId, position: stagePosition });
+        
+        // Validate ID att
         if (!Number.isInteger(stageId) || stageId <= 0) {
-          const error = `Invalid stage ID: ${stage.id} -> ${stageId} (isInteger: ${Number.isInteger(stageId)}, > 0: ${stageId > 0})`;
+          const error = `Invalid stage ID format: ${JSON.stringify(stage)}`;
           console.error("VALIDATION ERROR:", error);
           return res.status(400).json({ message: error });
         }
 
-        // Validar posição
+        // Novo: verificar existência no banco
+        const existing = await storage.getPipelineStage(stageId);
+        if (!existing) {
+          const error = `Stage ID not found in DB: ${stageId}`;
+          console.error("VALIDATION ERROR:", error);
+          return res.status(404).json({ message: error });
+        }
+        
+        // Validate position
         if (!Number.isInteger(stagePosition) || stagePosition < 0) {
-          const error = `Invalid stage position: ${stage.position} -> ${stagePosition} (isInteger: ${Number.isInteger(stagePosition)}, >= 0: ${stagePosition >= 0})`;
+          const error = `Invalid stage position: ${stage.position}`;
           console.error("VALIDATION ERROR:", error);
           return res.status(400).json({ message: error });
         }
-
-        console.log(`✓ Stage ${i + 1} validated successfully`);
-        validatedStages.push({ id: stageId, position: stagePosition });
+        
+        validatedStages.push({
+          id: stageId,
+          position: stagePosition
+        });
+        
+        console.log(`✓ Stage ${i + 1} validated`);
       }
 
-      console.log("\n=== 4. TESTE COM IDs FIXOS ===");
-      console.log("Estágios validados finais:", JSON.stringify(validatedStages, null, 2));
-
-      // Verificar se não há posições duplicadas
-      const positions = validatedStages.map(s => s.position);
-      const uniquePositions = [...new Set(positions)];
-      if (positions.length !== uniquePositions.length) {
-        const error = "Posições duplicadas detectadas: " + JSON.stringify(positions);
-        console.error("❌ VALIDATION ERROR:", error);
-        return res.status(400).json({ message: error });
-      }
-
-      console.log("\n=== 5. DEPURAÇÃO DO LADO DO SERVIDOR ===");
-      console.log("Chamando storage.updateStagePositions com dados:", JSON.stringify(validatedStages, null, 2));
-
+      console.log("Final validated stages:", JSON.stringify(validatedStages, null, 2));
+      
       // Call storage function
       await storage.updateStagePositions(validatedStages);
-
-      console.log("✅ Stage positions updated successfully");
+      
+      console.log("✓ Stage positions updated successfully");
       res.json({ 
         message: "Stage positions updated successfully",
-        updatedStages: validatedStages.length,
-        processedStages: validatedStages
+        updatedStages: validatedStages.length
       });
-
+      
     } catch (error) {
-      console.error("\n❌ === ERROR in PUT /api/pipeline-stages/positions ===");
-      console.error("Error type:", typeof error);
-      console.error("Error constructor:", error?.constructor?.name);
+      console.error("=== ERROR in PUT /api/pipeline-stages/positions ===");
       console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
       console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
-      console.error("Raw error object:", error);
-
+      
       res.status(500).json({ 
         message: "Failed to update stage positions", 
-        error: error instanceof Error ? error.message : "Unknown error",
-        errorType: error?.constructor?.name || "Unknown"
+        error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
 
-
+  
 
   // Dashboard metrics
   app.get('/api/dashboard/metrics', isAuthenticated, async (req, res) => {
@@ -700,7 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         console.log('=== INÍCIO DO PROCESSAMENTO DA IMPORTAÇÃO ===');
-
+        
         if (!req.file) {
           console.log('ERRO: Nenhum arquivo foi enviado');
           return res.status(400).json({ message: 'Nenhum arquivo foi enviado' });
@@ -714,7 +675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const { pipelineId, tags } = req.body;
         console.log('Parâmetros recebidos:', { pipelineId, tags });
-
+        
         let data: any[] = [];
 
         // Parse file based on type
@@ -723,7 +684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Parse Excel file
           const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
           console.log('Planilhas disponíveis:', workbook.SheetNames);
-
+          
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           data = XLSX.utils.sheet_to_json(worksheet, { 
@@ -731,12 +692,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             defval: '',
             raw: false
           });
-
+          
           // Convert array of arrays to array of objects with first row as headers
           if (data.length > 0) {
             const headers = data[0] as string[];
             console.log('Cabeçalhos encontrados:', headers);
-
+            
             data = data.slice(1).map((row: any[]) => {
               const obj: any = {};
               headers.forEach((header, index) => {
@@ -745,13 +706,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return obj;
             });
           }
-
+          
         } else if (req.file.mimetype === 'text/csv') {
           console.log('Processando arquivo CSV...');
           // Parse CSV file
           const csvData: any[] = [];
           const stream = Readable.from(req.file.buffer);
-
+          
           await new Promise((resolve, reject) => {
             stream
               .pipe(csv())
@@ -807,7 +768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-
+  
 
   // Preview import file to get columns
   app.post('/api/contacts/preview-import', isAuthenticated, upload.single('file'), async (req, res) => {
@@ -836,18 +797,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           defval: '',
           raw: false
         });
-
+        
         if (rawData.length > 0) {
           const headers = rawData[0] as string[];
           console.log('Cabeçalhos encontrados:', headers);
           return res.json({ columns: headers.filter(h => h && h.trim() !== '') });
         }
-
+        
       } else if (req.file.mimetype === 'text/csv') {
         console.log('Processando arquivo CSV para preview...');
         const csvData: any[] = [];
         const stream = Readable.from(req.file.buffer);
-
+        
         await new Promise((resolve, reject) => {
           stream
             .pipe(csv())
@@ -857,13 +818,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .on('end', resolve)
             .on('error', reject);
         });
-
+        
         if (csvData.length > 0) {
           const headers = Object.keys(csvData[0]);
           console.log('Cabeçalhos CSV encontrados:', headers);
           return res.json({ columns: headers.filter(h => h && h.trim() !== '') });
         }
-
+        
       } else {
         return res.status(400).json({ message: 'Tipo de arquivo não suportado' });
       }
