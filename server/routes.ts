@@ -531,98 +531,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Batch update stage positions
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
-      // Add detailed logging of the request
-      console.log("=== SERVER: DEBUG - Full request details ===");
-      console.log("req.body:", JSON.stringify(req.body, null, 2));
-      console.log("req.body type:", typeof req.body);
-      console.log("req.body keys:", Object.keys(req.body || {}));
-      console.log("req.headers['content-type']:", req.headers['content-type']);
-      console.log("req.method:", req.method);
-      console.log("req.url:", req.url);
-      
-      // Extract stages from request body
-      const stages = req.body.stages;
-      
-      if (!stages) {
-        console.log("❌ SERVER: No stages found in request body");
-        return res.status(400).json({ 
-          message: "Missing 'stages' in request body",
-          received: req.body
-        });
-      }
-      
-      console.log("=== SERVER: Extracted stages ===");
-      console.log("stages:", JSON.stringify(stages, null, 2));
-      console.log("stages type:", typeof stages);
-      console.log("stages is array:", Array.isArray(stages));
-      
-      // Log each individual stage
-      if (Array.isArray(stages)) {
-        stages.forEach((stage, index) => {
-          console.log(`=== SERVER: Stage ${index + 1} Analysis ===`);
-          console.log("  Raw stage:", stage);
-          console.log("  stage.id:", stage.id);
-          console.log("  stage.id type:", typeof stage.id);
-          console.log("  stage.id is string:", typeof stage.id === 'string');
-          console.log("  stage.id is number:", typeof stage.id === 'number');
-          console.log("  stage.position:", stage.position);
-          console.log("  stage.position type:", typeof stage.position);
-          console.log("  Number(stage.id):", Number(stage.id));
-          console.log("  isNaN(Number(stage.id)):", isNaN(Number(stage.id)));
-          console.log("  parseInt(stage.id):", parseInt(stage.id));
-          console.log("  Number.isInteger(stage.id):", Number.isInteger(stage.id));
-          console.log("  Number.isInteger(Number(stage.id)):", Number.isInteger(Number(stage.id)));
-        });
+      const { stages } = req.body;
+
+      if (!Array.isArray(stages)) {
+        return res.status(400).json({ message: "Payload inválido: 'stages' deve ser um array" });
       }
 
-      if (!stages || !Array.isArray(stages) || stages.length === 0) {
-        console.log("❌ SERVER: Invalid stages array");
-        return res.status(400).json({ 
-          message: "Stages array is required",
-          received: { stages, type: typeof stages, isArray: Array.isArray(stages) }
-        });
-      }
+      console.log(`=== SERVER: Processing ${stages.length} stage position updates ===`);
 
-      console.log(`=== SERVER: Validating ${stages.length} stages ===`);
+      for (const stage of stages) {
+        const { id, position } = stage;
 
-      // Validate and prepare stage updates
-      const stageUpdates = stages.map((stage: any, index: number) => {
-        console.log(`Validating stage ${index + 1}: ID=${stage.id}, Position=${stage.position}`);
-        
-        const stageId = Number(stage.id);
-        const stagePosition = Number(stage.position);
-        
-        if (!Number.isInteger(stageId) || stageId <= 0) {
-          throw new Error(`Invalid stage ID: ${stage.id}`);
+        // Verificações robustas de tipo e valor
+        if (!Number.isInteger(id) || id <= 0) {
+          return res.status(400).json({ message: `Invalid stage ID: ${id}` });
         }
-        
-        if (!Number.isInteger(stagePosition) || stagePosition < 0) {
-          throw new Error(`Invalid position: ${stage.position}`);
+
+        if (!Number.isInteger(position) || position < 0) {
+          return res.status(400).json({ message: `Invalid stage position: ${position}` });
         }
-        
-        return { id: stageId, position: stagePosition };
-      });
-      
-      console.log("✅ SERVER: All validations passed, updating positions...");
-      console.log("Final stage updates:", JSON.stringify(stageUpdates, null, 2));
-      
-      await storage.updateStagePositions(stageUpdates);
-      
-      console.log("✅ SERVER: Positions updated successfully");
-      res.status(200).json({ 
-        success: true, 
-        message: "Stage positions updated successfully",
-        updatedStages: stageUpdates.length
-      });
-      
+
+        // Confirma se o ID existe no banco (evita erro de ID inválido)
+        const stageExists = await storage.getPipelineStage(id);
+        if (!stageExists) {
+          return res.status(400).json({ message: `Stage ID not found: ${id}` });
+        }
+
+        console.log(`✅ SERVER: Stage ${id} validated successfully`);
+      }
+
+      // Atualiza todas as posições
+      await storage.updateStagePositions(stages.map((stage: any) => ({
+        id: stage.id,
+        position: stage.position
+      })));
+
+      console.log("✅ SERVER: All stage positions updated successfully");
+      return res.status(200).json({ message: "Stage positions updated successfully" });
+
     } catch (error) {
-      console.error("❌ SERVER: Error updating positions:", error);
-      console.error("❌ SERVER: Error stack:", error instanceof Error ? error.stack : "No stack trace");
-      res.status(500).json({ 
-        message: "Failed to update positions",
-        error: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString()
-      });
+      console.error("Erro interno:", error);
+      return res.status(500).json({ message: "Erro interno ao atualizar posições" });
     }
   });
 
