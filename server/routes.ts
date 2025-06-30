@@ -585,96 +585,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`=== SERVER: Validating ${stages.length} stages ===`);
 
-      // Validate each stage has valid id and position
-      const stageUpdates = [];
+      // Validate and prepare stage updates
+      const stageUpdates = stages.map((stage: any, index: number) => {
+        console.log(`Validating stage ${index + 1}: ID=${stage.id}, Position=${stage.position}`);
+        
+        const stageId = Number(stage.id);
+        const stagePosition = Number(stage.position);
+        
+        if (!Number.isInteger(stageId) || stageId <= 0) {
+          throw new Error(`Invalid stage ID: ${stage.id}`);
+        }
+        
+        if (!Number.isInteger(stagePosition) || stagePosition < 0) {
+          throw new Error(`Invalid position: ${stage.position}`);
+        }
+        
+        return { id: stageId, position: stagePosition };
+      });
       
-      for (let i = 0; i < stages.length; i++) {
-        const stage = stages[i];
-        console.log(`\n--- Validating stage ${i + 1}/${stages.length} ---`);
-        console.log("Raw stage data:", JSON.stringify(stage, null, 2));
-        
-        // More flexible ID parsing
-        let stageId;
-        if (typeof stage.id === 'string') {
-          stageId = parseInt(stage.id, 10);
-        } else if (typeof stage.id === 'number') {
-          stageId = stage.id;
-        } else {
-          console.log(`❌ SERVER: Stage ID is not string or number: ${stage.id} (type: ${typeof stage.id})`);
-          return res.status(400).json({ 
-            message: `Invalid stage ID type: ${typeof stage.id}`,
-            stageData: stage,
-            stageIndex: i
-          });
-        }
-        
-        // More flexible position parsing
-        let stagePosition;
-        if (typeof stage.position === 'string') {
-          stagePosition = parseInt(stage.position, 10);
-        } else if (typeof stage.position === 'number') {
-          stagePosition = stage.position;
-        } else {
-          console.log(`❌ SERVER: Stage position is not string or number: ${stage.position} (type: ${typeof stage.position})`);
-          return res.status(400).json({ 
-            message: `Invalid position type: ${typeof stage.position}`,
-            stageData: stage,
-            stageIndex: i
-          });
-        }
-        
-        console.log(`Parsed values - ID: ${stageId} (${typeof stageId}), Position: ${stagePosition} (${typeof stagePosition})`);
-        
-        if (isNaN(stageId) || stageId <= 0 || !Number.isInteger(stageId)) {
-          console.log(`❌ SERVER: Invalid stage ID after parsing: ${stageId}`);
-          return res.status(400).json({ 
-            message: `Invalid stage ID: ${stage.id} (parsed as: ${stageId})`,
-            stageData: stage,
-            stageIndex: i
-          });
-        }
-        
-        if (isNaN(stagePosition) || stagePosition < 0 || !Number.isInteger(stagePosition)) {
-          console.log(`❌ SERVER: Invalid position after parsing: ${stagePosition}`);
-          return res.status(400).json({ 
-            message: `Invalid position: ${stage.position} (parsed as: ${stagePosition})`,
-            stageData: stage,
-            stageIndex: i
-          });
-        }
-        
-        // Add to updates array
-        stageUpdates.push({
-          id: stageId,
-          position: stagePosition
-        });
-        
-        console.log(`✅ SERVER: Stage ${stageId} validated successfully`);
-      }
-      
-      // Batch verify all stages exist in database before updating
-      console.log("🔍 SERVER: Batch verifying all stages exist in database...");
-      try {
-        for (const update of stageUpdates) {
-          const existingStage = await storage.getPipelineStage(update.id);
-          if (!existingStage) {
-            console.log(`❌ SERVER: Stage ${update.id} not found in database`);
-            return res.status(400).json({ 
-              message: `Stage ${update.id} not found in database`,
-              stageId: update.id,
-              allStageIds: stageUpdates.map(s => s.id)
-            });
-          }
-          console.log(`✅ SERVER: Stage ${update.id} ("${existingStage.title}") found in database`);
-        }
-      } catch (dbError) {
-        console.error(`❌ SERVER: Database error during batch verification:`, dbError);
-        return res.status(500).json({ 
-          message: `Database error during validation`,
-          error: dbError instanceof Error ? dbError.message : "Unknown database error"
-        });
-      }
-
       console.log("✅ SERVER: All validations passed, updating positions...");
       console.log("Final stage updates:", JSON.stringify(stageUpdates, null, 2));
       
