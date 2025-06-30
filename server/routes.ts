@@ -537,7 +537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("req.body type:", typeof req.body);
       console.log("req.body keys:", Object.keys(req.body || {}));
       
-      const { stages } = req.body;
+      const stages = req.body;
       
       console.log("=== SERVER: Extracted stages ===");
       console.log("stages:", JSON.stringify(stages, null, 2));
