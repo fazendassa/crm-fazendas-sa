@@ -68,9 +68,17 @@ export function useStageReorder(pipelineId: number) {
     },
     onError: (error) => {
       console.error("Error updating stage positions:", error);
+      let errorMessage = 'Erro desconhecido';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = (error as any).message;
+      }
+      
       toast({
         title: "Erro",
-        description: `Erro ao reordenar estágios: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        description: `Erro ao reordenar estágios: ${errorMessage}`,
         variant: "destructive",
       });
     },

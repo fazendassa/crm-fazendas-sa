@@ -764,32 +764,26 @@ export class DatabaseStorage implements IStorage {
         
         console.log(`STORAGE: Updating stage ${stageId} to position ${position}`);
         
-        // First, check if stage exists
-        const [existingStage] = await db
-          .select()
-          .from(pipelineStages)
-          .where(eq(pipelineStages.id, stageId))
-          .limit(1);
-        
-        if (!existingStage) {
-          throw new Error(`Stage with ID ${stageId} not found`);
-        }
-        
-        // Update the stage
-        const [updatedStage] = await db
-          .update(pipelineStages)
-          .set({ 
-            position: position, 
-            updatedAt: new Date() 
-          })
-          .where(eq(pipelineStages.id, stageId))
-          .returning();
+        try {
+          // Update the stage directly without checking existence first
+          const [updatedStage] = await db
+            .update(pipelineStages)
+            .set({ 
+              position: position, 
+              updatedAt: new Date() 
+            })
+            .where(eq(pipelineStages.id, stageId))
+            .returning();
+            
+          if (!updatedStage) {
+            throw new Error(`Stage with ID ${stageId} not found or could not be updated`);
+          }
           
-        if (!updatedStage) {
-          throw new Error(`Failed to update stage ${stageId}`);
+          console.log(`STORAGE: Successfully updated stage ${stageId} to position ${position}`);
+        } catch (dbError) {
+          console.error(`STORAGE: Error updating stage ${stageId}:`, dbError);
+          throw new Error(`Failed to update stage ${stageId}: ${dbError instanceof Error ? dbError.message : 'Unknown database error'}`);
         }
-        
-        console.log(`STORAGE: Successfully updated stage ${stageId} to position ${position}`);
       }
       
       console.log("STORAGE: All positions updated successfully");

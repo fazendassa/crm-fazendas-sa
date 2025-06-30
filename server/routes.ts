@@ -547,7 +547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`Processing ${stages.length} stages...`);
 
-      // Process each stage
+      // Basic validation only
       for (let i = 0; i < stages.length; i++) {
         const stage = stages[i];
         console.log(`Stage ${i + 1}:`, stage);
@@ -568,7 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      console.log("✅ All stages validated, updating positions...");
+      console.log("✅ Basic validation passed, updating positions...");
       
       await storage.updateStagePositions(stages);
 
