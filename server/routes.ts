@@ -528,24 +528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
-    try {
-      const { stages } = req.body;
-
-      if (!stages || !Array.isArray(stages) || stages.length === 0) {
-        return res.status(400).json({ message: "Stages array is required" });
-      }
-
-      await storage.updateStagePositions(stages);
-      res.json({ success: true });
-      
-    } catch (error) {
-      res.status(500).json({ 
-        message: "Failed to update positions",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
+  // Stage positions are now auto-managed by position field - no manual reordering needed
 
 
 

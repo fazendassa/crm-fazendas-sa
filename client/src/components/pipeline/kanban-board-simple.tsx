@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, DollarSign, ArrowUpDown } from "lucide-react";
+import { Plus, MoreVertical, Edit2, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import DealForm from "./deal-form";
 import { useStageReorder } from "./stage-reorder-functions";
@@ -39,28 +39,21 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`],
   });
 
-  // Create new stage mutation
+  // Create new stage with auto-positioned next number
   const createStageMutation = useMutation({
     mutationFn: async (title: string) => {
-      const response = await fetch("/api/pipeline-stages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          title,
-          pipelineId,
-          position: Array.isArray(stages) ? stages.length : 0,
-          isDefault: false,
-        }),
+      // Auto-assign the next position based on existing stages
+      const maxPosition = stages.length > 0 ? Math.max(...stages.map(s => s.position || 0)) : -1;
+      const nextPosition = maxPosition + 1;
+
+      console.log(`Creating new stage "${title}" at position ${nextPosition}`);
+
+      return apiRequest("POST", "/api/pipeline-stages", {
+        title,
+        pipelineId,
+        position: nextPosition,
+        color: "#3b82f6",
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to create stage: ${response.status}`);
-      }
-
-      return response.json();
     },
     onSuccess: () => {
       // Force complete cache refresh for pipeline stages
@@ -266,7 +259,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
               size="sm"
               variant="outline"
             >
-              <ArrowUpDown className="h-4 w-4 mr-2" />
+              
               Reordenar Etapas
             </Button>
             <Button

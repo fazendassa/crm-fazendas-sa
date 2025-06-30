@@ -82,7 +82,7 @@ export interface IStorage {
   createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage>;
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
-  updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
+  // Stage positions are auto-managed by position field
   
 
   // Dashboard metrics
@@ -741,20 +741,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
-    try {
-      // Simple batch update of positions
-      for (const stage of stages) {
-        await db
-          .update(pipelineStages)
-          .set({ position: stage.position, updatedAt: new Date() })
-          .where(eq(pipelineStages.id, stage.id));
-      }
-    } catch (error) {
-      console.error("Failed to update stage positions:", error);
-      throw error;
-    }
-  }
+  // Stage positions are now auto-managed by position field - no manual reordering needed
 
   
 
