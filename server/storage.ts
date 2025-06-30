@@ -725,20 +725,14 @@ export class DatabaseStorage implements IStorage {
   async getPipelineStage(stageId: number): Promise<PipelineStage | undefined> {
     try {
       console.log(`STORAGE: Querying pipeline stage with ID ${stageId}`);
-      console.log(`STORAGE: Query parameters - stageId type: ${typeof stageId}, value: ${stageId}`);
       
-      const result = await db
+      const [stage] = await db
         .select()
         .from(pipelineStages)
         .where(eq(pipelineStages.id, stageId))
         .limit(1);
       
-      console.log(`STORAGE: Raw query result for stage ${stageId}:`, result);
-      console.log(`STORAGE: Result length: ${result.length}`);
-      
-      // O bug estava aqui - estava verificando result[0] quando deveria ser result.length > 0 ? result[0] : undefined
-      const stage = result.length > 0 ? result[0] : undefined;
-      console.log(`STORAGE: Final stage result:`, stage);
+      console.log(`STORAGE: Stage found:`, stage);
       
       return stage;
     } catch (error) {
@@ -748,15 +742,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
-    // Update each stage position
-    for (const stage of stages) {
-      await db
-        .update(pipelineStages)
-        .set({ 
-          position: stage.position, 
-          updatedAt: new Date() 
-        })
-        .where(eq(pipelineStages.id, stage.id));
+    try {
+      console.log("STORAGE: Starting position updates for stages:", stages);
+      
+      // Update each stage position
+      for (const stage of stages) {
+        console.log(`STORAGE: Updating stage ${stage.id} to position ${stage.position}`);
+        
+        const result = await db
+          .update(pipelineStages)
+          .set({ 
+            position: stage.position, 
+            updatedAt: new Date() 
+          })
+          .where(eq(pipelineStages.id, stage.id))
+          .returning();
+          
+        console.log(`STORAGE: Updated stage ${stage.id}:`, result);
+      }
+      
+      console.log("STORAGE: All positions updated successfully");
+    } catch (error) {
+      console.error("STORAGE ERROR: Failed to update stage positions:", error);
+      throw error;
     }
   }
 
