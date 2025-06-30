@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "react-beautiful-dnd";
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, DollarSign } from "lucide-react";
+import { Plus, DollarSign, ArrowUpDown, Settings } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import DealForm from "./deal-form";
 import type { DealWithRelations, PipelineStage } from "@shared/schema";
@@ -23,7 +24,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [defaultStage, setDefaultStage] = useState<string | undefined>();
   const [isAddingStage, setIsAddingStage] = useState(false);
   const [newStageTitle, setNewStageTitle] = useState("");
-
+  const [isManagingStages, setIsManagingStages] = useState(false);
+  const [managementStages, setManagementStages] = useState<PipelineStage[]>([]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -55,15 +57,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       });
     },
     onSuccess: () => {
-      // Force complete cache refresh for pipeline stages
-      queryClient.removeQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
-      queryClient.removeQueries({ queryKey: ["/api/pipeline-stages"] });
-      queryClient.removeQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
-
-      // Immediate refetch
-      queryClient.refetchQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
-      queryClient.refetchQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
-
+      queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       setIsAddingStage(false);
       setNewStageTitle("");
       toast({
@@ -76,6 +71,37 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       toast({
         title: "Erro",
         description: "Erro ao criar estágio",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update stage positions mutation
+  const updateStagePositionsMutation = useMutation({
+    mutationFn: async (updatedStages: PipelineStage[]) => {
+      // Update each stage position individually
+      const promises = updatedStages.map((stage, index) => 
+        apiRequest("PUT", `/api/pipeline-stages/${stage.id}`, {
+          position: index
+        })
+      );
+      
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
+      setIsManagingStages(false);
+      toast({
+        title: "Sucesso",
+        description: "Posições dos estágios atualizadas com sucesso",
+      });
+    },
+    onError: (error) => {
+      console.error("Error updating stage positions:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar posições dos estágios",
         variant: "destructive",
       });
     },
@@ -101,7 +127,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return response.json();
     },
     onSuccess: () => {
-      // Data is already updated optimistically, just ensure all related queries are fresh
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
@@ -113,7 +138,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     },
     onError: (error) => {
       console.error("Error updating deal stage:", error);
-      // Revert optimistic update by refetching data
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
       toast({
@@ -123,10 +147,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       });
     },
   });
-
-  // Stages are now automatically ordered by position - no manual reordering needed
-
-
 
   const handleCreateStage = () => {
     if (newStageTitle.trim()) {
@@ -139,10 +159,26 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     setIsDealDialogOpen(true);
   };
 
+  const openStageManagement = () => {
+    // Sort stages by position for management
+    const sortedStages = [...stages].sort((a, b) => (a.position || 0) - (b.position || 0));
+    setManagementStages(sortedStages);
+    setIsManagingStages(true);
+  };
 
+  const handleStageReorder = (result: DropResult) => {
+    if (!result.destination) return;
 
+    const items = Array.from(managementStages);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
 
+    setManagementStages(items);
+  };
 
+  const saveStagePositions = () => {
+    updateStagePositionsMutation.mutate(managementStages);
+  };
 
   // Handle drag and drop for deals only
   const handleDragEnd = (result: DropResult) => {
@@ -243,6 +279,14 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
           <h3 className="text-lg font-semibold">Pipeline Kanban</h3>
           <div className="flex gap-2">
             <Button
+              onClick={openStageManagement}
+              size="sm"
+              variant="outline"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Gerenciar Estágios
+            </Button>
+            <Button
               onClick={() => setIsAddingStage(true)}
               size="sm"
               variant="outline"
@@ -289,6 +333,84 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
             </CardContent>
           </Card>
         )}
+
+        {/* Stage Management Modal */}
+        <Dialog open={isManagingStages} onOpenChange={setIsManagingStages}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Gerenciar Posições dos Estágios</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Arraste os estágios para reordená-los. A ordem aqui será refletida no kanban.
+              </p>
+              
+              <DragDropContext onDragEnd={handleStageReorder}>
+                <Droppable droppableId="stage-management">
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="space-y-2"
+                    >
+                      {managementStages.map((stage, index) => (
+                        <Draggable
+                          key={stage.id}
+                          draggableId={`stage-${stage.id}`}
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`flex items-center justify-between p-3 border rounded-lg bg-white ${
+                                snapshot.isDragging ? 'shadow-lg' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                                <div
+                                  className="w-4 h-4 rounded-full"
+                                  style={{ backgroundColor: stage.color }}
+                                />
+                                <span className="font-medium">{stage.title}</span>
+                                {stage.isDefault && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Padrão
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Posição: {index + 1}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={saveStagePositions}
+                  disabled={updateStagePositionsMutation.isPending}
+                >
+                  {updateStagePositionsMutation.isPending ? "Salvando..." : "Salvar Posições"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsManagingStages(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Kanban columns */}
         <div className="flex gap-6 overflow-x-auto pb-6">
@@ -388,10 +510,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
               );
             })}
         </div>
-
-
-
-        {/* Stages are automatically ordered by position field - no manual reordering needed */}
 
         {/* Deal form dialog */}
         <Dialog open={isDealDialogOpen} onOpenChange={setIsDealDialogOpen}>
