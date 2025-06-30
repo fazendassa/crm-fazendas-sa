@@ -8,8 +8,8 @@ async function throwIfResNotOk(res: Response) {
 }
 
 export async function apiRequest(
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   endpoint: string,
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   data?: any
 ): Promise<any> {
   // Ensure endpoint starts with /

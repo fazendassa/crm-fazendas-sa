@@ -1,0 +1,88 @@
+O código atual envia um payload para uma API no formato de um objeto { "stages": [...] }. A API, no entanto, espera receber um array [...] diretamente. Isso está causando um erro de "Invalid stage ID".
+
+Sua Tarefa:
+Você deve encontrar o bloco de código updateStagePositionsMutation e substituir todo o seu conteúdo pelo bloco corrigido que fornecerei abaixo. A correção principal é ajustar a linha body dentro da chamada fetch.
+
+Passo 1: Encontre este bloco de código exato
+TypeScript
+
+// Update stage positions mutation
+  const updateStagePositionsMutation = useMutation({
+    mutationFn: async (stages: Array<{ id: number; position: number }>) => {
+      console.log('\n=== CLIENT MUTATION: Updating stage positions ===');
+      console.log('Stages to send:', JSON.stringify(stages, null, 2));
+      
+      // 1. Log detalhado dos dados antes do envio
+      console.log('\n=== LINHA 153: Verificação detalhada dos dados ===');
+      stages.forEach((stage, index) => {
+        console.log(`Stage ${index + 1}:`, {
+          id: stage.id,
+          idType: typeof stage.id,
+          idValue: stage.id,
+          position: stage.position,
+          positionType: typeof stage.position,
+          positionValue: stage.position
+        });
+      });
+
+      // (O restante do código antigo com a lógica de fetch incorreta segue aqui...)
+    }
+    // (...e o restante da definição da mutação)
+  });
+Passo 2: Substitua o bloco inteiro encontrado acima pelo seguinte código corrigido
+TypeScript
+
+// Update stage positions mutation
+const updateStagePositionsMutation = useMutation({
+  mutationFn: async (stagesToUpdate: Array<{ id: number; position: number }>) => {
+    
+    const response = await fetch('/api/pipeline-stages/positions', {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json' 
+      },
+      credentials: 'include',
+      // CORREÇÃO PRINCIPAL: Envia o array 'stagesToUpdate' diretamente.
+      body: JSON.stringify(stagesToUpdate),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = errorText;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.message || errorMessage;
+      } catch {
+        // Mantém o texto de erro original se não for JSON.
+      }
+      
+      console.error('Falha ao atualizar as posições dos estágios:', {
+          status: response.status,
+          error: errorMessage
+      });
+
+      throw new Error(`Falha ao atualizar posições: ${errorMessage}`);
+    }
+
+    return response.json();
+  },
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
+    
+    setIsReorderModalOpen(false);
+    
+    toast({
+      title: "Sucesso",
+      description: "Ordem dos estágios atualizada com sucesso",
+    });
+  },
+  onError: (error: Error) => {
+    console.error("Erro ao atualizar as posições dos estágios:", error);
+    toast({
+      title: "Erro",
+      description: error.message || "Ocorreu um erro desconhecido.",
+      variant: "destructive",
+    });
+  },
+});
