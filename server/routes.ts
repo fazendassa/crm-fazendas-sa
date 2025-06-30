@@ -528,30 +528,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
-      console.log("=== PUT /api/pipeline-stages/positions ===");
-      console.log("Request body:", JSON.stringify(req.body, null, 2));
+      console.log("\n=== 1. VERIFICAÇÃO DO PAYLOAD DA REQUISIÇÃO ===");
+      console.log("Request body completo:", JSON.stringify(req.body, null, 2));
+      console.log("Headers da requisição:", JSON.stringify(req.headers, null, 2));
       
       const { stages } = req.body;
       
+      console.log("\n=== 2. VALIDAÇÃO INICIAL DO ARRAY ===");
+      console.log("Type of stages:", typeof stages);
+      console.log("Is array:", Array.isArray(stages));
+      console.log("Stages value:", stages);
+      
       if (!Array.isArray(stages)) {
-        console.error("ERROR: Stages is not an array:", typeof stages, stages);
+        console.error("❌ ERROR: Stages is not an array:", typeof stages, stages);
         return res.status(400).json({ message: "Stages array is required" });
       }
 
       if (stages.length === 0) {
-        console.error("ERROR: Empty stages array");
+        console.error("❌ ERROR: Empty stages array");
         return res.status(400).json({ message: "Stages array cannot be empty" });
       }
 
-      console.log(`Processing ${stages.length} stages...`);
+      console.log(`✓ Array válido com ${stages.length} estágios`);
+
+      console.log("\n=== 3. VERIFICAÇÃO DA BASE DE DADOS ===");
+      // Verificar se os IDs existem no banco de dados
+      const existingStages = await storage.getPipelineStages();
+      console.log("Estágios existentes no banco:", existingStages.map(s => ({ id: s.id, title: s.title, position: s.position })));
+      
+      const existingIds = existingStages.map(s => s.id);
+      console.log("IDs válidos no banco:", existingIds);
 
       // Validate each stage
       const validatedStages = [];
       
+      console.log("\n=== 4. VALIDAÇÃO DOS IDs E POSIÇÕES ===");
       for (let i = 0; i < stages.length; i++) {
         const stage = stages[i];
-        console.log(`\n--- Processing stage ${i + 1}/${stages.length} ---`);
-        console.log("Original stage data:", stage);
+        console.log(`\n--- Processando estágio ${i + 1}/${stages.length} ---`);
+        console.log("Dados originais:", stage);
+        console.log("Tipo do ID:", typeof stage.id, "Valor:", stage.id);
+        console.log("Tipo da posição:", typeof stage.position, "Valor:", stage.position);
         
         // Ensure we have proper values
         let stageId = stage.id;
@@ -559,25 +576,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Convert to numbers if they're strings
         if (typeof stageId === 'string') {
+          console.log("Convertendo ID de string para número:", stageId);
           stageId = parseInt(stageId, 10);
+          console.log("ID convertido:", stageId);
         }
         if (typeof stagePosition === 'string') {
+          console.log("Convertendo posição de string para número:", stagePosition);
           stagePosition = parseInt(stagePosition, 10);
+          console.log("Posição convertida:", stagePosition);
         }
         
-        console.log("Converted values:", { id: stageId, position: stagePosition });
+        console.log("Valores após conversão:", { id: stageId, position: stagePosition });
         
-        // Validate ID
+        // Validate ID exists in database
+        if (!existingIds.includes(stageId)) {
+          const error = `Stage ID ${stageId} não existe no banco de dados. IDs válidos: ${existingIds.join(', ')}`;
+          console.error("❌ VALIDATION ERROR:", error);
+          return res.status(400).json({ message: error });
+        }
+        
+        // Validate ID format
         if (!Number.isInteger(stageId) || stageId <= 0) {
-          const error = `Invalid stage ID: ${stage.id}`;
-          console.error("VALIDATION ERROR:", error);
+          const error = `Invalid stage ID format: ${stage.id} (converted: ${stageId})`;
+          console.error("❌ VALIDATION ERROR:", error);
           return res.status(400).json({ message: error });
         }
         
         // Validate position
         if (!Number.isInteger(stagePosition) || stagePosition < 0) {
-          const error = `Invalid stage position: ${stage.position}`;
-          console.error("VALIDATION ERROR:", error);
+          const error = `Invalid stage position: ${stage.position} (converted: ${stagePosition})`;
+          console.error("❌ VALIDATION ERROR:", error);
           return res.status(400).json({ message: error });
         }
         
@@ -586,28 +614,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
           position: stagePosition
         });
         
-        console.log(`✓ Stage ${i + 1} validated`);
+        console.log(`✓ Estágio ${i + 1} validado com sucesso`);
       }
 
-      console.log("Final validated stages:", JSON.stringify(validatedStages, null, 2));
+      console.log("\n=== 5. TESTE COM IDs FIXOS ===");
+      console.log("Estágios validados finais:", JSON.stringify(validatedStages, null, 2));
+      
+      // Verificar se não há posições duplicadas
+      const positions = validatedStages.map(s => s.position);
+      const uniquePositions = [...new Set(positions)];
+      if (positions.length !== uniquePositions.length) {
+        const error = "Posições duplicadas detectadas: " + JSON.stringify(positions);
+        console.error("❌ VALIDATION ERROR:", error);
+        return res.status(400).json({ message: error });
+      }
+      
+      console.log("\n=== 6. DEPURAÇÃO DO LADO DO SERVIDOR ===");
+      console.log("Chamando storage.updateStagePositions com dados:", JSON.stringify(validatedStages, null, 2));
       
       // Call storage function
       await storage.updateStagePositions(validatedStages);
       
-      console.log("✓ Stage positions updated successfully");
+      console.log("✅ Stage positions updated successfully");
       res.json({ 
         message: "Stage positions updated successfully",
-        updatedStages: validatedStages.length
+        updatedStages: validatedStages.length,
+        processedStages: validatedStages
       });
       
     } catch (error) {
-      console.error("=== ERROR in PUT /api/pipeline-stages/positions ===");
+      console.error("\n❌ === ERROR in PUT /api/pipeline-stages/positions ===");
+      console.error("Error type:", typeof error);
+      console.error("Error constructor:", error?.constructor?.name);
       console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
       console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
+      console.error("Raw error object:", error);
       
       res.status(500).json({ 
         message: "Failed to update stage positions", 
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
+        errorType: error?.constructor?.name || "Unknown"
       });
     }
   });

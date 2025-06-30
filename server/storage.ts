@@ -723,18 +723,66 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
-    console.log('\n=== Storage.updateStagePositions called ===');
-    console.log('Input stages:', JSON.stringify(stages, null, 2));
+    console.log('\n=== STORAGE: updateStagePositions iniciado ===');
+    console.log('Stages recebidos:', JSON.stringify(stages, null, 2));
     
     if (!Array.isArray(stages) || stages.length === 0) {
+      console.error('❌ STORAGE ERROR: Stages array inválido');
       throw new Error('Stages array is required and cannot be empty');
     }
     
+    console.log('\n=== VERIFICAÇÃO PRÉVIA DOS ESTÁGIOS NO BANCO ===');
+    // Verificar quais estágios existem no banco antes da atualização
+    const allStages = await db.select({
+      id: pipelineStages.id,
+      title: pipelineStages.title,
+      position: pipelineStages.position,
+      pipelineId: pipelineStages.pipelineId
+    }).from(pipelineStages);
+    
+    console.log('Todos os estágios no banco:', allStages);
+    
+    const stageIds = stages.map(s => s.id);
+    console.log('IDs sendo atualizados:', stageIds);
+    
+    // Verificar se todos os IDs existem
+    for (const stageId of stageIds) {
+      const exists = allStages.find(s => s.id === stageId);
+      if (!exists) {
+        console.error(`❌ STORAGE ERROR: Estágio com ID ${stageId} não encontrado no banco`);
+        throw new Error(`Stage with ID ${stageId} not found in database`);
+      }
+      console.log(`✓ Estágio ID ${stageId} existe:`, exists);
+    }
+    
+    console.log('\n=== ATUALIZANDO POSIÇÕES DOS ESTÁGIOS ===');
     // Update each stage position
-    for (const stage of stages) {
-      console.log(`Updating stage ${stage.id} to position ${stage.position}`);
+    for (let i = 0; i < stages.length; i++) {
+      const stage = stages[i];
+      console.log(`\n--- Atualizando estágio ${i + 1}/${stages.length} ---`);
+      console.log(`Estágio ID: ${stage.id}, Nova posição: ${stage.position}`);
+      console.log(`Tipos: ID=${typeof stage.id}, Position=${typeof stage.position}`);
       
       try {
+        // Verificar estágio antes da atualização
+        const [beforeUpdate] = await db
+          .select({
+            id: pipelineStages.id,
+            title: pipelineStages.title,
+            position: pipelineStages.position
+          })
+          .from(pipelineStages)
+          .where(eq(pipelineStages.id, stage.id));
+          
+        console.log('Estado antes da atualização:', beforeUpdate);
+        
+        if (!beforeUpdate) {
+          console.error(`❌ STORAGE ERROR: Estágio ${stage.id} não encontrado antes da atualização`);
+          throw new Error(`Stage with ID ${stage.id} not found before update`);
+        }
+        
+        // Executar atualização
+        console.log('Executando UPDATE SQL...');
         const result = await db
           .update(pipelineStages)
           .set({ 
@@ -745,22 +793,52 @@ export class DatabaseStorage implements IStorage {
           .returning({
             id: pipelineStages.id,
             title: pipelineStages.title,
-            position: pipelineStages.position
+            position: pipelineStages.position,
+            updatedAt: pipelineStages.updatedAt
           });
         
+        console.log('Resultado do UPDATE:', result);
+        
         if (result.length === 0) {
-          throw new Error(`Stage with ID ${stage.id} not found`);
+          console.error(`❌ STORAGE ERROR: Nenhuma linha afetada para estágio ${stage.id}`);
+          throw new Error(`No rows affected when updating stage ${stage.id}`);
         }
         
-        console.log(`✓ Stage ${stage.id} updated to position ${result[0].position}`);
+        const updatedStage = result[0];
+        console.log(`✅ Estágio ${stage.id} atualizado com sucesso:`);
+        console.log(`   - Título: ${updatedStage.title}`);
+        console.log(`   - Posição anterior: ${beforeUpdate.position}`);
+        console.log(`   - Nova posição: ${updatedStage.position}`);
+        console.log(`   - Atualizado em: ${updatedStage.updatedAt}`);
+        
+        // Verificar se a posição foi realmente atualizada
+        if (updatedStage.position !== stage.position) {
+          console.error(`❌ STORAGE ERROR: Posição não foi atualizada corretamente`);
+          console.error(`   Esperado: ${stage.position}, Atual: ${updatedStage.position}`);
+          throw new Error(`Position not updated correctly for stage ${stage.id}`);
+        }
         
       } catch (error) {
-        console.error(`Error updating stage ${stage.id}:`, error);
+        console.error(`❌ STORAGE ERROR ao atualizar estágio ${stage.id}:`, error);
+        console.error('Tipo do erro:', typeof error);
+        console.error('Nome do erro:', error?.constructor?.name);
+        console.error('Mensagem:', error instanceof Error ? error.message : error);
+        console.error('Stack:', error instanceof Error ? error.stack : 'No stack');
         throw error;
       }
     }
     
-    console.log('✓ All stage positions updated successfully');
+    console.log('\n=== VERIFICAÇÃO FINAL ===');
+    // Verificar estado final dos estágios
+    const finalStages = await db.select({
+      id: pipelineStages.id,
+      title: pipelineStages.title,
+      position: pipelineStages.position
+    }).from(pipelineStages)
+    .where(sql`${pipelineStages.id} IN (${stageIds.join(',')})`);
+    
+    console.log('Estado final dos estágios atualizados:', finalStages);
+    console.log('✅ Todas as posições dos estágios foram atualizadas com sucesso');
   }
 
   
