@@ -540,20 +540,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("req.method:", req.method);
       console.log("req.url:", req.url);
       
-      // Try to extract stages from different possible structures
-      let stages;
-      if (req.body && req.body.stages) {
-        stages = req.body.stages;
-        console.log("=== SERVER: Found stages in req.body.stages ===");
-      } else if (Array.isArray(req.body)) {
-        stages = req.body;
-        console.log("=== SERVER: req.body is already an array ===");
-      } else {
-        console.log("❌ SERVER: Cannot determine stages structure");
+      // Extract stages from request body
+      const stages = req.body.stages;
+      
+      if (!stages) {
+        console.log("❌ SERVER: No stages found in request body");
         return res.status(400).json({ 
-          message: "Invalid request structure",
-          received: req.body,
-          expected: "Either { stages: [...] } or [...]"
+          message: "Missing 'stages' in request body",
+          received: req.body
         });
       }
       
