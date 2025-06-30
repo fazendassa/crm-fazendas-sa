@@ -1,0 +1,73 @@
+✅ PROMPT PARA IA PROGRAMADORA
+🚨 Objetivo: corrigir o erro "Invalid stage ID" ao tentar atualizar a ordem dos estágios no pipeline do CRM.
+
+📌 Instruções para refatorar o endpoint PUT /api/pipeline-stages/positions:
+
+1. Garante que o body seja interpretado como JSON:
+
+ts
+Copiar
+Editar
+// Em algum lugar no setup do servidor
+app.use(express.json()); // se estiver usando Express
+2. Crie ou substitua o endpoint por este:
+
+ts
+Copiar
+Editar
+app.put("/api/pipeline-stages/positions", async (req, res) => {
+  try {
+    const { stages } = req.body;
+
+    if (!Array.isArray(stages)) {
+      return res.status(400).json({ message: "Payload inválido: 'stages' deve ser um array" });
+    }
+
+    for (const stage of stages) {
+      const { id, position } = stage;
+
+      // Verificações robustas de tipo e valor
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ message: `Invalid stage ID: ${id}` });
+      }
+
+      if (!Number.isInteger(position) || position < 0) {
+        return res.status(400).json({ message: `Invalid stage position: ${position}` });
+      }
+
+      // Confirma se o ID existe no banco (evita erro de ID inválido)
+      const stageExists = await db.getStageById(id); // substitua pela função real
+      if (!stageExists) {
+        return res.status(400).json({ message: `Stage ID not found: ${id}` });
+      }
+
+      // Atualiza a posição no banco de dados
+      await db.updateStagePosition(id, position); // substitua pela função real
+    }
+
+    return res.status(200).json({ message: "Stage positions updated successfully" });
+
+  } catch (error) {
+    console.error("Erro interno:", error);
+    return res.status(500).json({ message: "Erro interno ao atualizar posições" });
+  }
+});
+3. Teste com cURL (simule o front-end):
+
+bash
+Copiar
+Editar
+curl -X PUT http://localhost:3000/api/pipeline-stages/positions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "stages": [
+      { "id": 201, "position": 0 },
+      { "id": 202, "position": 1 },
+      { "id": 203, "position": 2 }
+    ]
+  }'
+🎯 Resultado esperado:
+
+Se IDs existirem: deve retornar 200 e mensagem de sucesso.
+
+Se algum ID não existir ou for inválido: erro 400 com mensagem clara.
