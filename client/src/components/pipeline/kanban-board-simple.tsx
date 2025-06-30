@@ -136,105 +136,42 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
   // Update stage positions mutation
   const updateStagePositionsMutation = useMutation({
-    mutationFn: async (stages: Array<{ id: number; position: number }>) => {
-      console.log('\n=== CLIENT MUTATION: Updating stage positions ===');
-      console.log('Stages to send:', JSON.stringify(stages, null, 2));
-      
-      // 1. Log detalhado dos dados antes do envio
-      console.log('\n=== LINHA 153: Verificação detalhada dos dados ===');
-      stages.forEach((stage, index) => {
-        console.log(`Stage ${index + 1}:`, {
-          id: stage.id,
-          idType: typeof stage.id,
-          idValue: stage.id,
-          position: stage.position,
-          positionType: typeof stage.position,
-          positionValue: stage.position
-        });
-      });
-      
-      // 2. Verificar se algum ID está como string e converter
-      const validatedStages = stages.map(stage => {
-        const id = typeof stage.id === 'string' ? parseInt(stage.id, 10) : stage.id;
-        const position = typeof stage.position === 'string' ? parseInt(stage.position, 10) : stage.position;
-        
-        console.log(`Conversão: ${stage.id} (${typeof stage.id}) -> ${id} (${typeof id})`);
-        console.log(`Conversão: ${stage.position} (${typeof stage.position}) -> ${position} (${typeof position})`);
-        
-        return { id, position };
-      });
-      
-      // 3. Validação explícita no frontend antes do envio
-      console.log('\n=== VALIDAÇÃO EXPLÍCITA NO FRONTEND ===');
-      const filteredStages = validatedStages.filter(stage => {
-        const isValidId = Number.isInteger(stage.id) && stage.id > 0;
-        const isValidPosition = Number.isInteger(stage.position) && stage.position >= 0;
-        
-        console.log(`Stage ID ${stage.id}: isInteger=${Number.isInteger(stage.id)}, > 0=${stage.id > 0}, valid=${isValidId}`);
-        console.log(`Position ${stage.position}: isInteger=${Number.isInteger(stage.position)}, >= 0=${stage.position >= 0}, valid=${isValidPosition}`);
-        
-        if (!isValidId) {
-          console.error(`❌ FRONTEND: Invalid ID detected: ${stage.id} (type: ${typeof stage.id})`);
-          return false;
-        }
-        
-        if (!isValidPosition) {
-          console.error(`❌ FRONTEND: Invalid position detected: ${stage.position} (type: ${typeof stage.position})`);
-          return false;
-        }
-        
-        return true;
-      });
-      
-      console.log(`Stages após filtro: ${filteredStages.length}/${validatedStages.length}`);
-      
-      if (filteredStages.length !== validatedStages.length) {
-        throw new Error(`Dados inválidos detectados no frontend. ${validatedStages.length - filteredStages.length} estágio(s) com erro.`);
-      }
-      
-      const payload = { stages: filteredStages };
-      console.log('Request payload (após validação):', JSON.stringify(payload, null, 2));
+    mutationFn: async (stagesToUpdate: Array<{ id: number; position: number }>) => {
       
       const response = await fetch('/api/pipeline-stages/positions', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+        headers: { 
+          'Content-Type': 'application/json' 
         },
         credentials: 'include',
-        body: JSON.stringify(payload),
+        // CORREÇÃO PRINCIPAL: Envia o array 'stagesToUpdate' diretamente.
+        body: JSON.stringify(stagesToUpdate),
       });
-
-      console.log('Response status:', response.status, response.statusText);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Response error text:', errorText);
-        
-        let errorData;
+        let errorMessage = errorText;
         try {
-          errorData = JSON.parse(errorText);
-          console.error('Parsed error data:', errorData);
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
         } catch {
-          errorData = { message: errorText };
+          // Mantém o texto de erro original se não for JSON.
         }
         
-        const errorMessage = errorData.message || errorText || 'Unknown error';
-        console.error('Final error message:', errorMessage);
-        
-        throw new Error(`Failed to update stage positions: ${response.status} - ${errorMessage}`);
+        console.error('Falha ao atualizar as posições dos estágios:', {
+            status: response.status,
+            error: errorMessage
+        });
+
+        throw new Error(`Falha ao atualizar posições: ${errorMessage}`);
       }
 
-      const responseData = await response.json();
-      console.log('✓ Success response:', responseData);
-      return responseData;
+      return response.json();
     },
-    onSuccess: (data) => {
-      console.log('✓ CLIENT MUTATION: Success callback triggered');
-      console.log('Success data:', data);
-      
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
+      
       setIsReorderModalOpen(false);
       
       toast({
@@ -242,15 +179,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         description: "Ordem dos estágios atualizada com sucesso",
       });
     },
-    onError: (error) => {
-      console.error('\n=== CLIENT MUTATION: Error callback triggered ===');
-      console.error('Error object:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      
+    onError: (error: Error) => {
+      console.error("Erro ao atualizar as posições dos estágios:", error);
       toast({
         title: "Erro",
-        description: `Erro ao atualizar ordem dos estágios: ${error.message}`,
+        description: error.message || "Ocorreu um erro desconhecido.",
         variant: "destructive",
       });
     },
