@@ -447,7 +447,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                       size="sm"
                       variant="outline"
                       onClick={() => moveStageDown(stage.id)}
-                      disabled={index === reorderStages.length - 1                    >
+                      disabled={index === reorderStages.length - 1}
+                    >
                       ↓
                     </Button>
                   </div>
