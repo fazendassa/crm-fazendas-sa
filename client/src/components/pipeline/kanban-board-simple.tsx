@@ -8,10 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, MoreVertical, Edit2, Trash2 } from "lucide-react";
+import { Plus, DollarSign } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import DealForm from "./deal-form";
-import { useStageReorder } from "./stage-reorder-functions";
 import type { DealWithRelations, PipelineStage } from "@shared/schema";
 
 interface KanbanBoardProps {
@@ -125,18 +124,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     },
   });
 
-  // Import the reorder hook
-  const {
-    isReorderModalOpen,
-    setIsReorderModalOpen,
-    reorderStages,
-    openReorderModal,
-    moveStageUp,
-    moveStageDown,
-    saveStageOrder,
-    isUpdating,
-    updateStagePositionsMutation
-  } = useStageReorder(pipelineId);
+  // Stages are now automatically ordered by position - no manual reordering needed
 
 
 
@@ -254,14 +242,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Pipeline Kanban</h3>
           <div className="flex gap-2">
-            <Button
-              onClick={() => openReorderModal(stages)}
-              size="sm"
-              variant="outline"
-            >
-              
-              Reordenar Etapas
-            </Button>
             <Button
               onClick={() => setIsAddingStage(true)}
               size="sm"
@@ -411,63 +391,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
 
 
-        {/* Reorder stages modal */}
-        <Dialog open={isReorderModalOpen} onOpenChange={setIsReorderModalOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Reordenar Etapas do Pipeline</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Use os botões para reordenar as etapas:
-              </p>
-              {Array.isArray(reorderStages) && reorderStages.length > 0 ? reorderStages.map((stage, index) => (
-                <div key={stage.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                  <div className="flex-1">
-                    <Label className="text-sm font-medium">{stage.title}</Label>
-                    <p className="text-xs text-muted-foreground">Posição {index + 1}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => moveStageUp(stage.id)}
-                      disabled={index === 0}
-                    >
-                      ↑
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => moveStageDown(stage.id)}
-                      disabled={index === reorderStages.length - 1}
-                    >
-                      ↓
-                    </Button>
-                  </div>
-                </div>
-              )) : (
-                <p className="text-center text-muted-foreground">Nenhum estágio disponível</p>
-              )}
-              <div className="flex gap-2 pt-4">
-                <Button
-                  onClick={saveStageOrder}
-                  disabled={isUpdating}
-                  className="flex-1"
-                >
-                  {isUpdating ? "Salvando..." : "Salvar Ordem"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsReorderModalOpen(false)}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Stages are automatically ordered by position field - no manual reordering needed */}
 
         {/* Deal form dialog */}
         <Dialog open={isDealDialogOpen} onOpenChange={setIsDealDialogOpen}>
