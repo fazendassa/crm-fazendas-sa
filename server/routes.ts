@@ -508,16 +508,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.body.position = position;
       }
 
-      // Novo: verificar existência no banco
-      console.log(`Checking if stage ID ${stageId} exists in database...`);
-      const existing = await storage.getPipelineStage(stageId);
-      console.log(`Database lookup result for stage ${stageId}:`, existing);
+      // Verificar existência no banco
+        const existing = await storage.getPipelineStage(stageId);
 
-      if (!existing) {
-        const error = `Stage ID not found in DB: ${stageId}`;
-        console.error("VALIDATION ERROR:", error);
-        return res.status(400).json({ message: "Invalid stage ID" });
-      }
+        if (!existing) {
+          const error = `Stage ID not found in DB: ${stageId}`;
+          console.error("VALIDATION ERROR:", error);
+          return res.status(404).json({ message: error });
+        }
 
       const stage = await storage.updatePipelineStage(stageId, req.body);
       res.json(stage);
