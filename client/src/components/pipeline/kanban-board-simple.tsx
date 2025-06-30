@@ -66,11 +66,24 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         description: "Estágio criado com sucesso",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error creating stage:", error);
+      
+      const errorMessage = `
+ERRO AO CRIAR ESTÁGIO:
+• Mensagem: ${error.message || 'Erro desconhecido'}
+• Origem: Criação de novo estágio
+• Timestamp: ${new Date().toISOString()}
+• Pipeline ID: ${pipelineId}
+• Título do estágio: ${newStageTitle}
+
+Detalhes técnicos:
+${JSON.stringify(error, null, 2)}
+      `.trim();
+      
       toast({
-        title: "Erro",
-        description: "Erro ao criar estágio",
+        title: "Erro ao criar estágio",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -103,7 +116,28 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       if (!response.ok) {
         const errorText = await response.text();
         console.log("Server error response:", errorText);
-        throw new Error(`Failed to update stage positions: ${response.status} ${errorText}`);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+
+        const detailedError = {
+          status: response.status,
+          statusText: response.statusText,
+          message: errorData.message || "Erro desconhecido",
+          url: response.url,
+          method: "PUT",
+          payload: stageUpdates,
+          timestamp: new Date().toISOString(),
+          stageCount: stageUpdates.length,
+          stageIds: stageUpdates.map((s: any) => s.id),
+          positions: stageUpdates.map((s: any) => s.position)
+        };
+
+        throw detailedError;
       }
 
       return response.json();
@@ -117,11 +151,30 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         description: "Posições dos estágios atualizadas com sucesso",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error updating stage positions:", error);
+      
+      // Criar mensagem de erro detalhada
+      const errorDetails = typeof error === 'object' && error !== null ? error : { message: String(error) };
+      
+      const errorMessage = `
+ERRO DETALHADO:
+• Status: ${errorDetails.status || 'N/A'}
+• Mensagem: ${errorDetails.message || 'Erro desconhecido'}
+• URL: ${errorDetails.url || '/api/pipeline-stages/positions'}
+• Método: ${errorDetails.method || 'PUT'}
+• Timestamp: ${errorDetails.timestamp || new Date().toISOString()}
+• Quantidade de estágios: ${errorDetails.stageCount || 'N/A'}
+• IDs dos estágios: ${errorDetails.stageIds ? errorDetails.stageIds.join(', ') : 'N/A'}
+• Posições: ${errorDetails.positions ? errorDetails.positions.join(', ') : 'N/A'}
+
+Payload enviado:
+${errorDetails.payload ? JSON.stringify(errorDetails.payload, null, 2) : 'N/A'}
+      `.trim();
+      
       toast({
-        title: "Erro",
-        description: "Erro ao atualizar posições dos estágios",
+        title: "Erro ao atualizar posições dos estágios",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -156,13 +209,25 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         description: "Oportunidade movida com sucesso",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error updating deal stage:", error);
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      
+      const errorMessage = `
+ERRO AO MOVER OPORTUNIDADE:
+• Mensagem: ${error.message || 'Erro desconhecido'}
+• Origem: Movimentação de deal no kanban
+• Timestamp: ${new Date().toISOString()}
+• Pipeline ID: ${pipelineId}
+
+Detalhes técnicos:
+${JSON.stringify(error, null, 2)}
+      `.trim();
+      
       toast({
-        title: "Erro",
-        description: `Erro ao mover oportunidade: ${error.message}`,
+        title: "Erro ao mover oportunidade",
+        description: errorMessage,
         variant: "destructive",
       });
     },
