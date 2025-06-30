@@ -82,7 +82,7 @@ export interface IStorage {
   createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage>;
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
-  updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
+  // Stage positions are auto-managed by position field
   
 
   // Dashboard metrics
@@ -725,19 +725,14 @@ export class DatabaseStorage implements IStorage {
   async getPipelineStage(stageId: number): Promise<PipelineStage | undefined> {
     try {
       console.log(`STORAGE: Querying pipeline stage with ID ${stageId}`);
-      console.log(`STORAGE: Query parameters - stageId type: ${typeof stageId}, value: ${stageId}`);
       
-      const result = await db
+      const [stage] = await db
         .select()
         .from(pipelineStages)
         .where(eq(pipelineStages.id, stageId))
         .limit(1);
       
-      console.log(`STORAGE: Raw query result for stage ${stageId}:`, result);
-      console.log(`STORAGE: Result length: ${result.length}`);
-      
-      const stage = result.length > 0 ? result[0] : undefined;
-      console.log(`STORAGE: Final stage result:`, stage);
+      console.log(`STORAGE: Stage found:`, stage);
       
       return stage;
     } catch (error) {
@@ -746,29 +741,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
-    if (!Array.isArray(stages) || stages.length === 0) {
-      throw new Error('Stages array is required and cannot be empty');
-    }
-    
-    // Update each stage position
-    for (const stage of stages) {
-      // Validate stage data
-      if (typeof stage.id !== 'number' || typeof stage.position !== 'number' || 
-          stage.id <= 0 || stage.position < 0) {
-        throw new Error(`Invalid stage data: id=${stage.id}, position=${stage.position}`);
-      }
-      
-      // Update the stage position
-      await db
-        .update(pipelineStages)
-        .set({ 
-          position: stage.position, 
-          updatedAt: new Date() 
-        })
-        .where(eq(pipelineStages.id, stage.id));
-    }
-  }
+  // Stage positions are now auto-managed by position field - no manual reordering needed
 
   
 
