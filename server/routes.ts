@@ -536,13 +536,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("req.body:", JSON.stringify(req.body, null, 2));
       console.log("req.body type:", typeof req.body);
       console.log("req.body keys:", Object.keys(req.body || {}));
+      console.log("req.headers['content-type']:", req.headers['content-type']);
+      console.log("req.method:", req.method);
+      console.log("req.url:", req.url);
       
-      const stages = req.body;
+      // Try to extract stages from different possible structures
+      let stages;
+      if (req.body && req.body.stages) {
+        stages = req.body.stages;
+        console.log("=== SERVER: Found stages in req.body.stages ===");
+      } else if (Array.isArray(req.body)) {
+        stages = req.body;
+        console.log("=== SERVER: req.body is already an array ===");
+      } else {
+        console.log("❌ SERVER: Cannot determine stages structure");
+        return res.status(400).json({ 
+          message: "Invalid request structure",
+          received: req.body,
+          expected: "Either { stages: [...] } or [...]"
+        });
+      }
       
       console.log("=== SERVER: Extracted stages ===");
       console.log("stages:", JSON.stringify(stages, null, 2));
       console.log("stages type:", typeof stages);
       console.log("stages is array:", Array.isArray(stages));
+      
+      // Log each individual stage
+      if (Array.isArray(stages)) {
+        stages.forEach((stage, index) => {
+          console.log(`=== SERVER: Stage ${index + 1} Analysis ===`);
+          console.log("  Raw stage:", stage);
+          console.log("  stage.id:", stage.id);
+          console.log("  stage.id type:", typeof stage.id);
+          console.log("  stage.id is string:", typeof stage.id === 'string');
+          console.log("  stage.id is number:", typeof stage.id === 'number');
+          console.log("  stage.position:", stage.position);
+          console.log("  stage.position type:", typeof stage.position);
+          console.log("  Number(stage.id):", Number(stage.id));
+          console.log("  isNaN(Number(stage.id)):", isNaN(Number(stage.id)));
+          console.log("  parseInt(stage.id):", parseInt(stage.id));
+          console.log("  Number.isInteger(stage.id):", Number.isInteger(stage.id));
+          console.log("  Number.isInteger(Number(stage.id)):", Number.isInteger(Number(stage.id)));
+        });
+      }
 
       if (!stages || !Array.isArray(stages) || stages.length === 0) {
         console.log("❌ SERVER: Invalid stages array");
