@@ -731,19 +731,26 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
 
-      const [stage] = await db
+      const stages = await db
         .select()
         .from(pipelineStages)
         .where(eq(pipelineStages.id, stageId))
         .limit(1);
 
+      const stage = stages[0];
+
       if (stage) {
         console.log(`✅ STORAGE: Stage found - ID: ${stage.id}, Title: "${stage.title}", Position: ${stage.position}`);
+        return stage;
       } else {
-        console.log(`❌ STORAGE: Stage with ID ${stageId} not found`);
+        console.log(`❌ STORAGE: Stage with ID ${stageId} not found in database`);
+        
+        // Additional debugging: let's see what stages DO exist
+        const allStages = await db.select({ id: pipelineStages.id, title: pipelineStages.title }).from(pipelineStages);
+        console.log(`📋 STORAGE: Available stages in database:`, allStages);
+        
+        return undefined;
       }
-
-      return stage;
     } catch (error) {
       console.error(`💥 STORAGE ERROR: Failed to get pipeline stage ${stageId}:`, error);
       console.error(`💥 STORAGE ERROR STACK:`, error instanceof Error ? error.stack : "No stack trace");
