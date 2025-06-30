@@ -528,34 +528,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
+      console.log('\n=== API: RECEIVED REQUEST ===');
+      console.log('Request body:', JSON.stringify(req.body, null, 2));
+      
       const { stages } = req.body;
+      console.log('Extracted stages:', stages);
+      console.log('Stages type:', typeof stages);
+      console.log('Is array:', Array.isArray(stages));
       
       // Basic validation
       if (!Array.isArray(stages) || stages.length === 0) {
+        console.log('❌ API: Invalid stages array');
         return res.status(400).json({ message: "Valid stages array is required" });
       }
 
+      console.log('✓ API: Stages array is valid');
+
       // Validate each stage object
-      for (const stage of stages) {
-        if (!stage || typeof stage.id !== 'number' || typeof stage.position !== 'number') {
+      for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
+        console.log(`\n--- API: Validating stage ${i + 1}/${stages.length} ---`);
+        console.log('Stage object:', stage);
+        console.log('Stage type:', typeof stage);
+        
+        if (!stage) {
+          console.log('❌ API: Stage is null/undefined');
+          return res.status(400).json({ message: `Stage ${i + 1} is null or undefined` });
+        }
+        
+        console.log('Stage ID:', stage.id, 'Type:', typeof stage.id);
+        console.log('Stage position:', stage.position, 'Type:', typeof stage.position);
+        
+        if (typeof stage.id !== 'number') {
+          console.log('❌ API: Invalid stage ID type');
           return res.status(400).json({ 
-            message: "Each stage must have valid id and position numbers" 
+            message: `Invalid stage ID for stage ${i + 1}: expected number, got ${typeof stage.id}` 
           });
         }
         
-        if (stage.id <= 0 || stage.position < 0) {
+        if (typeof stage.position !== 'number') {
+          console.log('❌ API: Invalid stage position type');
           return res.status(400).json({ 
-            message: "Stage ID must be positive and position must be non-negative" 
+            message: `Invalid stage position for stage ${i + 1}: expected number, got ${typeof stage.position}` 
           });
         }
+        
+        if (stage.id <= 0) {
+          console.log('❌ API: Invalid stage ID value');
+          return res.status(400).json({ 
+            message: `Invalid stage ID for stage ${i + 1}: ${stage.id} (must be positive)` 
+          });
+        }
+        
+        if (stage.position < 0) {
+          console.log('❌ API: Invalid stage position value');
+          return res.status(400).json({ 
+            message: `Invalid stage position value for stage ${i + 1}: ${stage.position} (must be non-negative)` 
+          });
+        }
+        
+        console.log(`✓ API: Stage ${i + 1} is valid`);
       }
+
+      console.log('✓ API: All stages validated successfully');
+      console.log('Calling storage.updateStagePositions with:', stages);
 
       // Update positions
       await storage.updateStagePositions(stages);
       
+      console.log('✓ API: Positions updated successfully');
       res.json({ success: true, message: "Positions updated successfully" });
     } catch (error) {
-      console.error("Error updating stage positions:", error);
+      console.error("❌ API ERROR:", error);
       res.status(500).json({ 
         message: "Failed to update stage positions",
         error: error instanceof Error ? error.message : "Unknown error"
