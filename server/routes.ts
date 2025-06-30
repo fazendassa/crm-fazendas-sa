@@ -553,7 +553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('✓ API: Stages array is valid');
 
-      // Validate each stage object
+      // Validate each stage object and check DB existence
       for (let i = 0; i < stages.length; i++) {
         const stage = stages[i];
         console.log(`\n--- API: Validating stage ${i + 1}/${stages.length} ---`);
@@ -594,6 +594,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ 
             message: `Invalid stage position value for stage ${i + 1}: ${stage.position} (must be non-negative)` 
           });
+        }
+
+        // Check if stage exists in database
+        console.log(`--- Checking DB existence for stage ID ${stage.id} ---`);
+        try {
+          const existingStage = await storage.getPipelineStage(stage.id);
+          console.log(`DB lookup result for stage ${stage.id}:`, existingStage);
+          
+          if (!existingStage) {
+            const errorMsg = `Stage ID ${stage.id} not found in database`;
+            console.log('❌ API:', errorMsg);
+            return res.status(400).json({ message: "Invalid stage ID" });
+          }
+          
+          console.log(`✓ API: Stage ${stage.id} exists in DB`);
+        } catch (dbError) {
+          console.error(`❌ API: DB error checking stage ${stage.id}:`, dbError);
+          return res.status(500).json({ message: "Database error validating stage" });
         }
 
         console.log(`✓ API: Stage ${i + 1} is valid`);

@@ -724,13 +724,22 @@ export class DatabaseStorage implements IStorage {
 
   async getPipelineStage(stageId: number): Promise<PipelineStage | undefined> {
     try {
+      console.log(`STORAGE: Querying pipeline stage with ID ${stageId}`);
+      console.log(`STORAGE: Query parameters - stageId type: ${typeof stageId}, value: ${stageId}`);
+      
       const result = await db
         .select()
         .from(pipelineStages)
         .where(eq(pipelineStages.id, stageId))
         .limit(1);
       
-      return result.length > 0 ? result[0] : undefined;
+      console.log(`STORAGE: Raw query result for stage ${stageId}:`, result);
+      console.log(`STORAGE: Result length: ${result.length}`);
+      
+      const stage = result.length > 0 ? result[0] : undefined;
+      console.log(`STORAGE: Final stage result:`, stage);
+      
+      return stage;
     } catch (error) {
       console.error(`STORAGE ERROR: Failed to get pipeline stage ${stageId}:`, error);
       throw error;
