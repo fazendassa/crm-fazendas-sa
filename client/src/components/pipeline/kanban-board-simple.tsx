@@ -321,7 +321,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         <div className="flex gap-6 overflow-x-auto pb-6">
           {Array.isArray(stages) &&
             stages
-            .sort((a: any, b: any) => a.position - b.position)
+            .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
             .map((stage: any) => {
               const stageDeals = stageDealsMap.get(stage.title) || [];
 

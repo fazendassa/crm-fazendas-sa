@@ -743,26 +743,15 @@ export class DatabaseStorage implements IStorage {
 
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
     try {
-      console.log("STORAGE: Starting position updates for stages:", stages);
-      
-      // Update each stage position without any validation
+      // Simple batch update of positions
       for (const stage of stages) {
-        console.log(`STORAGE: Updating stage ${stage.id} to position ${stage.position}`);
-        
         await db
           .update(pipelineStages)
-          .set({ 
-            position: stage.position, 
-            updatedAt: new Date() 
-          })
+          .set({ position: stage.position, updatedAt: new Date() })
           .where(eq(pipelineStages.id, stage.id));
-          
-        console.log(`STORAGE: Successfully updated stage ${stage.id} to position ${stage.position}`);
       }
-      
-      console.log("STORAGE: All positions updated successfully");
     } catch (error) {
-      console.error("STORAGE ERROR: Failed to update stage positions:", error);
+      console.error("Failed to update stage positions:", error);
       throw error;
     }
   }

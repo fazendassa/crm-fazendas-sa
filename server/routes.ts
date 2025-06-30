@@ -530,33 +530,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
-      console.log("=== POSITIONS UPDATE REQUEST ===");
-      console.log("Request body:", JSON.stringify(req.body, null, 2));
-      
       const { stages } = req.body;
 
-      if (!stages || !Array.isArray(stages)) {
-        console.log("❌ Invalid stages array");
+      if (!stages || !Array.isArray(stages) || stages.length === 0) {
         return res.status(400).json({ message: "Stages array is required" });
       }
 
-      if (stages.length === 0) {
-        console.log("❌ Empty stages array");
-        return res.status(400).json({ message: "At least one stage is required" });
-      }
-
-      console.log(`Processing ${stages.length} stages...`);
-      console.log("✅ Skipping validations, proceeding directly to update...");
-      
       await storage.updateStagePositions(stages);
-
-      console.log("✅ Positions updated successfully");
-      res.json({ success: true, message: "Positions updated successfully" });
+      res.json({ success: true });
       
     } catch (error) {
-      console.error("❌ SERVER ERROR:", error);
       res.status(500).json({ 
-        message: "Internal server error",
+        message: "Failed to update positions",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }
