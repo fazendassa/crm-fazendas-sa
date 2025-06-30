@@ -137,34 +137,65 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Update stage positions mutation
   const updateStagePositionsMutation = useMutation({
     mutationFn: async (stages: Array<{ id: number; position: number }>) => {
-      console.log('Updating stage positions:', stages);
+      console.log('\n=== CLIENT MUTATION: Updating stage positions ===');
+      console.log('Stages to send:', JSON.stringify(stages, null, 2));
+      
+      const payload = { stages };
+      console.log('Request payload:', JSON.stringify(payload, null, 2));
+      
       const response = await fetch('/api/pipeline-stages/positions', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ stages }),
+        body: JSON.stringify(payload),
       });
 
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Failed to update stage positions: ${response.status} - ${errorData}`);
+        const errorText = await response.text();
+        console.error('Response error text:', errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+          console.error('Parsed error data:', errorData);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        const errorMessage = errorData.message || errorText || 'Unknown error';
+        console.error('Final error message:', errorMessage);
+        
+        throw new Error(`Failed to update stage positions: ${response.status} - ${errorMessage}`);
       }
 
-      return response.json();
+      const responseData = await response.json();
+      console.log('✓ Success response:', responseData);
+      return responseData;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('✓ CLIENT MUTATION: Success callback triggered');
+      console.log('Success data:', data);
+      
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       setIsReorderModalOpen(false);
+      
       toast({
         title: "Sucesso",
         description: "Ordem dos estágios atualizada com sucesso",
       });
     },
     onError: (error) => {
-      console.error("Error updating stage positions:", error);
+      console.error('\n=== CLIENT MUTATION: Error callback triggered ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
       toast({
         title: "Erro",
         description: `Erro ao atualizar ordem dos estágios: ${error.message}`,
@@ -197,17 +228,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const handleStagePositionChange = (stageId: number, newPosition: number) => {
     console.log('handleStagePositionChange called:', { stageId, newPosition });
     
-    // Validate inputs
-    if (typeof stageId !== 'number' || isNaN(stageId) || stageId <= 0) {
-      console.error('Invalid stageId:', stageId);
-      return;
-    }
-    
-    if (typeof newPosition !== 'number' || isNaN(newPosition) || !Number.isInteger(newPosition) || newPosition < 0) {
-      console.error('Invalid newPosition:', newPosition);
-      return;
-    }
-    
     setReorderStages(prev => {
       console.log('Previous stages:', prev);
       
@@ -218,80 +238,129 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         return prev;
       }
       
-      // Update the specific stage
-      const updatedStages = prev.map(stage => 
-        stage.id === stageId 
-          ? { ...stage, position: newPosition }
-          : stage
-      );
+      // Create a new array without the stage being moved
+      const otherStages = prev.filter(stage => stage.id !== stageId);
       
-      console.log('Updated stages before sorting:', updatedStages);
+      // Insert the stage at the new position
+      const newStages = [...otherStages];
+      newStages.splice(newPosition, 0, { ...stageToUpdate });
       
-      // Sort by position and reassign sequential positions to avoid gaps
-      const finalStages = updatedStages
-        .sort((a, b) => a.position - b.position)
-        .map((stage, index) => ({ ...stage, position: index }));
+      // Reassign sequential positions
+      const finalStages = newStages.map((stage, index) => ({
+        ...stage,
+        position: index
+      }));
       
-      console.log('Final stages:', finalStages);
+      console.log('Final stages after reorder:', finalStages);
       
       return finalStages;
     });
   };
 
   const handleSaveReorder = () => {
-    console.log('=== SAVING REORDER ===');
-    console.log('Current reorderStages:', reorderStages);
+    console.log('\n=== CLIENT: SAVING REORDER ===');
+    console.log('Current reorderStages:', JSON.stringify(reorderStages, null, 2));
     
-    // Ensure all positions are valid sequential integers
-    const sortedStages = reorderStages.sort((a, b) => a.position - b.position);
-    console.log('Sorted stages:', sortedStages);
-    
-    const stageUpdates = sortedStages.map((stage, index) => {
-      const update = {
-        id: Number(stage.id),
-        position: Number(index)
-      };
-      console.log('Creating update:', update, 'from stage:', stage);
-      return update;
-    });
-    
-    console.log('Stage updates before filtering:', stageUpdates);
-    
-    const validUpdates = stageUpdates.filter(stage => {
-      const isValidId = Number.isInteger(stage.id) && stage.id > 0;
-      const isValidPosition = Number.isInteger(stage.position) && stage.position >= 0;
-      
-      console.log('Validating update:', stage, {
-        isValidId,
-        isValidPosition,
-        idType: typeof stage.id,
-        positionType: typeof stage.position
-      });
-      
-      return isValidId && isValidPosition;
-    });
-    
-    console.log('Valid stage updates:', validUpdates);
-    
-    if (validUpdates.length === 0) {
-      console.error('No valid stage updates found');
+    if (!Array.isArray(reorderStages) || reorderStages.length === 0) {
+      console.error('CLIENT ERROR: No stages to reorder');
       toast({
         title: "Erro",
-        description: "Nenhum estágio válido para reordenar",
+        description: "Nenhum estágio para reordenar",
         variant: "destructive",
       });
       return;
     }
     
-    if (validUpdates.length !== reorderStages.length) {
-      console.warn('Some stages were filtered out:', {
-        original: reorderStages.length,
-        valid: validUpdates.length
+    console.log(`CLIENT: Processing ${reorderStages.length} stages...`);
+    
+    // Create the stage updates with strict integer conversion and validation
+    const stageUpdates = reorderStages.map((stage, index) => {
+      console.log(`\n--- CLIENT: Processing stage ${index + 1}/${reorderStages.length} ---`);
+      console.log('Original stage:', stage);
+      console.log('Original ID type:', typeof stage.id, 'Value:', stage.id);
+      console.log('Original position type:', typeof stage.position, 'Value:', stage.position);
+      
+      // Force conversion to integers
+      const id = Number(stage.id);
+      const position = Number(stage.position);
+      
+      console.log('After Number() conversion:');
+      console.log('- ID:', id, 'Type:', typeof id, 'IsInteger:', Number.isInteger(id));
+      console.log('- Position:', position, 'Type:', typeof position, 'IsInteger:', Number.isInteger(position));
+      
+      if (!Number.isInteger(id) || id <= 0) {
+        console.error(`CLIENT ERROR: Invalid ID conversion for stage ${index + 1}:`, { original: stage.id, converted: id });
+        throw new Error(`Invalid stage ID: ${stage.id}`);
+      }
+      
+      if (!Number.isInteger(position) || position < 0) {
+        console.error(`CLIENT ERROR: Invalid position conversion for stage ${index + 1}:`, { original: stage.position, converted: position });
+        throw new Error(`Invalid stage position: ${stage.position}`);
+      }
+      
+      const update = { id, position };
+      console.log(`✓ CLIENT: Stage ${index + 1} converted:`, update);
+      return update;
+    });
+    
+    console.log('\n=== CLIENT: Final stage updates ===');
+    console.log('Stage updates to send:', JSON.stringify(stageUpdates, null, 2));
+    
+    // Additional validation
+    console.log('\n=== CLIENT: Validating updates ===');
+    const validationResults = stageUpdates.map((update, index) => {
+      const idValid = Number.isInteger(update.id) && update.id > 0;
+      const positionValid = Number.isInteger(update.position) && update.position >= 0;
+      const valid = idValid && positionValid;
+      
+      console.log(`Stage ${index + 1}: ID valid=${idValid}, Position valid=${positionValid}, Overall=${valid}`);
+      
+      return { valid, idValid, positionValid, update };
+    });
+    
+    const allValid = validationResults.every(result => result.valid);
+    console.log('All validations passed:', allValid);
+    
+    if (!allValid) {
+      const invalidStages = validationResults.filter(result => !result.valid);
+      console.error('CLIENT ERROR: Validation failed for stages:', invalidStages);
+      toast({
+        title: "Erro",
+        description: `Dados de estágio inválidos: ${invalidStages.length} estágio(s) com erro`,
+        variant: "destructive",
       });
+      return;
     }
     
-    console.log('Sending mutation with:', validUpdates);
-    updateStagePositionsMutation.mutate(validUpdates);
+    // Check for duplicate positions
+    const positions = stageUpdates.map(update => update.position);
+    const uniquePositions = new Set(positions);
+    if (positions.length !== uniquePositions.size) {
+      console.error('CLIENT ERROR: Duplicate positions detected:', positions);
+      toast({
+        title: "Erro",
+        description: "Posições duplicadas detectadas",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check for gaps in positions
+    const sortedPositions = [...positions].sort((a, b) => a - b);
+    for (let i = 0; i < sortedPositions.length; i++) {
+      if (sortedPositions[i] !== i) {
+        console.error('CLIENT ERROR: Position gaps detected:', sortedPositions);
+        toast({
+          title: "Erro",
+          description: "Posições devem ser sequenciais começando em 0",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    console.log('✓ CLIENT: All validations passed, sending mutation...');
+    updateStagePositionsMutation.mutate(stageUpdates);
   };
 
   
@@ -577,8 +646,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                         const inputValue = e.target.value;
                         console.log('Input value changed:', inputValue, 'for stage', stage.id);
                         
-                        if (inputValue === '' || inputValue === '0') {
-                          console.log('Empty or zero input, skipping');
+                        // Allow temporary empty state while typing
+                        if (inputValue === '') {
                           return;
                         }
                         
@@ -590,26 +659,30 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                           return;
                         }
                         
+                        // Convert to 0-based position
                         const newPosition = parsedValue - 1;
                         console.log('New position calculated:', newPosition);
                         
-                        if (
-                          Number.isInteger(newPosition) &&
-                          newPosition >= 0 && 
-                          newPosition < reorderStages.length
-                        ) {
+                        // Allow any valid position within range
+                        if (newPosition >= 0 && newPosition < reorderStages.length) {
                           handleStagePositionChange(stage.id, newPosition);
                         } else {
-                          console.log('Invalid position, not updating:', { newPosition, min: 0, max: reorderStages.length - 1 });
+                          console.log('Position out of range:', { newPosition, min: 0, max: reorderStages.length - 1 });
                         }
                       }}
                       onBlur={(e) => {
                         // Reset to current position if invalid value
                         const inputValue = e.target.value;
-                        const newPosition = parseInt(inputValue) - 1;
+                        if (inputValue === '') {
+                          e.target.value = (stage.position + 1).toString();
+                          return;
+                        }
+                        
+                        const parsedValue = parseInt(inputValue, 10);
+                        const newPosition = parsedValue - 1;
+                        
                         if (
-                          isNaN(newPosition) || 
-                          !Number.isInteger(newPosition) ||
+                          isNaN(parsedValue) || 
                           newPosition < 0 || 
                           newPosition >= reorderStages.length
                         ) {

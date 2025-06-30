@@ -1,0 +1,20 @@
+Error object: 
+Error {}
+message: "Failed to update stage positions: 400 - Invalid stage ID"
+stack: "Error: Failed to update stage positions: 400 - Invalid stage ID↵ at Object.mutationFn (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/components/pipeline/kanban-board-simple.tsx:153:15)"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: Object
+
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Error message: Failed to update stage positions: 400 - Invalid stage ID
+Error stack: Error: Failed to update stage positions: 400 - Invalid stage ID
+    at Object.mutationFn (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/components/pipeline/kanban-board-simple.tsx:153:15)
+at Object.mutationFn (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/src/components/pipeline/kanban-board-simple.tsx:153:15)
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://be653dee-3284-467a-9949-fbfa8e70d059-00-3395v3xcrzvub.spock.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400

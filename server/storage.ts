@@ -723,46 +723,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
-    console.log('updateStagePositions called with:', stages);
+    console.log('\n=== Storage.updateStagePositions called ===');
+    console.log('Input stages:', JSON.stringify(stages, null, 2));
     
-    // Validate all stages before making any database changes
+    if (!Array.isArray(stages) || stages.length === 0) {
+      throw new Error('Stages array is required and cannot be empty');
+    }
+    
+    // Update each stage position
     for (const stage of stages) {
-      const id = Number(stage.id);
-      const position = Number(stage.position);
+      console.log(`Updating stage ${stage.id} to position ${stage.position}`);
       
-      if (
-        !Number.isInteger(id) || 
-        !Number.isInteger(position) || 
-        id <= 0 || 
-        position < 0 ||
-        isNaN(id) ||
-        isNaN(position)
-      ) {
-        console.error('Invalid stage data:', { 
-          originalStage: stage, 
-          convertedId: id, 
-          convertedPosition: position,
-          isValidId: Number.isInteger(id) && id > 0,
-          isValidPosition: Number.isInteger(position) && position >= 0
-        });
-        throw new Error(`Invalid stage data: id=${stage.id}, position=${stage.position}`);
+      try {
+        const result = await db
+          .update(pipelineStages)
+          .set({ 
+            position: stage.position, 
+            updatedAt: new Date() 
+          })
+          .where(eq(pipelineStages.id, stage.id))
+          .returning({
+            id: pipelineStages.id,
+            title: pipelineStages.title,
+            position: pipelineStages.position
+          });
+        
+        if (result.length === 0) {
+          throw new Error(`Stage with ID ${stage.id} not found`);
+        }
+        
+        console.log(`✓ Stage ${stage.id} updated to position ${result[0].position}`);
+        
+      } catch (error) {
+        console.error(`Error updating stage ${stage.id}:`, error);
+        throw error;
       }
     }
     
-    // Update all stages
-    for (const stage of stages) {
-      const id = Number(stage.id);
-      const position = Number(stage.position);
-      
-      console.log(`Updating stage ${id} to position ${position}`);
-      
-      await db
-        .update(pipelineStages)
-        .set({ position: position, updatedAt: new Date() })
-        .where(eq(pipelineStages.id, id));
-    }
-    
-    console.log('All stage positions updated successfully');
+    console.log('✓ All stage positions updated successfully');
   }
 
   
