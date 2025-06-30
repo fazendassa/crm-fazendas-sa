@@ -537,26 +537,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
+      console.log("=== RECEIVED POSITIONS UPDATE REQUEST ===");
+      console.log("Full request body:", JSON.stringify(req.body, null, 2));
+      
       const { stages } = req.body;
+      console.log("Extracted stages:", stages);
+      console.log("Stages type:", typeof stages);
+      console.log("Is array:", Array.isArray(stages));
 
       // Basic validation
       if (!Array.isArray(stages) || stages.length === 0) {
+        console.log("❌ Invalid stages array");
         return res.status(400).json({ message: "Valid stages array is required" });
       }
 
       // Simple validation - just check that we have id and position
       for (const stage of stages) {
+        console.log("Validating stage:", stage);
         if (!stage || typeof stage.id !== 'number' || typeof stage.position !== 'number') {
+          console.log("❌ Invalid stage format:", stage);
           return res.status(400).json({ message: "Each stage must have valid id and position" });
         }
       }
 
+      console.log("✅ All validations passed, updating positions...");
+      
       // Update positions directly - remove DB existence check that's causing the issue
       await storage.updateStagePositions(stages);
 
+      console.log("✅ Positions updated successfully");
       res.json({ success: true, message: "Positions updated successfully" });
     } catch (error) {
-      console.error("API ERROR:", error);
+      console.error("❌ API ERROR:", error);
       res.status(500).json({ 
         message: "Failed to update stage positions",
         error: error instanceof Error ? error.message : "Unknown error"
