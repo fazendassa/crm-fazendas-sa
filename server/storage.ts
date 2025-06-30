@@ -83,7 +83,7 @@ export interface IStorage {
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
   updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
-  
+
 
   // Dashboard metrics
   getDashboardMetrics(): Promise<{
@@ -724,38 +724,29 @@ export class DatabaseStorage implements IStorage {
 
   async getPipelineStage(stageId: number): Promise<PipelineStage | undefined> {
     try {
-      console.log(`STORAGE: Querying pipeline stage with ID ${stageId}`);
-      
-      const [stage] = await db
-        .select()
-        .from(pipelineStages)
-        .where(eq(pipelineStages.id, stageId))
-        .limit(1);
-      
-      console.log(`STORAGE: Stage found:`, stage);
-      
-      return stage;
-    } catch (error) {
-      console.error(`STORAGE ERROR: Failed to get pipeline stage ${stageId}:`, error);
-      throw error;
-    }
-  }
+      console.log(`📊 STORAGE: Querying pipeline stage with ID ${stageId} (type: ${typeof stageId})`);
 
-  async getPipelineStage(stageId: number): Promise<PipelineStage | undefined> {
-    try {
-      console.log(`STORAGE: Querying pipeline stage with ID ${stageId}`);
-      
+      if (!Number.isInteger(stageId) || stageId <= 0) {
+        console.log(`❌ STORAGE: Invalid stage ID format: ${stageId}`);
+        return undefined;
+      }
+
       const [stage] = await db
         .select()
         .from(pipelineStages)
         .where(eq(pipelineStages.id, stageId))
         .limit(1);
-      
-      console.log(`STORAGE: Stage found:`, stage);
-      
+
+      if (stage) {
+        console.log(`✅ STORAGE: Stage found - ID: ${stage.id}, Title: "${stage.title}", Position: ${stage.position}`);
+      } else {
+        console.log(`❌ STORAGE: Stage with ID ${stageId} not found`);
+      }
+
       return stage;
     } catch (error) {
-      console.error(`STORAGE ERROR: Failed to get pipeline stage ${stageId}:`, error);
+      console.error(`💥 STORAGE ERROR: Failed to get pipeline stage ${stageId}:`, error);
+      console.error(`💥 STORAGE ERROR STACK:`, error instanceof Error ? error.stack : "No stack trace");
       throw error;
     }
   }
@@ -763,14 +754,14 @@ export class DatabaseStorage implements IStorage {
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
     try {
       console.log("=== STORAGE: Updating stage positions ===");
-      
+
       // Update each stage position in database
       for (const stage of stages) {
         const stageId = Number(stage.id);
         const position = Number(stage.position);
-        
+
         console.log(`📝 STORAGE: Updating stage ${stageId} to position ${position}`);
-        
+
         const result = await db
           .update(pipelineStages)
           .set({ 
@@ -779,10 +770,10 @@ export class DatabaseStorage implements IStorage {
           })
           .where(eq(pipelineStages.id, stageId))
           .returning();
-          
+
         console.log(`📝 STORAGE: Updated stage ${stageId}, result:`, result);
       }
-      
+
       console.log("✅ STORAGE: All positions updated successfully");
     } catch (error) {
       console.error("❌ STORAGE: Failed to update stage positions:", error);
@@ -790,7 +781,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  
+
 
   // Pipeline operations
   async getPipelines(): Promise<Pipeline[]> {
