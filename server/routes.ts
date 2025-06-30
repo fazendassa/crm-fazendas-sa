@@ -543,13 +543,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate each stage has valid id and position
       for (const stage of stages) {
-        if (!stage.id || typeof stage.id !== 'number' || isNaN(stage.id)) {
-          console.log(`❌ SERVER: Invalid stage ID: ${stage.id}`);
-          return res.status(400).json({ message: "Invalid stage ID" });
+        const stageId = Number(stage.id);
+        const stagePosition = Number(stage.position);
+        
+        if (!stage.id || isNaN(stageId) || stageId <= 0) {
+          console.log(`❌ SERVER: Invalid stage ID: ${stage.id} (converted: ${stageId})`);
+          return res.status(400).json({ message: `Invalid stage ID: ${stage.id}` });
         }
-        if (typeof stage.position !== 'number' || isNaN(stage.position) || stage.position < 0) {
-          console.log(`❌ SERVER: Invalid position for stage ${stage.id}: ${stage.position}`);
-          return res.status(400).json({ message: "Invalid stage position" });
+        
+        if (stage.position === undefined || stage.position === null || isNaN(stagePosition) || stagePosition < 0) {
+          console.log(`❌ SERVER: Invalid position for stage ${stage.id}: ${stage.position} (converted: ${stagePosition})`);
+          return res.status(400).json({ message: `Invalid stage position: ${stage.position}` });
+        }
+        
+        // Verify stage exists in database
+        try {
+          const existingStage = await storage.getPipelineStage(stageId);
+          if (!existingStage) {
+            console.log(`❌ SERVER: Stage ${stageId} not found in database`);
+            return res.status(400).json({ message: `Stage ${stageId} not found` });
+          }
+          console.log(`✅ SERVER: Stage ${stageId} exists in database`);
+        } catch (dbError) {
+          console.error(`❌ SERVER: Database error checking stage ${stageId}:`, dbError);
+          return res.status(500).json({ message: `Database error checking stage ${stageId}` });
         }
       }
 

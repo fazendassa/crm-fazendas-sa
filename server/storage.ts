@@ -741,21 +741,46 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getPipelineStage(stageId: number): Promise<PipelineStage | undefined> {
+    try {
+      console.log(`STORAGE: Querying pipeline stage with ID ${stageId}`);
+      
+      const [stage] = await db
+        .select()
+        .from(pipelineStages)
+        .where(eq(pipelineStages.id, stageId))
+        .limit(1);
+      
+      console.log(`STORAGE: Stage found:`, stage);
+      
+      return stage;
+    } catch (error) {
+      console.error(`STORAGE ERROR: Failed to get pipeline stage ${stageId}:`, error);
+      throw error;
+    }
+  }
+
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
     try {
       console.log("=== STORAGE: Updating stage positions ===");
       
       // Update each stage position in database
       for (const stage of stages) {
-        console.log(`📝 STORAGE: Updating stage ${stage.id} to position ${stage.position}`);
+        const stageId = Number(stage.id);
+        const position = Number(stage.position);
         
-        await db
+        console.log(`📝 STORAGE: Updating stage ${stageId} to position ${position}`);
+        
+        const result = await db
           .update(pipelineStages)
           .set({ 
-            position: stage.position, 
+            position: position, 
             updatedAt: new Date() 
           })
-          .where(eq(pipelineStages.id, stage.id));
+          .where(eq(pipelineStages.id, stageId))
+          .returning();
+          
+        console.log(`📝 STORAGE: Updated stage ${stageId}, result:`, result);
       }
       
       console.log("✅ STORAGE: All positions updated successfully");

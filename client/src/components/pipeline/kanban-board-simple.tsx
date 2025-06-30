@@ -402,7 +402,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                                 )}
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                Nova posição: {index + 1} | DB atual: {stage.position ?? 'N/A'}
+                                Nova posição: {index} | DB atual: {stage.position ?? 'N/A'}
                               </div>
                             </div>
                           )}
