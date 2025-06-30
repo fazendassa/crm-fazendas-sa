@@ -12,8 +12,24 @@ export async function apiRequest(
   endpoint: string,
   data?: any
 ): Promise<any> {
+  // Ensure endpoint starts with /
+  let cleanEndpoint = endpoint;
+  if (!cleanEndpoint.startsWith('/')) {
+    cleanEndpoint = '/' + cleanEndpoint;
+  }
+  
   // Remove leading /api if present to avoid duplication
-  const cleanEndpoint = endpoint.startsWith('/api') ? endpoint.substring(4) : endpoint;
+  if (cleanEndpoint.startsWith('/api/')) {
+    cleanEndpoint = cleanEndpoint.substring(4);
+  } else if (cleanEndpoint.startsWith('/api')) {
+    cleanEndpoint = cleanEndpoint.substring(4);
+  }
+  
+  // Ensure cleanEndpoint starts with /
+  if (!cleanEndpoint.startsWith('/')) {
+    cleanEndpoint = '/' + cleanEndpoint;
+  }
+  
   const url = `/api${cleanEndpoint}`;
 
   const config: RequestInit = {
