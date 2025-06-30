@@ -722,6 +722,23 @@ export class DatabaseStorage implements IStorage {
     await db.delete(pipelineStages).where(eq(pipelineStages.id, id));
   }
 
+  async getPipelineStage(stageId: number) {
+    console.log(`STORAGE: Getting pipeline stage with ID ${stageId}`);
+    try {
+      const [stage] = await db
+        .select()
+        .from(pipelineStages)
+        .where(eq(pipelineStages.id, stageId))
+        .limit(1);
+      
+      console.log(`STORAGE: Pipeline stage ${stageId} result:`, stage);
+      return stage;
+    } catch (error) {
+      console.error(`STORAGE ERROR: Failed to get pipeline stage ${stageId}:`, error);
+      throw error;
+    }
+  }
+
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
     console.log('\n=== STORAGE: updateStagePositions iniciado ===');
     console.log('Stages recebidos:', JSON.stringify(stages, null, 2));

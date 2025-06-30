@@ -402,6 +402,21 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     console.log('✅ CLIENT: All validations passed, sending mutation...');
     console.log('Final payload being sent:', JSON.stringify({ stages: stageUpdates }, null, 2));
     
+    // Debug: Log the exact stageUpdates being sent
+    console.log('\n=== 7. CLIENT: DEBUGGING stageUpdates ===');
+    console.log('stageUpdates:', stageUpdates);
+    console.log('stageUpdates stringified:', JSON.stringify(stageUpdates));
+    stageUpdates.forEach((update, index) => {
+      console.log(`Update ${index + 1}:`, {
+        id: update.id,
+        position: update.position,
+        idType: typeof update.id,
+        positionType: typeof update.position,
+        idIsInteger: Number.isInteger(update.id),
+        positionIsInteger: Number.isInteger(update.position)
+      });
+    });
+    
     updateStagePositionsMutation.mutate(stageUpdates);
   };
 
