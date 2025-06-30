@@ -50,7 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.params.id;
       const { role } = req.body;
-      
+
       if (!role || !['admin', 'gestor', 'vendedor', 'financeiro', 'externo'].includes(role)) {
         return res.status(400).json({ message: "Papel inválido" });
       }
@@ -286,20 +286,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/deals/:id', isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid deal ID" });
       }
 
       console.log(`Updating deal ${id} with data:`, req.body);
-      
+
       const validatedData = insertDealSchema.partial().parse(req.body);
       const deal = await storage.updateDeal(id, validatedData);
-      
+
       if (!deal) {
         return res.status(404).json({ message: "Deal not found" });
       }
-      
+
       console.log(`Deal ${id} updated successfully:`, deal);
       res.json(deal);
     } catch (error) {
@@ -450,17 +450,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/pipelines/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      
+
       // Check if pipeline has active deals
       const dealsByStage = await storage.getDealsByStage(id);
       const totalActiveDeals = dealsByStage.reduce((sum, stage) => sum + stage.count, 0);
-      
+
       if (totalActiveDeals > 0) {
         return res.status(400).json({ 
           message: `Não é possível excluir o pipeline. Existem ${totalActiveDeals} oportunidade(s) ativa(s) neste pipeline. Remova ou transfira as oportunidades antes de excluir o pipeline.` 
         });
       }
-      
+
       await storage.deletePipeline(id);
       res.status(204).send();
     } catch (error) {
@@ -494,7 +494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/pipeline-stages/:id", isAuthenticated, async (req, res) => {
     try {
       const stageId = parseInt(req.params.id);
-      
+
       if (isNaN(stageId) || stageId <= 0) {
         return res.status(400).json({ message: "Invalid stage ID" });
       }
@@ -528,99 +528,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
-      console.log("=== PUT /api/pipeline-stages/positions ===");
-      console.log("Request body:", JSON.stringify(req.body, null, 2));
-      
       const { stages } = req.body;
       
-      if (!Array.isArray(stages)) {
-        console.error("ERROR: Stages is not an array:", typeof stages, stages);
-        return res.status(400).json({ message: "Stages array is required" });
+      // Basic validation
+      if (!Array.isArray(stages) || stages.length === 0) {
+        return res.status(400).json({ message: "Valid stages array is required" });
       }
 
-      if (stages.length === 0) {
-        console.error("ERROR: Empty stages array");
-        return res.status(400).json({ message: "Stages array cannot be empty" });
+      // Validate each stage object
+      for (const stage of stages) {
+        if (!stage || typeof stage.id !== 'number' || typeof stage.position !== 'number') {
+          return res.status(400).json({ 
+            message: "Each stage must have valid id and position numbers" 
+          });
+        }
+        
+        if (stage.id <= 0 || stage.position < 0) {
+          return res.status(400).json({ 
+            message: "Stage ID must be positive and position must be non-negative" 
+          });
+        }
       }
 
-      console.log(`Processing ${stages.length} stages...`);
-
-      // Validate each stage
-      const validatedStages = [];
+      // Update positions
+      await storage.updateStagePositions(stages);
       
-      for (let i = 0; i < stages.length; i++) {
-        const stage = stages[i];
-        console.log(`\n--- Processing stage ${i + 1}/${stages.length} ---`);
-        console.log("Original stage data:", stage);
-        
-        // Ensure we have proper values
-        let stageId = stage.id;
-        let stagePosition = stage.position;
-        
-        // Convert to numbers if they're strings
-        if (typeof stageId === 'string') {
-          stageId = parseInt(stageId, 10);
-        }
-        if (typeof stagePosition === 'string') {
-          stagePosition = parseInt(stagePosition, 10);
-        }
-        
-        console.log("Converted values:", { id: stageId, position: stagePosition });
-        
-        // Validate ID att
-        if (!Number.isInteger(stageId) || stageId <= 0) {
-          const error = `Invalid stage ID format: ${JSON.stringify(stage)}`;
-          console.error("VALIDATION ERROR:", error);
-          return res.status(400).json({ message: error });
-        }
-
-        // Novo: verificar existência no banco
-        const existing = await storage.getPipelineStage(stageId);
-        if (!existing) {
-          const error = `Stage ID not found in DB: ${stageId}`;
-          console.error("VALIDATION ERROR:", error);
-          return res.status(404).json({ message: error });
-        }
-        
-        // Validate position
-        if (!Number.isInteger(stagePosition) || stagePosition < 0) {
-          const error = `Invalid stage position: ${stage.position}`;
-          console.error("VALIDATION ERROR:", error);
-          return res.status(400).json({ message: error });
-        }
-        
-        validatedStages.push({
-          id: stageId,
-          position: stagePosition
-        });
-        
-        console.log(`✓ Stage ${i + 1} validated`);
-      }
-
-      console.log("Final validated stages:", JSON.stringify(validatedStages, null, 2));
-      
-      // Call storage function
-      await storage.updateStagePositions(validatedStages);
-      
-      console.log("✓ Stage positions updated successfully");
-      res.json({ 
-        message: "Stage positions updated successfully",
-        updatedStages: validatedStages.length
-      });
-      
+      res.json({ success: true, message: "Positions updated successfully" });
     } catch (error) {
-      console.error("=== ERROR in PUT /api/pipeline-stages/positions ===");
-      console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
-      console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
-      
+      console.error("Error updating stage positions:", error);
       res.status(500).json({ 
-        message: "Failed to update stage positions", 
+        message: "Failed to update stage positions",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
 
-  
+
 
   // Dashboard metrics
   app.get('/api/dashboard/metrics', isAuthenticated, async (req, res) => {
@@ -661,7 +604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         console.log('=== INÍCIO DO PROCESSAMENTO DA IMPORTAÇÃO ===');
-        
+
         if (!req.file) {
           console.log('ERRO: Nenhum arquivo foi enviado');
           return res.status(400).json({ message: 'Nenhum arquivo foi enviado' });
@@ -675,7 +618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const { pipelineId, tags } = req.body;
         console.log('Parâmetros recebidos:', { pipelineId, tags });
-        
+
         let data: any[] = [];
 
         // Parse file based on type
@@ -684,7 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Parse Excel file
           const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
           console.log('Planilhas disponíveis:', workbook.SheetNames);
-          
+
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           data = XLSX.utils.sheet_to_json(worksheet, { 
@@ -692,12 +635,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             defval: '',
             raw: false
           });
-          
+
           // Convert array of arrays to array of objects with first row as headers
           if (data.length > 0) {
             const headers = data[0] as string[];
             console.log('Cabeçalhos encontrados:', headers);
-            
+
             data = data.slice(1).map((row: any[]) => {
               const obj: any = {};
               headers.forEach((header, index) => {
@@ -706,13 +649,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return obj;
             });
           }
-          
+
         } else if (req.file.mimetype === 'text/csv') {
           console.log('Processando arquivo CSV...');
           // Parse CSV file
           const csvData: any[] = [];
           const stream = Readable.from(req.file.buffer);
-          
+
           await new Promise((resolve, reject) => {
             stream
               .pipe(csv())
@@ -768,7 +711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  
+
 
   // Preview import file to get columns
   app.post('/api/contacts/preview-import', isAuthenticated, upload.single('file'), async (req, res) => {
@@ -797,18 +740,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           defval: '',
           raw: false
         });
-        
+
         if (rawData.length > 0) {
           const headers = rawData[0] as string[];
           console.log('Cabeçalhos encontrados:', headers);
           return res.json({ columns: headers.filter(h => h && h.trim() !== '') });
         }
-        
+
       } else if (req.file.mimetype === 'text/csv') {
         console.log('Processando arquivo CSV para preview...');
         const csvData: any[] = [];
         const stream = Readable.from(req.file.buffer);
-        
+
         await new Promise((resolve, reject) => {
           stream
             .pipe(csv())
@@ -818,13 +761,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .on('end', resolve)
             .on('error', reject);
         });
-        
+
         if (csvData.length > 0) {
           const headers = Object.keys(csvData[0]);
           console.log('Cabeçalhos CSV encontrados:', headers);
-          return res.json({ columns: headers.filter(h => h && h.trim() !== '') });
+          return res.json({ columns: headers.filter(h => h && h.trim() !== '')});
         }
-        
+
       } else {
         return res.status(400).json({ message: 'Tipo de arquivo não suportado' });
       }
