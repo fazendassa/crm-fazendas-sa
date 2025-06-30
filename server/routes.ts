@@ -530,34 +530,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
-      console.log("=== RECEIVED POSITIONS UPDATE REQUEST ===");
-      console.log("Full request body:", JSON.stringify(req.body, null, 2));
+      console.log("=== POSITIONS UPDATE REQUEST ===");
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
       
       const { stages } = req.body;
 
-      // Basic validation
-      if (!Array.isArray(stages) || stages.length === 0) {
-        return res.status(400).json({ message: "Valid stages array is required" });
+      if (!stages || !Array.isArray(stages)) {
+        console.log("❌ Invalid stages array");
+        return res.status(400).json({ message: "Stages array is required" });
       }
 
-      // Simple validation - just check that we have id and position
-      for (const stage of stages) {
-        if (!stage || typeof stage.id !== 'number' || typeof stage.position !== 'number') {
-          return res.status(400).json({ message: "Invalid stage format" });
+      if (stages.length === 0) {
+        console.log("❌ Empty stages array");
+        return res.status(400).json({ message: "At least one stage is required" });
+      }
+
+      console.log(`Processing ${stages.length} stages...`);
+
+      // Process each stage
+      for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
+        console.log(`Stage ${i + 1}:`, stage);
+        
+        if (!stage) {
+          console.log(`❌ Stage ${i + 1} is null/undefined`);
+          return res.status(400).json({ message: `Stage ${i + 1} is invalid` });
+        }
+
+        if (typeof stage.id !== 'number' || stage.id <= 0) {
+          console.log(`❌ Stage ${i + 1} has invalid ID:`, stage.id);
+          return res.status(400).json({ message: `Stage ${i + 1} has invalid ID` });
+        }
+
+        if (typeof stage.position !== 'number' || stage.position < 0) {
+          console.log(`❌ Stage ${i + 1} has invalid position:`, stage.position);
+          return res.status(400).json({ message: `Stage ${i + 1} has invalid position` });
         }
       }
 
-      console.log("✅ All validations passed, updating positions...");
+      console.log("✅ All stages validated, updating positions...");
       
-      // Update positions directly
       await storage.updateStagePositions(stages);
 
       console.log("✅ Positions updated successfully");
       res.json({ success: true, message: "Positions updated successfully" });
+      
     } catch (error) {
-      console.error("❌ API ERROR:", error);
+      console.error("❌ SERVER ERROR:", error);
       res.status(500).json({ 
-        message: "Failed to update stage positions",
+        message: "Internal server error",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }

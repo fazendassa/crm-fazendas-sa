@@ -745,20 +745,51 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log("STORAGE: Starting position updates for stages:", stages);
       
+      if (!Array.isArray(stages) || stages.length === 0) {
+        throw new Error("Invalid stages array provided");
+      }
+      
       // Update each stage position
       for (const stage of stages) {
-        console.log(`STORAGE: Updating stage ${stage.id} to position ${stage.position}`);
+        const stageId = Number(stage.id);
+        const position = Number(stage.position);
         
-        const result = await db
+        if (isNaN(stageId) || stageId <= 0) {
+          throw new Error(`Invalid stage ID: ${stage.id}`);
+        }
+        
+        if (isNaN(position) || position < 0) {
+          throw new Error(`Invalid position: ${stage.position}`);
+        }
+        
+        console.log(`STORAGE: Updating stage ${stageId} to position ${position}`);
+        
+        // First, check if stage exists
+        const [existingStage] = await db
+          .select()
+          .from(pipelineStages)
+          .where(eq(pipelineStages.id, stageId))
+          .limit(1);
+        
+        if (!existingStage) {
+          throw new Error(`Stage with ID ${stageId} not found`);
+        }
+        
+        // Update the stage
+        const [updatedStage] = await db
           .update(pipelineStages)
           .set({ 
-            position: stage.position, 
+            position: position, 
             updatedAt: new Date() 
           })
-          .where(eq(pipelineStages.id, stage.id))
+          .where(eq(pipelineStages.id, stageId))
           .returning();
           
-        console.log(`STORAGE: Updated stage ${stage.id}:`, result);
+        if (!updatedStage) {
+          throw new Error(`Failed to update stage ${stageId}`);
+        }
+        
+        console.log(`STORAGE: Successfully updated stage ${stageId} to position ${position}`);
       }
       
       console.log("STORAGE: All positions updated successfully");
