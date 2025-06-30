@@ -79,14 +79,34 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Update stage positions mutation
   const updateStagePositionsMutation = useMutation({
     mutationFn: async (updatedStages: PipelineStage[]) => {
-      // Update each stage position individually
-      const promises = updatedStages.map((stage, index) => 
-        apiRequest("PUT", `/api/pipeline-stages/${stage.id}`, {
-          position: index
-        })
-      );
-      
-      return Promise.all(promises);
+      // Send all stage updates in a single batch request
+      const stageUpdates = updatedStages.map((stage, index) => ({
+        id: stage.id,
+        position: index
+      }));
+
+      console.log("=== MUTATION: Starting position update ===");
+      console.log("Stages data to send:", JSON.stringify(stageUpdates, null, 2));
+
+      const response = await fetch("/api/pipeline-stages/positions", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ stages: stageUpdates }),
+      });
+
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log("Server error response:", errorText);
+        throw new Error(`Failed to update stage positions: ${response.status} ${errorText}`);
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
@@ -382,7 +402,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                                 )}
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                Posição: {index + 1}
+                                Nova posição: {index + 1} | DB atual: {stage.position ?? 'N/A'}
                               </div>
                             </div>
                           )}

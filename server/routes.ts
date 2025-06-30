@@ -528,7 +528,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stage positions are now auto-managed by position field - no manual reordering needed
+  // Batch update stage positions
+  app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
+    try {
+      const { stages } = req.body;
+
+      console.log("=== SERVER: Batch update positions ===");
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
+
+      if (!stages || !Array.isArray(stages) || stages.length === 0) {
+        console.log("❌ SERVER: Invalid stages array");
+        return res.status(400).json({ message: "Stages array is required" });
+      }
+
+      // Validate each stage has valid id and position
+      for (const stage of stages) {
+        if (!stage.id || typeof stage.id !== 'number' || isNaN(stage.id)) {
+          console.log(`❌ SERVER: Invalid stage ID: ${stage.id}`);
+          return res.status(400).json({ message: "Invalid stage ID" });
+        }
+        if (typeof stage.position !== 'number' || isNaN(stage.position) || stage.position < 0) {
+          console.log(`❌ SERVER: Invalid position for stage ${stage.id}: ${stage.position}`);
+          return res.status(400).json({ message: "Invalid stage position" });
+        }
+      }
+
+      console.log("✅ SERVER: All validations passed, updating positions...");
+      
+      await storage.updateStagePositions(stages);
+      
+      console.log("✅ SERVER: Positions updated successfully");
+      res.json({ success: true });
+      
+    } catch (error) {
+      console.error("❌ SERVER: Error updating positions:", error);
+      res.status(500).json({ 
+        message: "Failed to update positions",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
 
 
 
