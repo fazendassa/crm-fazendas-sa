@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "react-beautiful-dnd";
@@ -25,7 +24,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [defaultStage, setDefaultStage] = useState<string | undefined>();
   const [isAddingStage, setIsAddingStage] = useState(false);
   const [newStageTitle, setNewStageTitle] = useState("");
-  
+
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -68,11 +67,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       queryClient.removeQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
       queryClient.removeQueries({ queryKey: ["/api/pipeline-stages"] });
       queryClient.removeQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
-      
+
       // Immediate refetch
       queryClient.refetchQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
       queryClient.refetchQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
-      
+
       setIsAddingStage(false);
       setNewStageTitle("");
       toast({
@@ -114,7 +113,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
-      
+
       toast({
         title: "Sucesso",
         description: "Oportunidade movida com sucesso",
@@ -145,7 +144,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     isUpdating
   } = useStageReorder(pipelineId);
 
-  
+
 
   const handleCreateStage = () => {
     if (newStageTitle.trim()) {
@@ -161,7 +160,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
 
 
-  
+
 
   // Handle drag and drop for deals only
   const handleDragEnd = (result: DropResult) => {
@@ -196,9 +195,9 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     const sourceStageData = Array.isArray(dealsData) 
       ? dealsData.find((s: any) => s.stage === source.droppableId)
       : null;
-    
+
     const dealToMove = sourceStageData?.deals.find((deal: any) => deal.id === dealId);
-    
+
     if (!dealToMove) {
       toast({
         title: "Erro",
@@ -211,7 +210,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     // Optimistically update the cache first
     queryClient.setQueryData([`/api/deals/by-stage?pipelineId=${pipelineId}`], (oldData: any) => {
       if (!Array.isArray(oldData)) return oldData;
-      
+
       return oldData.map((stageData: any) => {
         // Remove deal from source stage
         if (stageData.stage === source.droppableId) {
@@ -221,7 +220,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
             count: Math.max(0, stageData.count - 1)
           };
         }
-        
+
         // Add deal to destination stage
         if (stageData.stage === destination.droppableId) {
           return {
@@ -230,7 +229,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
             count: stageData.count + 1
           };
         }
-        
+
         return stageData;
       });
     });
@@ -324,7 +323,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
             .sort((a: any, b: any) => a.position - b.position)
             .map((stage: any) => {
               const stageDeals = stageDealsMap.get(stage.title) || [];
-              
+
               return (
                 <div key={stage.id} className="flex-shrink-0 w-80 space-y-4">
                   <div className="flex items-center justify-between">
@@ -394,7 +393,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                           </Draggable>
                         ))}
                         {provided.placeholder}
-                        
+
                         {/* Add new deal button */}
                         <Button
                           variant="outline"
@@ -416,7 +415,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
             })}
         </div>
 
-        
+
 
         {/* Reorder stages modal */}
         <Dialog open={isReorderModalOpen} onOpenChange={setIsReorderModalOpen}>
