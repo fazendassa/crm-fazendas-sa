@@ -92,11 +92,58 @@ ${JSON.stringify(error, null, 2)}
   // Update stage positions mutation
   const updateStagePositionsMutation = useMutation({
     mutationFn: async (updatedStages: PipelineStage[]) => {
+      console.log("=== FRONT-END DEBUG: Before mutationFn ===");
+      console.log("Raw updatedStages:", updatedStages);
+      console.log("updatedStages length:", updatedStages.length);
+      
+      // Verificar cada stage individualmente
+      updatedStages.forEach((stage, index) => {
+        console.log(`Stage ${index + 1}:`);
+        console.log("  - Raw stage:", stage);
+        console.log("  - stage.id:", stage.id);
+        console.log("  - stage.id type:", typeof stage.id);
+        console.log("  - stage.id is string:", typeof stage.id === 'string');
+        console.log("  - stage.id is number:", typeof stage.id === 'number');
+        console.log("  - stage.id toString():", stage.id.toString());
+        console.log("  - Number(stage.id):", Number(stage.id));
+        console.log("  - parseInt(stage.id):", parseInt(stage.id.toString()));
+      });
+
       // Send all stage updates in a single batch request
-      const stageUpdates = updatedStages.map((stage, index) => ({
-        id: stage.id,
-        position: index
-      }));
+      const stageUpdates = updatedStages.map((stage, index) => {
+        const stageId = stage.id;
+        const position = index;
+        
+        // Validação explícita no front-end
+        if (!stageId || (typeof stageId !== 'number' && typeof stageId !== 'string')) {
+          console.error(`❌ FRONT-END: Invalid stage ID detected:`, {
+            stage,
+            stageId,
+            type: typeof stageId,
+            index
+          });
+          throw new Error(`Invalid stage ID: ${stageId} (type: ${typeof stageId})`);
+        }
+        
+        if (typeof position !== 'number' || position < 0) {
+          console.error(`❌ FRONT-END: Invalid position detected:`, {
+            stage,
+            position,
+            type: typeof position,
+            index
+          });
+          throw new Error(`Invalid position: ${position} (type: ${typeof position})`);
+        }
+        
+        const processedUpdate = {
+          id: typeof stageId === 'string' ? parseInt(stageId) : stageId,
+          position: position
+        };
+        
+        console.log(`✅ FRONT-END: Processed stage ${index + 1}:`, processedUpdate);
+        
+        return processedUpdate;
+      });
 
       console.log("=== MUTATION: Starting position update ===");
       console.log("Stages data to send:", JSON.stringify(stageUpdates, null, 2));

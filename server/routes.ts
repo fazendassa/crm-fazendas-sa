@@ -536,13 +536,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("req.body:", JSON.stringify(req.body, null, 2));
       console.log("req.body type:", typeof req.body);
       console.log("req.body keys:", Object.keys(req.body || {}));
+      console.log("req.headers['content-type']:", req.headers['content-type']);
+      console.log("req.method:", req.method);
+      console.log("req.url:", req.url);
       
-      const stages = req.body;
+      // Try to extract stages from different possible structures
+      let stages;
+      if (req.body && req.body.stages) {
+        stages = req.body.stages;
+        console.log("=== SERVER: Found stages in req.body.stages ===");
+      } else if (Array.isArray(req.body)) {
+        stages = req.body;
+        console.log("=== SERVER: req.body is already an array ===");
+      } else {
+        console.log("❌ SERVER: Cannot determine stages structure");
+        return res.status(400).json({ 
+          message: "Invalid request structure",
+          received: req.body,
+          expected: "Either { stages: [...] } or [...]"
+        });
+      }
       
       console.log("=== SERVER: Extracted stages ===");
       console.log("stages:", JSON.stringify(stages, null, 2));
       console.log("stages type:", typeof stages);
       console.log("stages is array:", Array.isArray(stages));
+      
+      // Log each individual stage
+      if (Array.isArray(stages)) {
+        stages.forEach((stage, index) => {
+          console.log(`=== SERVER: Stage ${index + 1} Analysis ===`);
+          console.log("  Raw stage:", stage);
+          console.log("  stage.id:", stage.id);
+          console.log("  stage.id type:", typeof stage.id);
+          console.log("  stage.id is string:", typeof stage.id === 'string');
+          console.log("  stage.id is number:", typeof stage.id === 'number');
+          console.log("  stage.position:", stage.position);
+          console.log("  stage.position type:", typeof stage.position);
+          console.log("  Number(stage.id):", Number(stage.id));
+          console.log("  isNaN(Number(stage.id)):", isNaN(Number(stage.id)));
+          console.log("  parseInt(stage.id):", parseInt(stage.id));
+          console.log("  Number.isInteger(stage.id):", Number.isInteger(stage.id));
+          console.log("  Number.isInteger(Number(stage.id)):", Number.isInteger(Number(stage.id)));
+        });
+      }
 
       if (!stages || !Array.isArray(stages) || stages.length === 0) {
         console.log("❌ SERVER: Invalid stages array");
@@ -555,6 +592,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`=== SERVER: Validating ${stages.length} stages ===`);
 
       // Validate each stage has valid id and position
+      const stageUpdates = [];
+      
       for (let i = 0; i < stages.length; i++) {
         const stage = stages[i];
         console.log(`\n--- Validating stage ${i + 1}/${stages.length} ---`);
@@ -570,7 +609,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`❌ SERVER: Stage ID is not string or number: ${stage.id} (type: ${typeof stage.id})`);
           return res.status(400).json({ 
             message: `Invalid stage ID type: ${typeof stage.id}`,
-            stageData: stage
+            stageData: stage,
+            stageIndex: i
           });
         }
         
@@ -584,7 +624,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`❌ SERVER: Stage position is not string or number: ${stage.position} (type: ${typeof stage.position})`);
           return res.status(400).json({ 
             message: `Invalid position type: ${typeof stage.position}`,
-            stageData: stage
+            stageData: stage,
+            stageIndex: i
           });
         }
         
@@ -594,7 +635,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`❌ SERVER: Invalid stage ID after parsing: ${stageId}`);
           return res.status(400).json({ 
             message: `Invalid stage ID: ${stage.id} (parsed as: ${stageId})`,
-            stageData: stage
+            stageData: stage,
+            stageIndex: i
           });
         }
         
@@ -602,39 +644,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`❌ SERVER: Invalid position after parsing: ${stagePosition}`);
           return res.status(400).json({ 
             message: `Invalid position: ${stage.position} (parsed as: ${stagePosition})`,
-            stageData: stage
+            stageData: stage,
+            stageIndex: i
           });
         }
         
-        // Verify stage exists in database
-        try {
-          console.log(`🔍 SERVER: Checking if stage ${stageId} exists in database...`);
-          const existingStage = await storage.getPipelineStage(stageId);
+        // Add to updates array
+        stageUpdates.push({
+          id: stageId,
+          position: stagePosition
+        });
+        
+        console.log(`✅ SERVER: Stage ${stageId} validated successfully`);
+      }
+      
+      // Batch verify all stages exist in database before updating
+      console.log("🔍 SERVER: Batch verifying all stages exist in database...");
+      try {
+        for (const update of stageUpdates) {
+          const existingStage = await storage.getPipelineStage(update.id);
           if (!existingStage) {
-            console.log(`❌ SERVER: Stage ${stageId} not found in database`);
+            console.log(`❌ SERVER: Stage ${update.id} not found in database`);
             return res.status(400).json({ 
-              message: `Stage ${stageId} not found in database`,
-              stageId: stageId
+              message: `Stage ${update.id} not found in database`,
+              stageId: update.id,
+              allStageIds: stageUpdates.map(s => s.id)
             });
           }
-          console.log(`✅ SERVER: Stage ${stageId} found in database:`, existingStage.title);
-        } catch (dbError) {
-          console.error(`❌ SERVER: Database error checking stage ${stageId}:`, dbError);
-          return res.status(500).json({ 
-            message: `Database error checking stage ${stageId}`,
-            error: dbError instanceof Error ? dbError.message : "Unknown database error"
-          });
+          console.log(`✅ SERVER: Stage ${update.id} ("${existingStage.title}") found in database`);
         }
+      } catch (dbError) {
+        console.error(`❌ SERVER: Database error during batch verification:`, dbError);
+        return res.status(500).json({ 
+          message: `Database error during validation`,
+          error: dbError instanceof Error ? dbError.message : "Unknown database error"
+        });
       }
 
       console.log("✅ SERVER: All validations passed, updating positions...");
-      
-      // Convert to proper format for storage
-      const stageUpdates = stages.map(stage => ({
-        id: typeof stage.id === 'string' ? parseInt(stage.id, 10) : stage.id,
-        position: typeof stage.position === 'string' ? parseInt(stage.position, 10) : stage.position
-      }));
-      
       console.log("Final stage updates:", JSON.stringify(stageUpdates, null, 2));
       
       await storage.updateStagePositions(stageUpdates);
