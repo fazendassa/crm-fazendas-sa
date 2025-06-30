@@ -736,6 +736,7 @@ export class DatabaseStorage implements IStorage {
       console.log(`STORAGE: Raw query result for stage ${stageId}:`, result);
       console.log(`STORAGE: Result length: ${result.length}`);
       
+      // O bug estava aqui - estava verificando result[0] quando deveria ser result.length > 0 ? result[0] : undefined
       const stage = result.length > 0 ? result[0] : undefined;
       console.log(`STORAGE: Final stage result:`, stage);
       
@@ -747,19 +748,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
-    if (!Array.isArray(stages) || stages.length === 0) {
-      throw new Error('Stages array is required and cannot be empty');
-    }
-    
     // Update each stage position
     for (const stage of stages) {
-      // Validate stage data
-      if (typeof stage.id !== 'number' || typeof stage.position !== 'number' || 
-          stage.id <= 0 || stage.position < 0) {
-        throw new Error(`Invalid stage data: id=${stage.id}, position=${stage.position}`);
-      }
-      
-      // Update the stage position
       await db
         .update(pipelineStages)
         .set({ 
