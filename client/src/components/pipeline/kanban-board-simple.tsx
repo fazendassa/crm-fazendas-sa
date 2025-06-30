@@ -140,8 +140,60 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       console.log('\n=== CLIENT MUTATION: Updating stage positions ===');
       console.log('Stages to send:', JSON.stringify(stages, null, 2));
       
-      const payload = { stages };
-      console.log('Request payload:', JSON.stringify(payload, null, 2));
+      // 1. Log detalhado dos dados antes do envio
+      console.log('\n=== LINHA 153: Verificação detalhada dos dados ===');
+      stages.forEach((stage, index) => {
+        console.log(`Stage ${index + 1}:`, {
+          id: stage.id,
+          idType: typeof stage.id,
+          idValue: stage.id,
+          position: stage.position,
+          positionType: typeof stage.position,
+          positionValue: stage.position
+        });
+      });
+      
+      // 2. Verificar se algum ID está como string e converter
+      const validatedStages = stages.map(stage => {
+        const id = typeof stage.id === 'string' ? parseInt(stage.id, 10) : stage.id;
+        const position = typeof stage.position === 'string' ? parseInt(stage.position, 10) : stage.position;
+        
+        console.log(`Conversão: ${stage.id} (${typeof stage.id}) -> ${id} (${typeof id})`);
+        console.log(`Conversão: ${stage.position} (${typeof stage.position}) -> ${position} (${typeof position})`);
+        
+        return { id, position };
+      });
+      
+      // 3. Validação explícita no frontend antes do envio
+      console.log('\n=== VALIDAÇÃO EXPLÍCITA NO FRONTEND ===');
+      const filteredStages = validatedStages.filter(stage => {
+        const isValidId = Number.isInteger(stage.id) && stage.id > 0;
+        const isValidPosition = Number.isInteger(stage.position) && stage.position >= 0;
+        
+        console.log(`Stage ID ${stage.id}: isInteger=${Number.isInteger(stage.id)}, > 0=${stage.id > 0}, valid=${isValidId}`);
+        console.log(`Position ${stage.position}: isInteger=${Number.isInteger(stage.position)}, >= 0=${stage.position >= 0}, valid=${isValidPosition}`);
+        
+        if (!isValidId) {
+          console.error(`❌ FRONTEND: Invalid ID detected: ${stage.id} (type: ${typeof stage.id})`);
+          return false;
+        }
+        
+        if (!isValidPosition) {
+          console.error(`❌ FRONTEND: Invalid position detected: ${stage.position} (type: ${typeof stage.position})`);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      console.log(`Stages após filtro: ${filteredStages.length}/${validatedStages.length}`);
+      
+      if (filteredStages.length !== validatedStages.length) {
+        throw new Error(`Dados inválidos detectados no frontend. ${validatedStages.length - filteredStages.length} estágio(s) com erro.`);
+      }
+      
+      const payload = { stages: filteredStages };
+      console.log('Request payload (após validação):', JSON.stringify(payload, null, 2));
       
       const response = await fetch('/api/pipeline-stages/positions', {
         method: 'PUT',
@@ -258,11 +310,14 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   };
 
   const handleSaveReorder = () => {
-    console.log('\n=== CLIENT: SAVING REORDER ===');
+    console.log('\n=== 1. CLIENT: VERIFICAÇÃO INICIAL ===');
     console.log('Current reorderStages:', JSON.stringify(reorderStages, null, 2));
+    console.log('Tipo de reorderStages:', typeof reorderStages);
+    console.log('É array:', Array.isArray(reorderStages));
+    console.log('Tamanho:', reorderStages?.length);
     
     if (!Array.isArray(reorderStages) || reorderStages.length === 0) {
-      console.error('CLIENT ERROR: No stages to reorder');
+      console.error('❌ CLIENT ERROR: No stages to reorder');
       toast({
         title: "Erro",
         description: "Nenhum estágio para reordenar",
@@ -271,8 +326,20 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return;
     }
     
-    console.log(`CLIENT: Processing ${reorderStages.length} stages...`);
+    console.log(`✓ CLIENT: Processing ${reorderStages.length} stages...`);
     
+    console.log('\n=== 2. CLIENT: VERIFICAÇÃO DOS DADOS ORIGINAIS ===');
+    reorderStages.forEach((stage, index) => {
+      console.log(`Estágio ${index + 1}:`, {
+        id: stage.id,
+        title: stage.title,
+        position: stage.position,
+        idType: typeof stage.id,
+        positionType: typeof stage.position
+      });
+    });
+    
+    console.log('\n=== 3. CLIENT: CONVERSÃO E VALIDAÇÃO ===');
     // Create the stage updates with strict integer conversion and validation
     const stageUpdates = reorderStages.map((stage, index) => {
       console.log(`\n--- CLIENT: Processing stage ${index + 1}/${reorderStages.length} ---`);
@@ -280,22 +347,57 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       console.log('Original ID type:', typeof stage.id, 'Value:', stage.id);
       console.log('Original position type:', typeof stage.position, 'Value:', stage.position);
       
-      // Force conversion to integers
-      const id = Number(stage.id);
-      const position = Number(stage.position);
+      // Garantir conversão para inteiros com verificações mais rigorosas
+      let id: number;
+      let position: number;
       
-      console.log('After Number() conversion:');
-      console.log('- ID:', id, 'Type:', typeof id, 'IsInteger:', Number.isInteger(id));
-      console.log('- Position:', position, 'Type:', typeof position, 'IsInteger:', Number.isInteger(position));
-      
-      if (!Number.isInteger(id) || id <= 0) {
-        console.error(`CLIENT ERROR: Invalid ID conversion for stage ${index + 1}:`, { original: stage.id, converted: id });
-        throw new Error(`Invalid stage ID: ${stage.id}`);
+      // Conversão do ID com verificação de string
+      if (typeof stage.id === 'string') {
+        console.log('⚠️ CLIENT: ID é string, convertendo...');
+        id = parseInt(stage.id, 10);
+      } else if (typeof stage.id === 'number') {
+        id = Math.floor(stage.id); // Garantir que seja inteiro
+      } else {
+        console.error(`❌ CLIENT ERROR: ID tipo inválido: ${typeof stage.id}`);
+        throw new Error(`Invalid stage ID type: ${typeof stage.id}`);
       }
       
-      if (!Number.isInteger(position) || position < 0) {
-        console.error(`CLIENT ERROR: Invalid position conversion for stage ${index + 1}:`, { original: stage.position, converted: position });
-        throw new Error(`Invalid stage position: ${stage.position}`);
+      // Conversão da posição com verificação de string
+      if (typeof stage.position === 'string') {
+        console.log('⚠️ CLIENT: Position é string, convertendo...');
+        position = parseInt(stage.position, 10);
+      } else if (typeof stage.position === 'number') {
+        position = Math.floor(stage.position); // Garantir que seja inteiro
+      } else {
+        console.error(`❌ CLIENT ERROR: Position tipo inválido: ${typeof stage.position}`);
+        throw new Error(`Invalid stage position type: ${typeof stage.position}`);
+      }
+      
+      console.log('After conversion:');
+      console.log('- ID:', id, 'Type:', typeof id, 'IsInteger:', Number.isInteger(id), 'IsNaN:', isNaN(id));
+      console.log('- Position:', position, 'Type:', typeof position, 'IsInteger:', Number.isInteger(position), 'IsNaN:', isNaN(position));
+      
+      // Validações mais rigorosas
+      if (isNaN(id) || !Number.isInteger(id) || id <= 0) {
+        console.error(`❌ CLIENT ERROR: Invalid ID after conversion for stage ${index + 1}:`, { 
+          original: stage.id, 
+          converted: id, 
+          isNaN: isNaN(id),
+          isInteger: Number.isInteger(id),
+          isPositive: id > 0
+        });
+        throw new Error(`Invalid stage ID: ${stage.id} -> ${id}`);
+      }
+      
+      if (isNaN(position) || !Number.isInteger(position) || position < 0) {
+        console.error(`❌ CLIENT ERROR: Invalid position after conversion for stage ${index + 1}:`, { 
+          original: stage.position, 
+          converted: position,
+          isNaN: isNaN(position),
+          isInteger: Number.isInteger(position),
+          isNonNegative: position >= 0
+        });
+        throw new Error(`Invalid stage position: ${stage.position} -> ${position}`);
       }
       
       const update = { id, position };
@@ -303,11 +405,10 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return update;
     });
     
-    console.log('\n=== CLIENT: Final stage updates ===');
+    console.log('\n=== 4. CLIENT: PAYLOAD FINAL ===');
     console.log('Stage updates to send:', JSON.stringify(stageUpdates, null, 2));
     
-    // Additional validation
-    console.log('\n=== CLIENT: Validating updates ===');
+    console.log('\n=== 5. CLIENT: VALIDAÇÕES ADICIONAIS ===');
     const validationResults = stageUpdates.map((update, index) => {
       const idValid = Number.isInteger(update.id) && update.id > 0;
       const positionValid = Number.isInteger(update.position) && update.position >= 0;
@@ -323,7 +424,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     
     if (!allValid) {
       const invalidStages = validationResults.filter(result => !result.valid);
-      console.error('CLIENT ERROR: Validation failed for stages:', invalidStages);
+      console.error('❌ CLIENT ERROR: Validation failed for stages:', invalidStages);
       toast({
         title: "Erro",
         description: `Dados de estágio inválidos: ${invalidStages.length} estágio(s) com erro`,
@@ -332,11 +433,15 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       return;
     }
     
+    console.log('\n=== 6. CLIENT: TESTE COM IDs FIXOS ===');
     // Check for duplicate positions
     const positions = stageUpdates.map(update => update.position);
     const uniquePositions = new Set(positions);
+    console.log('Posições enviadas:', positions);
+    console.log('Posições únicas:', Array.from(uniquePositions));
+    
     if (positions.length !== uniquePositions.size) {
-      console.error('CLIENT ERROR: Duplicate positions detected:', positions);
+      console.error('❌ CLIENT ERROR: Duplicate positions detected:', positions);
       toast({
         title: "Erro",
         description: "Posições duplicadas detectadas",
@@ -347,9 +452,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     
     // Check for gaps in positions
     const sortedPositions = [...positions].sort((a, b) => a - b);
+    console.log('Posições ordenadas:', sortedPositions);
+    
     for (let i = 0; i < sortedPositions.length; i++) {
       if (sortedPositions[i] !== i) {
-        console.error('CLIENT ERROR: Position gaps detected:', sortedPositions);
+        console.error('❌ CLIENT ERROR: Position gaps detected:', sortedPositions);
         toast({
           title: "Erro",
           description: "Posições devem ser sequenciais começando em 0",
@@ -359,7 +466,9 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       }
     }
     
-    console.log('✓ CLIENT: All validations passed, sending mutation...');
+    console.log('✅ CLIENT: All validations passed, sending mutation...');
+    console.log('Final payload being sent:', JSON.stringify({ stages: stageUpdates }, null, 2));
+    
     updateStagePositionsMutation.mutate(stageUpdates);
   };
 

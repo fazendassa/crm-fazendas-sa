@@ -567,11 +567,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log("Converted values:", { id: stageId, position: stagePosition });
         
-        // Validate ID
+        // Validate ID att
         if (!Number.isInteger(stageId) || stageId <= 0) {
-          const error = `Invalid stage ID: ${stage.id}`;
+          const error = `Invalid stage ID format: ${JSON.stringify(stage)}`;
           console.error("VALIDATION ERROR:", error);
           return res.status(400).json({ message: error });
+        }
+
+        // Novo: verificar existência no banco
+        const existing = await storage.getPipelineStage(stageId);
+        if (!existing) {
+          const error = `Stage ID not found in DB: ${stageId}`;
+          console.error("VALIDATION ERROR:", error);
+          return res.status(404).json({ message: error });
         }
         
         // Validate position
