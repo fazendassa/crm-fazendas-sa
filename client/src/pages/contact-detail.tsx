@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Edit, MapPin, Building, User, Tag, Pipeline } from "lucide-react";
+import { Edit, MapPin, Building, User, Tag, GitMerge } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import ContactForm from "@/components/contacts/contact-form";
 import type { ContactWithCompany, DealWithRelations } from "@shared/schema";
@@ -221,7 +221,7 @@ export default function ContactDetail() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Pipeline className="h-5 w-5 mr-2" />
+                <GitMerge className="h-5 w-5 mr-2" />
                 Pipelines Relacionados
               </CardTitle>
             </CardHeader>
