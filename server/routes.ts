@@ -555,39 +555,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`=== SERVER: Processing ${stages.length} stage position updates ===`);
+      console.log("Received stages:", stages);
 
+      // Validate all stages first
       for (const stage of stages) {
         const { id, position } = stage;
+        const numericId = Number(id);
+        const numericPosition = Number(position);
 
-        // Verificações robustas de tipo e valor
-        if (!Number.isInteger(id) || id <= 0) {
+        if (!Number.isInteger(numericId) || numericId <= 0) {
+          console.log(`❌ SERVER: Invalid stage ID: ${id} (${typeof id})`);
           return res.status(400).json({ message: `Invalid stage ID: ${id}` });
         }
 
-        if (!Number.isInteger(position) || position < 0) {
+        if (!Number.isInteger(numericPosition) || numericPosition < 0) {
+          console.log(`❌ SERVER: Invalid stage position: ${position} (${typeof position})`);
           return res.status(400).json({ message: `Invalid stage position: ${position}` });
         }
 
-        // Confirma se o ID existe no banco (evita erro de ID inválido)
-        const stageExists = await storage.getPipelineStage(id);
-        if (!stageExists) {
-          return res.status(400).json({ message: `Stage ID not found: ${id}` });
-        }
-
-        console.log(`✅ SERVER: Stage ${id} validated successfully`);
+        console.log(`✅ SERVER: Stage ${numericId} with position ${numericPosition} validated`);
       }
 
-      // Atualiza todas as posições
-      await storage.updateStagePositions(stages.map((stage: any) => ({
-        id: stage.id,
-        position: stage.position
-      })));
+      // Update all positions
+      const formattedStages = stages.map((stage: any) => ({
+        id: Number(stage.id),
+        position: Number(stage.position)
+      }));
+
+      await storage.updateStagePositions(formattedStages);
 
       console.log("✅ SERVER: All stage positions updated successfully");
       return res.status(200).json({ message: "Stage positions updated successfully" });
 
     } catch (error) {
-      console.error("Erro interno:", error);
+      console.error("❌ SERVER: Error updating stage positions:", error);
       return res.status(500).json({ message: "Erro interno ao atualizar posições" });
     }
   });

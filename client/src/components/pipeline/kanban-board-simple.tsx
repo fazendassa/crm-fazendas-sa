@@ -222,7 +222,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
           : [],
       }));
 
-    setKanbanColumns(columns);
+    // Only update if columns actually changed
+    const columnsChanged = JSON.stringify(columns) !== JSON.stringify(kanbanColumns);
+    if (columnsChanged) {
+      setKanbanColumns(columns);
+    }
   }, [stages, dealsData]);
 
   const handleDragEnd = (result: DropResult) => {
