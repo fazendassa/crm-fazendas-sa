@@ -174,19 +174,22 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
   // Update stage positions mutation
   const updateStagePositionsMutation = useMutation({
-    mutationFn: async (stages: { id: number; position: number }[]) => {
+    mutationFn: async (stagesData: { stages: { id: number; position: number }[] }) => {
       console.log("=== FRONT-END DEBUG: Before mutationFn ===");
-      console.log("Stages to update:", stages);
+      console.log("Stages data received:", stagesData);
 
-      const payload = stages.map((stage, index) => ({
-        id: Number(stage.id),
-        position: index
-      }));
+      const { stages } = stagesData;
+      const payload = {
+        stages: stages.map((stage, index) => ({
+          id: Number(stage.id),
+          position: index
+        }))
+      };
 
       console.log("=== FRONT-END DEBUG: Payload to send ===");
       console.log("Payload:", payload);
 
-      return apiRequest("PUT", "/api/pipeline-stages/positions", { stages: payload });
+      return apiRequest("PUT", "/api/pipeline-stages/positions", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
@@ -297,7 +300,9 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       id: stage.id,
       position: index
     }));
-    updateStagePositionsMutation.mutate(stagesToUpdate);
+    
+    // Send as object with stages property
+    updateStagePositionsMutation.mutate({ stages: stagesToUpdate });
   };
 
   const getInitials = (name: string) => {
