@@ -696,15 +696,37 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(pipelineStages)
         .where(eq(pipelineStages.pipelineId, pipelineId))
-        .orderBy(pipelineStages.position);
+        .orderBy(pipelineStages.posicaoestagio, pipelineStages.id);
     }
-    return await db.select().from(pipelineStages).orderBy(pipelineStages.position);
+    return await db.select().from(pipelineStages).orderBy(pipelineStages.posicaoestagio, pipelineStages.id);
   }
 
   async createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage> {
+    // Check if pipeline already has 12 stages
+    const existingStages = await db
+      .select({ count: count() })
+      .from(pipelineStages)
+      .where(eq(pipelineStages.pipelineId, stage.pipelineId));
+    
+    if (existingStages[0].count >= 12) {
+      throw new Error("Pipeline cannot have more than 12 stages");
+    }
+    
+    // Get the next sequential position
+    const maxPositionResult = await db
+      .select({ maxPos: sql<number>`COALESCE(MAX(posicaoestagio), 0)` })
+      .from(pipelineStages)
+      .where(eq(pipelineStages.pipelineId, stage.pipelineId));
+    
+    const nextPosition = (maxPositionResult[0]?.maxPos || 0) + 1;
+    
     const [newStage] = await db
       .insert(pipelineStages)
-      .values(stage)
+      .values({
+        ...stage,
+        posicaoestagio: nextPosition,
+        position: nextPosition
+      })
       .returning();
     return newStage;
   }
@@ -719,24 +741,72 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateStagePositions(stages: { id: number; posicaoestagio: number }[]): Promise<void> {
-    for (const stage of stages) {
+    console.log("=== STORAGE: Updating stage positions with automatic reordering ===");
+    
+    // First, validate that we don't exceed 12 stages
+    if (stages.length > 12) {
+      throw new Error("Pipeline cannot have more than 12 stages");
+    }
+    
+    // Update positions and ensure sequential ordering (1-12)
+    for (let i = 0; i < stages.length; i++) {
+      const stage = stages[i];
+      const newPosition = i + 1; // Start from 1, not 0
+      
+      console.log(`📝 STORAGE: Updating stage ${stage.id} to position ${newPosition}`);
+      
       await db
         .update(pipelineStages)
         .set({ 
-          posicaoestagio: stage.posicaoestagio,
+          posicaoestagio: newPosition,
+          position: newPosition, // Also update the old position field for consistency
           updatedAt: new Date() 
         })
         .where(eq(pipelineStages.id, stage.id));
     }
+    
+    console.log("✅ STORAGE: All positions updated with sequential ordering");
   }
 
   async deletePipelineStage(id: number): Promise<void> {
-    // Check if stage is default
+    // Get stage info before deletion
     const [stage] = await db.select().from(pipelineStages).where(eq(pipelineStages.id, id));
-    if (stage?.isDefault) {
+    
+    if (!stage) {
+      throw new Error("Stage not found");
+    }
+    
+    // Check if stage is default
+    if (stage.isDefault) {
       throw new Error("Cannot delete default pipeline stage");
     }
+    
+    const pipelineId = stage.pipelineId;
+    
+    // Delete the stage
     await db.delete(pipelineStages).where(eq(pipelineStages.id, id));
+    
+    // Reorder remaining stages to maintain sequential order (1-N)
+    const remainingStages = await db
+      .select()
+      .from(pipelineStages)
+      .where(eq(pipelineStages.pipelineId, pipelineId))
+      .orderBy(pipelineStages.posicaoestagio, pipelineStages.id);
+    
+    // Update positions sequentially
+    for (let i = 0; i < remainingStages.length; i++) {
+      const newPosition = i + 1;
+      await db
+        .update(pipelineStages)
+        .set({ 
+          posicaoestagio: newPosition,
+          position: newPosition,
+          updatedAt: new Date() 
+        })
+        .where(eq(pipelineStages.id, remainingStages[i].id));
+    }
+    
+    console.log(`✅ STORAGE: Stage ${id} deleted and remaining stages reordered`);
   }
 
   async getPipelineStage(stageId: number): Promise<PipelineStage | undefined> {

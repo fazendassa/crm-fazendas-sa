@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
@@ -157,6 +156,18 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
         description: "Estágio criado",
       });
     },
+    onError: (error: any) => {
+      console.error("Error creating stage:", error);
+      const errorMessage = error.message?.includes("more than 12 stages") 
+        ? "Pipeline não pode ter mais de 12 estágios"
+        : "Erro ao criar estágio";
+
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
   });
 
   // Delete stage mutation
@@ -236,12 +247,12 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
-    
+
     if (source.droppableId !== destination.droppableId) {
       // Moving deal between stages
       const dealId = parseInt(draggableId.replace("deal-", ""));
       const destinationColumn = kanbanColumns.find(col => col.id === destination.droppableId);
-      
+
       if (destinationColumn) {
         updateDealMutation.mutate({ 
           dealId, 
@@ -301,7 +312,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       id: stage.id,
       position: index
     }));
-    
+
     // Send as object with stages property
     updateStagePositionsMutation.mutate({ stages: stagesToUpdate });
   };
@@ -464,7 +475,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                                   <h4 className="font-medium text-gray-900 truncate">
                                     {deal.contact?.name || "Sem contato"}
                                   </h4>
-                                  
+
                                   {/* Deal Value */}
                                   <div className="flex items-center gap-2 text-sm">
                                     <DollarSign className="w-4 h-4 text-green-600" />
@@ -550,12 +561,13 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                 </div>
               ) : (
                 <Button
-                  variant="ghost"
-                  className="w-full h-32"
                   onClick={() => setIsAddingStage(true)}
+                  className="flex-shrink-0 h-8 px-3 text-sm"
+                  disabled={stages.length >= 12}
+                  title={stages.length >= 12 ? "Limite de 12 estágios atingido" : "Adicionar novo estágio"}
                 >
-                  <Plus className="w-6 h-6 mr-2" />
-                  Adicionar Estágio
+                  <Plus className="w-4 h-4 mr-1" />
+                  Adicionar Estágio {stages.length >= 12 && `(${stages.length}/12)`}
                 </Button>
               )}
             </div>

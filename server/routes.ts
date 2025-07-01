@@ -504,6 +504,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(stage);
     } catch (error) {
       console.error("Error creating pipeline stage:", error);
+      if (error instanceof Error && error.message.includes("cannot have more than 12 stages")) {
+        return res.status(400).json({ message: "Pipeline cannot have more than 12 stages" });
+      }
       res.status(500).json({ message: "Failed to create pipeline stage" });
     }
   });
