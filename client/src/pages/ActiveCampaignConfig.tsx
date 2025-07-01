@@ -37,6 +37,17 @@ interface WizardStep {
   description: string;
 }
 
+interface PipelineStage {
+  id: number;
+  title: string;
+  description: string;
+  pipelineId: number;
+  position: number;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const wizardSteps: WizardStep[] = [
   { id: 1, title: "Introdução", description: "Informações sobre a integração" },
   { id: 2, title: "Criação", description: "Configurar webhook no ActiveCampaign" },
@@ -92,8 +103,12 @@ export default function ActiveCampaignConfig() {
   });
 
   // Fetch pipeline stages when a pipeline is selected
-  const { data: pipelineStages = [] } = useQuery<any[]>({
-    queryKey: ["/api/pipelines", wizardData.pipelineId, "stages"],
+  const { data: pipelineStages = [] } = useQuery<PipelineStage[]>({
+    queryKey: [`/api/pipeline-stages`, wizardData.pipelineId],
+    queryFn: () => 
+      fetch(`/api/pipeline-stages?pipelineId=${wizardData.pipelineId}`, {
+        credentials: 'include'
+      }).then(res => res.json()),
     enabled: !!wizardData.pipelineId,
   });
 
@@ -262,7 +277,7 @@ export default function ActiveCampaignConfig() {
         'field[%PERSONALIZATION_1%]', 'field[%PERSONALIZATION_2%]',
         'field[%PERSONALIZATION_3%]', 'field[%WEBSITE%]', 'field[%JOB_TITLE%]'
       ];
-      
+
       const newFields: Record<string, string> = {};
       commonFields.forEach(field => {
         if (!wizardData.fieldMapping[field]) {
@@ -315,7 +330,7 @@ export default function ActiveCampaignConfig() {
         'lead', 'cliente', 'prospect', 'qualificado', 'interessado',
         'newsletter', 'webinar', 'download', 'demo', 'trial'
       ];
-      
+
       const existingTags = wizardData.tags;
       const newTags = commonTags.filter(tag => !existingTags.includes(tag));
 
@@ -532,7 +547,7 @@ export default function ActiveCampaignConfig() {
 
               <div className="space-y-2">
                 <Label>Tags para contatos</Label>
-                
+
                 {/* Available tags */}
                 {availableTags.length > 0 && (
                   <div>
@@ -602,7 +617,7 @@ export default function ActiveCampaignConfig() {
                     <SelectItem value="default">Primeira etapa do pipeline</SelectItem>
                     {pipelineStages.map((stage) => (
                       <SelectItem key={stage.id} value={stage.id.toString()}>
-                        {stage.name}
+                        {stage.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
