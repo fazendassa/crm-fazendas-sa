@@ -692,13 +692,12 @@ export class DatabaseStorage implements IStorage {
   // Pipeline stages operations
   async getPipelineStages(pipelineId?: number): Promise<PipelineStage[]> {
     if (pipelineId) {
-      return await db
-        .select()
-        .from(pipelineStages)
+      return await db.select().from(pipelineStages)
         .where(eq(pipelineStages.pipelineId, pipelineId))
-        .orderBy(pipelineStages.posicaoestagio, pipelineStages.id);
+        .orderBy(pipelineStages.posicaoestagio, pipelineStages.position);
     }
-    return await db.select().from(pipelineStages).orderBy(pipelineStages.posicaoestagio, pipelineStages.id);
+    return await db.select().from(pipelineStages)
+      .orderBy(pipelineStages.posicaoestagio, pipelineStages.position);
   }
 
   async createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage> {
@@ -707,19 +706,19 @@ export class DatabaseStorage implements IStorage {
       .select({ count: count() })
       .from(pipelineStages)
       .where(eq(pipelineStages.pipelineId, stage.pipelineId));
-    
+
     if (existingStages[0].count >= 12) {
       throw new Error("Pipeline cannot have more than 12 stages");
     }
-    
+
     // Get the next sequential position
     const maxPositionResult = await db
       .select({ maxPos: sql<number>`COALESCE(MAX(posicaoestagio), 0)` })
       .from(pipelineStages)
       .where(eq(pipelineStages.pipelineId, stage.pipelineId));
-    
+
     const nextPosition = (maxPositionResult[0]?.maxPos || 0) + 1;
-    
+
     const [newStage] = await db
       .insert(pipelineStages)
       .values({
@@ -742,19 +741,19 @@ export class DatabaseStorage implements IStorage {
 
   async updateStagePositions(stages: { id: number; posicaoestagio: number }[]): Promise<void> {
     console.log("=== STORAGE: Updating stage positions with automatic reordering ===");
-    
+
     // First, validate that we don't exceed 12 stages
     if (stages.length > 12) {
       throw new Error("Pipeline cannot have more than 12 stages");
     }
-    
+
     // Update positions and ensure sequential ordering (1-12)
     for (let i = 0; i < stages.length; i++) {
       const stage = stages[i];
       const newPosition = i + 1; // Start from 1, not 0
-      
+
       console.log(`📝 STORAGE: Updating stage ${stage.id} to position ${newPosition}`);
-      
+
       await db
         .update(pipelineStages)
         .set({ 
@@ -764,36 +763,32 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(pipelineStages.id, stage.id));
     }
-    
+
     console.log("✅ STORAGE: All positions updated with sequential ordering");
   }
 
   async deletePipelineStage(id: number): Promise<void> {
-    // Get stage info before deletion
-    const [stage] = await db.select().from(pipelineStages).where(eq(pipelineStages.id, id));
-    
-    if (!stage) {
+    // First get the stage being deleted to know its pipeline
+    const [stageToDelete] = await db
+      .select()
+      .from(pipelineStages)
+      .where(eq(pipelineStages.id, id));
+
+    if (!stageToDelete) {
       throw new Error("Stage not found");
     }
-    
-    // Check if stage is default
-    if (stage.isDefault) {
-      throw new Error("Cannot delete default pipeline stage");
-    }
-    
-    const pipelineId = stage.pipelineId;
-    
+
     // Delete the stage
     await db.delete(pipelineStages).where(eq(pipelineStages.id, id));
-    
-    // Reorder remaining stages to maintain sequential order (1-N)
+
+    // Get all remaining stages in the same pipeline ordered by current position
     const remainingStages = await db
       .select()
       .from(pipelineStages)
-      .where(eq(pipelineStages.pipelineId, pipelineId))
-      .orderBy(pipelineStages.posicaoestagio, pipelineStages.id);
-    
-    // Update positions sequentially
+      .where(eq(pipelineStages.pipelineId, stageToDelete.pipelineId))
+      .orderBy(pipelineStages.posicaoestagio, pipelineStages.position, pipelineStages.id);
+
+    // Reorder all remaining stages to ensure sequential positions 1, 2, 3, etc.
     for (let i = 0; i < remainingStages.length; i++) {
       const newPosition = i + 1;
       await db
@@ -805,7 +800,7 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(pipelineStages.id, remainingStages[i].id));
     }
-    
+
     console.log(`✅ STORAGE: Stage ${id} deleted and remaining stages reordered`);
   }
 
@@ -914,6 +909,7 @@ export class DatabaseStorage implements IStorage {
       .set({ ...pipeline, updatedAt: new Date() })
       .where(eq(pipelines.id, id))
       .returning();
+    ```text
     return updated;
   }
 

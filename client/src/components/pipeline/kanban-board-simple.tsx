@@ -103,9 +103,10 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     })
   );
 
-  // Fetch pipeline stages
+  // Fetch pipeline stages - ensure they're ordered by posicaoestagio
   const { data: stages = [], isLoading: stagesLoading } = useQuery<PipelineStage[]>({
     queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`],
+    select: (data) => data.sort((a, b) => (a.posicaoestagio || a.position) - (b.posicaoestagio || b.position))
   });
 
   // Get deals by stage for this pipeline
