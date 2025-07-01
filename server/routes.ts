@@ -555,44 +555,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`=== SERVER: Processing ${stages.length} stage position updates ===`);
+      console.log("Received stages:", stages);
 
+      // Validate and transform stages for posicaoestagio
+      const stagesToUpdate = [];
       for (const stage of stages) {
         const { id, position } = stage;
+        const numericId = Number(id);
+        const numericPosition = Number(position);
 
-        // Verificações robustas de tipo e valor
-        if (!Number.isInteger(id) || id <= 0) {
-          return res.status(400).json({ message: `Invalid stage ID: ${id}` });
+        console.log(`🔍 SERVER: Validating stage - ID: ${id} (${typeof id}), Position: ${position} (${typeof position})`);
+
+        if (isNaN(numericId) || !Number.isInteger(numericId) || numericId <= 0) {
+          const errorMsg = `Invalid stage ID: ${id} (type: ${typeof id}, numeric: ${numericId})`;
+          console.log(`❌ SERVER: ${errorMsg}`);
+          return res.status(400).json({ message: errorMsg });
         }
 
-        if (!Number.isInteger(position) || position < 0) {
-          return res.status(400).json({ message: `Invalid stage position: ${position}` });
+        if (isNaN(numericPosition) || !Number.isInteger(numericPosition) || numericPosition < 0) {
+          const errorMsg = `Invalid stage position: ${position} (type: ${typeof position}, numeric: ${numericPosition})`;
+          console.log(`❌ SERVER: ${errorMsg}`);
+          return res.status(400).json({ message: errorMsg });
         }
 
-        // Confirma se o ID existe no banco (evita erro de ID inválido)
-        const stageExists = await storage.getPipelineStage(id);
-        if (!stageExists) {
-          return res.status(400).json({ message: `Stage ID not found: ${id}` });
-        }
+        stagesToUpdate.push({
+          id: numericId,
+          posicaoestagio: numericPosition
+        });
 
-        console.log(`✅ SERVER: Stage ${id} validated successfully`);
+        console.log(`✅ SERVER: Stage ${numericId} with posicaoestagio ${numericPosition} validated`);
       }
 
-      // Atualiza todas as posições
-      await storage.updateStagePositions(stages.map((stage: any) => ({
-        id: stage.id,
-        position: stage.position
-      })));
+      // Update positions using new method
+      await storage.updateStagePositions(stagesToUpdate);
 
       console.log("✅ SERVER: All stage positions updated successfully");
-      return res.status(200).json({ message: "Stage positions updated successfully" });
-
+      res.json({ message: "Stage positions updated successfully" });
     } catch (error) {
-      console.error("Erro interno:", error);
-      return res.status(500).json({ message: "Erro interno ao atualizar posições" });
+      console.error("❌ SERVER: Error updating stage positions:", error);
+      res.status(500).json({ message: "Failed to update stage positions" });
     }
   });
-
-
 
   // Dashboard metrics
   app.get('/api/dashboard/metrics', isAuthenticated, async (req, res) => {
@@ -740,8 +743,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-
-
   // Preview import file to get columns
   app.post('/api/contacts/preview-import', isAuthenticated, upload.single('file'), async (req, res) => {
     try {
@@ -808,7 +809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         message: 'Erro interno do servidor',
         error: error instanceof Error ? error.message : 'Erro desconhecido'
-      });
+            });
     }
   });
 

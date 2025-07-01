@@ -88,6 +88,7 @@ export interface IStorage {
   createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage>;
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
+  updateStagePositions(stages: { id: number; posicaoestagio: number }[]): Promise<void>;
   updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
 
 
@@ -709,29 +710,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage> {
-    // Validate numeric fields
-    if (stage.position !== undefined) {
-      const position = Number(stage.position);
-      if (isNaN(position) || !Number.isInteger(position) || position < 0) {
-        throw new Error(`Invalid position value: ${stage.position}`);
-      }
-      stage.position = position;
-    }
-
-    if (stage.pipelineId !== undefined) {
-      const pipelineId = Number(stage.pipelineId);
-      if (isNaN(pipelineId) || !Number.isInteger(pipelineId) || pipelineId <= 0) {
-        throw new Error(`Invalid pipelineId value: ${stage.pipelineId}`);
-      }
-      stage.pipelineId = pipelineId;
-    }
-
     const [updatedStage] = await db
       .update(pipelineStages)
       .set({ ...stage, updatedAt: new Date() })
       .where(eq(pipelineStages.id, id))
       .returning();
     return updatedStage;
+  }
+
+  async updateStagePositions(stages: { id: number; posicaoestagio: number }[]): Promise<void> {
+    for (const stage of stages) {
+      await db
+        .update(pipelineStages)
+        .set({ 
+          posicaoestagio: stage.posicaoestagio,
+          updatedAt: new Date() 
+        })
+        .where(eq(pipelineStages.id, stage.id));
+    }
   }
 
   async deletePipelineStage(id: number): Promise<void> {

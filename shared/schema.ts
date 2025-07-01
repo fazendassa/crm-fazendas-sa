@@ -110,6 +110,7 @@ export const pipelineStages = pgTable("pipeline_stages", {
   pipelineId: integer("pipeline_id").references(() => pipelines.id, { onDelete: "cascade" }).notNull(),
   title: varchar("title", { length: 100 }).notNull(),
   position: integer("position").notNull(),
+  posicaoestagio: integer("posicaoestagio").default(0).notNull(),
   color: varchar("color", { length: 20 }).default("#3b82f6"),
   isDefault: boolean("is_default").default(false),
   createdAt: timestamp("created_at").defaultNow(),
