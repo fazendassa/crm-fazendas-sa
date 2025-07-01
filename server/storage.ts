@@ -1161,7 +1161,7 @@ export class DatabaseStorage implements IStorage {
 
   async createActiveCampaignConfig(config: InsertActiveCampaignConfig): Promise<ActiveCampaignConfig> {
     // Validate required fields
-    if (!config.userId || !config.pipelineId) {
+    if (!config.userId || !config.defaultPipelineId) {
       throw new Error("User ID and pipeline ID are required for ActiveCampaign configuration");
     }
     

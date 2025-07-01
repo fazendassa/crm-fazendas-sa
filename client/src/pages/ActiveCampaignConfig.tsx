@@ -531,7 +531,7 @@ export default function ActiveCampaignConfig() {
                       </Badge>
                     </CardTitle>
                     <CardDescription>
-                      Pipeline: {pipelines?.find(p => p.id === config.pipelineId)?.name || "N/A"}
+                      Pipeline: {pipelines?.find(p => p.id === config.defaultPipelineId)?.name || "N/A"}
                     </CardDescription>
                   </div>
                   <Button

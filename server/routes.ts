@@ -877,7 +877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeCampaignApiUrl: activeCampaignApiUrl.trim(),
         activeCampaignApiKey: activeCampaignApiKey.trim(),
         webhookSecret,
-        pipelineId: parseInt(pipelineId),
+        defaultPipelineId: parseInt(pipelineId),
         defaultTags: defaultTags || [],
         fieldMapping: fieldMapping || {},
         webhookType: webhookType || 'contact',
@@ -970,7 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: contact.phone || null,
           status: 'active',
           source: 'activecampaign',
-          pipelineId: config.pipelineId,
+          pipelineId: config.defaultPipelineId,
           tags: config.defaultTags || [],
           companyId: null // We could enhance this to create companies based on contact data
         };
@@ -997,8 +997,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Create deal if pipeline is configured and deal data is provided
-        if (config.pipelineId && createdContact) {
-          const pipelineStages = await storage.getPipelineStages(config.pipelineId);
+        if (config.defaultPipelineId && createdContact) {
+          const pipelineStages = await storage.getPipelineStages(config.defaultPipelineId);
           const firstStage = pipelineStages.find(stage => stage.position === 0) || pipelineStages[0];
 
           if (firstStage) {
@@ -1006,7 +1006,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               title: deal?.title || `Oportunidade - ${createdContact.name}`,
               description: deal?.description || 'Oportunidade criada via ActiveCampaign',
               stage: firstStage.title,
-              pipelineId: config.pipelineId,
+              pipelineId: config.defaultPipelineId,
               contactId: createdContact.id,
               companyId: createdContact.companyId,
               value: deal?.value || null,
