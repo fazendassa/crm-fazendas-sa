@@ -270,7 +270,7 @@ export const activeCampaignConfigs = pgTable("activecampaign_configs", {
   activeCampaignApiUrl: text("activecampaign_api_url").notNull(),
   activeCampaignApiKey: text("activecampaign_api_key").notNull(),
   webhookSecret: text("webhook_secret").notNull(),
-  pipelineId: integer("pipeline_id").references(() => pipelines.id).notNull(),
+  defaultPipelineId: integer("default_pipeline_id").references(() => pipelines.id).notNull(),
   defaultTags: jsonb("default_tags").$type<string[]>().default([]),
   fieldMapping: jsonb("field_mapping").$type<Record<string, string>>().default({}),
   webhookType: text("webhook_type").default("contact"), // contact or deal
@@ -294,7 +294,7 @@ export const activeCampaignWebhookLogs = pgTable("activecampaign_webhook_logs", 
 // Relations for ActiveCampaign integration
 export const activeCampaignConfigsRelations = relations(activeCampaignConfigs, ({ one, many }) => ({
   pipeline: one(pipelines, {
-    fields: [activeCampaignConfigs.pipelineId],
+    fields: [activeCampaignConfigs.defaultPipelineId],
     references: [pipelines.id],
   }),
   webhookLogs: many(activeCampaignWebhookLogs),

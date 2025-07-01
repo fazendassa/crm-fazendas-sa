@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,7 +56,7 @@ const defaultFieldMapping = {
 export default function ActiveCampaignConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   // Wizard state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -74,6 +73,7 @@ export default function ActiveCampaignConfig() {
   const [tagsInput, setTagsInput] = useState("");
 
   // Fetch configurations
+  const [selectedConfig, setSelectedConfig] = useState<ActiveCampaignConfig | null>(null);
   const { data: configs = [], isLoading: configsLoading } = useQuery<ActiveCampaignConfig[]>({
     queryKey: ["/api/integrations/activecampaign/configs"],
     retry: false,
@@ -251,7 +251,7 @@ export default function ActiveCampaignConfig() {
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold">O que você deseja criar ou atualizar quando receber esse Webhook?</h3>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <Card className={`cursor-pointer border-2 ${wizardData.webhookType === 'deal' ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}
                     onClick={() => setWizardData(prev => ({ ...prev, webhookType: 'deal' }))}>
@@ -260,7 +260,7 @@ export default function ActiveCampaignConfig() {
                   <span className="font-medium">Negócio</span>
                 </CardContent>
               </Card>
-              
+
               <Card className={`cursor-pointer border-2 ${wizardData.webhookType === 'contact' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
                     onClick={() => setWizardData(prev => ({ ...prev, webhookType: 'contact' }))}>
                 <CardContent className="flex flex-col items-center justify-center p-6">
@@ -496,7 +496,7 @@ export default function ActiveCampaignConfig() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar
               </Button>
-              
+
               {currentStep < 4 ? (
                 <Button onClick={handleNext}>
                   Continuar
@@ -537,16 +537,17 @@ export default function ActiveCampaignConfig() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => deleteConfigMutation.mutate(config.id)}
+                    onClick={() => {
+                      deleteConfigMutation.mutate(config.id);
+                      setSelectedConfig(null);
+                    }}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {config.webhookSecret && (
-                  <>
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                       <Label>URL do Webhook</Label>
                       <div className="flex gap-2">
                         <Input
@@ -575,6 +576,72 @@ export default function ActiveCampaignConfig() {
                       </div>
                     </div>
 
+                    <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const url = `${window.location.origin}/api/integrations/activecampaign/webhook/${config.id}/test`;
+                          window.open(url, '_blank');
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Testar Webhook
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            // Test webhook with sample data
+                            const response = await fetch(`/api/integrations/activecampaign/webhook/${config.id}`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                "contact[email]": "teste@exemplo.com",
+                                "contact[first_name]": "Teste",
+                                "contact[last_name]": "Webhook",
+                                "contact[phone]": "(11) 99999-9999",
+                                "contact[orgname]": "Empresa Teste"
+                              })
+                            });
+
+                            if (response.ok) {
+                              toast({
+                                title: "Teste realizado!",
+                                description: "O webhook foi testado com sucesso. Verifique os logs abaixo.",
+                              });
+                              // Refresh logs
+                              queryClient.invalidateQueries({ queryKey: ["/api/integrations/activecampaign/logs"] });
+                            } else {
+                              throw new Error('Teste falhou');
+                            }
+                          } catch (error) {
+                            toast({
+                              title: "Erro no teste",
+                              description: "Não foi possível testar o webhook.",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        <Database className="h-4 w-4 mr-2" />
+                        Simular Envio
+                      </Button>
+                    </div>
+
+                    <Alert>
+                      <AlertDescription>
+                        <strong>Como configurar no ActiveCampaign:</strong><br />
+                        1. Vá em Automations → Webhook<br />
+                        2. Cole a URL acima<br />
+                        3. Método: POST<br />
+                        4. Não é necessário autenticação adicional
+                      </AlertDescription>
+                    </Alert>
+
                     {config.defaultTags.length > 0 && (
                       <div className="space-y-2">
                         <Label>Tags Padrão</Label>
@@ -587,8 +654,6 @@ export default function ActiveCampaignConfig() {
                         </div>
                       </div>
                     )}
-                  </>
-                )}
               </CardContent>
             </Card>
           ))
