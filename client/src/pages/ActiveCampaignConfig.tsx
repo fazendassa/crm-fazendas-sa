@@ -61,7 +61,7 @@ export default function ActiveCampaignConfig() {
   useEffect(() => {
     if (config) {
       setApiUrl(config.activeCampaignApiUrl);
-      setSelectedPipelineId(config.defaultPipelineId?.toString() || "");
+      setSelectedPipelineId(config.defaultPipelineId?.toString() || "none");
       setTags(config.defaultTags || []);
     }
   }, [config]);
@@ -147,7 +147,7 @@ export default function ActiveCampaignConfig() {
     saveConfigMutation.mutate({
       activeCampaignApiUrl: apiUrl,
       activeCampaignApiKey: apiKey,
-      defaultPipelineId: selectedPipelineId && selectedPipelineId !== "0" ? parseInt(selectedPipelineId) : undefined,
+      defaultPipelineId: selectedPipelineId && selectedPipelineId !== "none" ? parseInt(selectedPipelineId) : undefined,
       defaultTags: tags,
     });
   };
@@ -252,8 +252,8 @@ export default function ActiveCampaignConfig() {
                   <SelectValue placeholder="Selecione um pipeline" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">Nenhum pipeline</SelectItem>
-                  {pipelines?.map((pipeline) => (
+                  <SelectItem value="none">Nenhum pipeline</SelectItem>
+                  {pipelines?.filter(pipeline => pipeline.id && pipeline.id > 0).map((pipeline) => (
                     <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                       {pipeline.name}
                     </SelectItem>
