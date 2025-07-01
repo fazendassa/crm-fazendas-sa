@@ -208,7 +208,10 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
   // Build columns from stages and deals
   useEffect(() => {
-    if (!stages || stages.length === 0) return;
+    if (!stages || stages.length === 0) {
+      setKanbanColumns([]);
+      return;
+    }
 
     const columns: KanbanColumn[] = stages
       .sort((a, b) => a.position - b.position)
@@ -222,11 +225,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
           : [],
       }));
 
-    // Only update if columns actually changed
-    const columnsChanged = JSON.stringify(columns) !== JSON.stringify(kanbanColumns);
-    if (columnsChanged) {
-      setKanbanColumns(columns);
-    }
+    setKanbanColumns(columns);
   }, [stages, dealsData]);
 
   const handleDragEnd = (result: DropResult) => {

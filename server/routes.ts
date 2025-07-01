@@ -563,14 +563,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const numericId = Number(id);
         const numericPosition = Number(position);
 
-        if (!Number.isInteger(numericId) || numericId <= 0) {
-          console.log(`❌ SERVER: Invalid stage ID: ${id} (${typeof id})`);
-          return res.status(400).json({ message: `Invalid stage ID: ${id}` });
+        // More detailed validation logging
+        console.log(`🔍 SERVER: Validating stage - ID: ${id} (${typeof id}), Position: ${position} (${typeof position})`);
+
+        if (isNaN(numericId) || !Number.isInteger(numericId) || numericId <= 0) {
+          const errorMsg = `Invalid stage ID: ${id} (type: ${typeof id}, numeric: ${numericId})`;
+          console.log(`❌ SERVER: ${errorMsg}`);
+          return res.status(400).json({ message: errorMsg });
         }
 
-        if (!Number.isInteger(numericPosition) || numericPosition < 0) {
-          console.log(`❌ SERVER: Invalid stage position: ${position} (${typeof position})`);
-          return res.status(400).json({ message: `Invalid stage position: ${position}` });
+        if (isNaN(numericPosition) || !Number.isInteger(numericPosition) || numericPosition < 0) {
+          const errorMsg = `Invalid stage position: ${position} (type: ${typeof position}, numeric: ${numericPosition})`;
+          console.log(`❌ SERVER: ${errorMsg}`);
+          return res.status(400).json({ message: errorMsg });
+        }
+
+        // Verify stage exists in database
+        try {
+          const existingStage = await storage.getPipelineStage(numericId);
+          if (!existingStage) {
+            const errorMsg = `Stage with ID ${numericId} not found in database`;
+            console.log(`❌ SERVER: ${errorMsg}`);
+            return res.status(400).json({ message: errorMsg });
+          }
+          console.log(`✅ SERVER: Stage ${numericId} exists and validated`);
+        } catch (error) {
+          console.error(`❌ SERVER: Error checking stage ${numericId}:`, error);
+          return res.status(500).json({ message: `Error validating stage ${numericId}` });
         }
 
         console.log(`✅ SERVER: Stage ${numericId} with position ${numericPosition} validated`);
