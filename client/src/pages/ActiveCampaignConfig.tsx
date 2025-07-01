@@ -147,7 +147,7 @@ export default function ActiveCampaignConfig() {
     saveConfigMutation.mutate({
       activeCampaignApiUrl: apiUrl,
       activeCampaignApiKey: apiKey,
-      defaultPipelineId: selectedPipelineId && selectedPipelineId !== "none" ? parseInt(selectedPipelineId) : undefined,
+      defaultPipelineId: selectedPipelineId && selectedPipelineId !== "0" ? parseInt(selectedPipelineId) : undefined,
       defaultTags: tags,
     });
   };
@@ -252,7 +252,7 @@ export default function ActiveCampaignConfig() {
                   <SelectValue placeholder="Selecione um pipeline" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Nenhum pipeline</SelectItem>
+                  <SelectItem value="0">Nenhum pipeline</SelectItem>
                   {pipelines?.map((pipeline) => (
                     <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                       {pipeline.name}
