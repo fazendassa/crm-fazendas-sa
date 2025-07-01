@@ -685,29 +685,45 @@ export class DatabaseStorage implements IStorage {
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
     try {
       console.log("=== STORAGE: Updating stage positions ===");
+      console.log("STORAGE: Received stages:", JSON.stringify(stages));
 
       // Validate all stage IDs first
-      for (const stage of stages) {
+      for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
+        console.log(`STORAGE: Processing stage ${i}:`, stage);
+        
         const stageId = Number(stage.id);
         const position = Number(stage.position);
 
+        console.log(`STORAGE: Converted values - stageId: ${stageId} (${typeof stageId}), position: ${position} (${typeof position})`);
+        console.log(`STORAGE: Validations - isInteger(stageId): ${Number.isInteger(stageId)}, stageId > 0: ${stageId > 0}`);
+        console.log(`STORAGE: Validations - isInteger(position): ${Number.isInteger(position)}, position >= 0: ${position >= 0}`);
+
         if (!Number.isInteger(stageId) || stageId <= 0) {
-          throw new Error(`Invalid stage ID: ${stage.id}`);
+          const errorMsg = `Invalid stage ID: ${stage.id} (converted: ${stageId}, isInteger: ${Number.isInteger(stageId)}, > 0: ${stageId > 0})`;
+          console.log(`❌ STORAGE: ${errorMsg}`);
+          throw new Error(errorMsg);
         }
 
         if (!Number.isInteger(position) || position < 0) {
-          throw new Error(`Invalid position: ${stage.position} for stage ${stageId}`);
+          const errorMsg = `Invalid position: ${stage.position} (converted: ${position}, isInteger: ${Number.isInteger(position)}, >= 0: ${position >= 0}) for stage ${stageId}`;
+          console.log(`❌ STORAGE: ${errorMsg}`);
+          throw new Error(errorMsg);
         }
 
         // Check if stage exists
+        console.log(`STORAGE: Checking if stage ${stageId} exists...`);
         const existingStage = await db
           .select({ id: pipelineStages.id })
           .from(pipelineStages)
           .where(eq(pipelineStages.id, stageId))
           .limit(1);
 
+        console.log(`STORAGE: Stage existence check result:`, existingStage);
         if (existingStage.length === 0) {
-          throw new Error(`Stage with ID ${stageId} not found`);
+          const errorMsg = `Stage with ID ${stageId} not found`;
+          console.log(`❌ STORAGE: ${errorMsg}`);
+          throw new Error(errorMsg);
         }
 
         console.log(`📝 STORAGE: Updating stage ${stageId} to position ${position}`);
