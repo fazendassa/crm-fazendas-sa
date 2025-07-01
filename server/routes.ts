@@ -406,7 +406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/pipelines", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      const pipelines = await storage.getPipelines(userId);
+      const pipelines = await storage.getPipelines();
       res.json(pipelines);
     } catch (error) {
       console.error("Error fetching pipelines:", error);
@@ -419,7 +419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = (req.user as any).claims.sub;
       const pipelineId = parseInt(req.params.pipelineId);
-      const stages = await storage.getStagesByPipelineId(pipelineId, userId);
+      const stages = await storage.getPipelineStages(pipelineId);
       res.json(stages);
     } catch (error) {
       console.error("Error fetching pipeline stages:", error);
@@ -504,6 +504,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(stage);
     } catch (error) {
       console.error("Error creating pipeline stage:", error);
+      if (error instanceof Error && error.message.includes("cannot have more than 12 stages")) {
+        return res.status(400).json({ message: "Pipeline cannot have more than 12 stages" });
+      }
       res.status(500).json({ message: "Failed to create pipeline stage" });
     }
   });
@@ -580,7 +583,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         stagesToUpdate.push({
           id: numericId,
-          posicaoestagio: numericPosition
+          position: numericPosition
         });
 
         console.log(`✅ SERVER: Stage ${numericId} with posicaoestagio ${numericPosition} validated`);
