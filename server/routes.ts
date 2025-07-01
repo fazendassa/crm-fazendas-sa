@@ -825,45 +825,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   // ActiveCampaign Integration Routes
   
-  // Get user's ActiveCampaign configuration
-  app.get("/api/integrations/activecampaign/config", isAuthenticated, async (req, res) => {
+  // Get user's ActiveCampaign configurations
+  app.get("/api/integrations/activecampaign/configs", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      const config = await storage.getActiveCampaignConfig(userId);
+      const configs = await storage.getActiveCampaignConfigs(userId);
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching ActiveCampaign configs:", error);
+      res.status(500).json({ message: "Failed to fetch configurations" });
+    }
+  });
+
+  // Get single ActiveCampaign configuration
+  app.get("/api/integrations/activecampaign/configs/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const configId = parseInt(req.params.id);
+      const config = await storage.getActiveCampaignConfigById(configId, userId);
       
       if (!config) {
         return res.status(404).json({ message: "Configuration not found" });
       }
       
-      // Include webhookSecret in response for configuration display
-      const safeConfig = {
-        id: config.id,
-        activeCampaignApiUrl: config.activeCampaignApiUrl,
-        defaultPipelineId: config.defaultPipelineId,
-        defaultTags: config.defaultTags,
-        isActive: config.isActive,
-        webhookSecret: config.webhookSecret,
-        createdAt: config.createdAt,
-        updatedAt: config.updatedAt
-      };
-      
-      res.json(safeConfig);
+      res.json(config);
     } catch (error) {
       console.error("Error fetching ActiveCampaign config:", error);
       res.status(500).json({ message: "Failed to fetch configuration" });
     }
   });
 
-  // Create or update ActiveCampaign configuration
-  app.post("/api/integrations/activecampaign/config", isAuthenticated, async (req, res) => {
+  // Create ActiveCampaign configuration
+  app.post("/api/integrations/activecampaign/configs", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      const { activeCampaignApiUrl, activeCampaignApiKey, defaultPipelineId, defaultTags } = req.body;
+      const { name, activeCampaignApiUrl, activeCampaignApiKey, pipelineId, defaultTags, fieldMapping, webhookType } = req.body;
 
       // Validation
-      if (!activeCampaignApiUrl || !activeCampaignApiKey) {
+      if (!name || !activeCampaignApiUrl || !activeCampaignApiKey || !pipelineId) {
         return res.status(400).json({ 
-          message: "ActiveCampaign API URL and API Key are required" 
+          message: "Name, ActiveCampaign API URL, API Key, and Pipeline are required" 
         });
       }
 
@@ -873,43 +874,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const configData = {
         userId,
+        name: name.trim(),
         activeCampaignApiUrl: activeCampaignApiUrl.trim(),
         activeCampaignApiKey: activeCampaignApiKey.trim(),
         webhookSecret,
-        defaultPipelineId: defaultPipelineId || null,
+        pipelineId: parseInt(pipelineId),
         defaultTags: defaultTags || [],
+        fieldMapping: fieldMapping || {},
+        webhookType: webhookType || 'contact',
         isActive: true
       };
 
-      // Check if config already exists
-      const existingConfig = await storage.getActiveCampaignConfig(userId);
-      
-      let config;
-      if (existingConfig) {
-        // Update existing config
-        config = await storage.updateActiveCampaignConfig(userId, configData);
-      } else {
-        // Create new config
-        config = await storage.createActiveCampaignConfig(configData);
-      }
+      const config = await storage.createActiveCampaignConfig(configData);
 
       if (!config) {
         return res.status(500).json({ message: "Failed to save configuration" });
       }
 
-      // Return safe config (without sensitive data)
-      const safeConfig = {
-        id: config.id,
-        activeCampaignApiUrl: config.activeCampaignApiUrl,
-        defaultPipelineId: config.defaultPipelineId,
-        defaultTags: config.defaultTags,
-        isActive: config.isActive,
-        webhookSecret: config.webhookSecret, // Include webhook secret in creation response
-        createdAt: config.createdAt,
-        updatedAt: config.updatedAt
-      };
-
-      res.json(safeConfig);
+      res.json(config);
     } catch (error) {
       console.error("Error saving ActiveCampaign config:", error);
       res.status(500).json({ message: "Failed to save configuration" });
@@ -917,10 +899,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete ActiveCampaign configuration
-  app.delete("/api/integrations/activecampaign/config", isAuthenticated, async (req, res) => {
+  app.delete("/api/integrations/activecampaign/configs/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      await storage.deleteActiveCampaignConfig(userId);
+      const configId = parseInt(req.params.id);
+      await storage.deleteActiveCampaignConfigById(configId, userId);
       res.json({ message: "Configuration deleted successfully" });
     } catch (error) {
       console.error("Error deleting ActiveCampaign config:", error);
@@ -929,7 +912,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ActiveCampaign Webhook Endpoint (PUBLIC - no authentication required)
-  app.post("/api/integrations/activecampaign/webhook", async (req, res) => {
+  app.post("/api/integrations/activecampaign/webhook/:configId", async (req, res) => {
     try {
       console.log('\n=== ACTIVECAMPAIGN WEBHOOK RECEIVED ===');
       console.log('Headers:', req.headers);
@@ -943,11 +926,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Webhook secret required" });
       }
 
-      // Find config by webhook secret
-      const configs = await storage.getWebhookLogs(); // We'll need to add a method to get config by secret
-      // For now, let's get all configs and find the matching one
+      const configId = parseInt(req.params.configId);
       
-      // This is a simplified implementation - in production, you'd want to validate the secret properly
+      if (!configId) {
+        console.log('❌ WEBHOOK: No config ID provided');
+        return res.status(400).json({ message: "Configuration ID required" });
+      }
+
+      // Get specific configuration
+      const config = await storage.getActiveCampaignConfigById(configId);
+      
+      if (!config) {
+        console.log('❌ WEBHOOK: Configuration not found');
+        return res.status(404).json({ message: "Configuration not found" });
+      }
+
+      // Validate webhook secret
+      if (config.webhookSecret !== providedSecret) {
+        console.log('❌ WEBHOOK: Invalid secret');
+        return res.status(401).json({ message: "Invalid webhook secret" });
+      }
+
       const webhookData = req.body;
       
       // Extract lead/contact data from ActiveCampaign webhook
@@ -956,22 +955,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!contact) {
         console.log('❌ WEBHOOK: No contact data in webhook');
         return res.status(400).json({ message: "No contact data provided" });
-      }
-
-      // Find a default configuration (this is simplified - in production you'd match by secret)
-      // For now, we'll just find any active config
-      const allConfigs = await db.select().from(activeCampaignConfigs).where(eq(activeCampaignConfigs.isActive, true));
-      const config = allConfigs[0];
-      
-      if (!config) {
-        console.log('❌ WEBHOOK: No active configuration found');
-        return res.status(404).json({ message: "No active configuration found" });
-      }
-
-      // Validate webhook secret
-      if (config.webhookSecret !== providedSecret) {
-        console.log('❌ WEBHOOK: Invalid secret');
-        return res.status(401).json({ message: "Invalid webhook secret" });
       }
 
       let createdContact = null;
@@ -1015,8 +998,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Create deal if pipeline is configured and deal data is provided
-        if (config.defaultPipelineId && createdContact) {
-          const pipelineStages = await storage.getPipelineStages(config.defaultPipelineId);
+        if (config.pipelineId && createdContact) {
+          const pipelineStages = await storage.getPipelineStages(config.pipelineId);
           const firstStage = pipelineStages.find(stage => stage.position === 0) || pipelineStages[0];
 
           if (firstStage) {
@@ -1024,7 +1007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               title: deal?.title || `Oportunidade - ${createdContact.name}`,
               description: deal?.description || 'Oportunidade criada via ActiveCampaign',
               stage: firstStage.title,
-              pipelineId: config.defaultPipelineId,
+              pipelineId: config.pipelineId,
               contactId: createdContact.id,
               companyId: createdContact.companyId,
               value: deal?.value || null,
@@ -1076,10 +1059,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get webhook logs
-  app.get("/api/integrations/activecampaign/logs", isAuthenticated, async (req, res) => {
+  app.get("/api/integrations/activecampaign/logs/:configId", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      const config = await storage.getActiveCampaignConfig(userId);
+      const configId = parseInt(req.params.configId);
+      
+      const config = await storage.getActiveCampaignConfigById(configId, userId);
       
       if (!config) {
         return res.status(404).json({ message: "Configuration not found" });
@@ -1088,7 +1073,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
       
-      const logs = await storage.getWebhookLogs(config.id, limit, offset);
+      const logs = await storage.getWebhookLogs(configId, limit, offset);
       res.json(logs);
     } catch (error) {
       console.error("Error fetching webhook logs:", error);

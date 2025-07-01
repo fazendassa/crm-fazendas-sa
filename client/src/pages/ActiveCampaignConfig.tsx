@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,17 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Copy, ExternalLink, Trash2, Settings, Webhook, Database, Tag } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Copy, ExternalLink, Trash2, Settings, Webhook, Database, Tag, Plus, ArrowLeft, ArrowRight, X, Building, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 
 interface ActiveCampaignConfig {
   id: number;
+  name: string;
   activeCampaignApiUrl: string;
-  defaultPipelineId?: number;
+  pipelineId: number;
   defaultTags: string[];
   isActive: boolean;
   webhookSecret?: string;
+  fieldMapping: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,73 +33,85 @@ interface Pipeline {
   description?: string;
 }
 
+interface WizardStep {
+  id: number;
+  title: string;
+  description: string;
+}
+
+const wizardSteps: WizardStep[] = [
+  { id: 1, title: "Introdução", description: "Informações sobre a integração" },
+  { id: 2, title: "Criação", description: "Configurar webhook no ActiveCampaign" },
+  { id: 3, title: "Mapeamento", description: "Mapear campos de dados" },
+  { id: 4, title: "Configuração", description: "Finalizar configuração" }
+];
+
+const defaultFieldMapping = {
+  first_name: "Nome",
+  last_name: "Sobrenome", 
+  email: "Email",
+  phone: "Telefone",
+  city: "Cidade",
+  position: "Cargo"
+};
+
 export default function ActiveCampaignConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [apiUrl, setApiUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string>("");
-  const [tagsInput, setTagsInput] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  // Wizard state
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [wizardData, setWizardData] = useState({
+    name: "",
+    apiUrl: "",
+    apiKey: "",
+    pipelineId: "",
+    tags: [] as string[],
+    fieldMapping: { ...defaultFieldMapping },
+    webhookType: "deal" // deal or contact
+  });
 
-  // Fetch current configuration
-  const { data: config, isLoading: configLoading } = useQuery<ActiveCampaignConfig>({
-    queryKey: ["/api/integrations/activecampaign/config"],
+  // Form state
+  const [tagsInput, setTagsInput] = useState("");
+
+  // Fetch configurations
+  const { data: configs = [], isLoading: configsLoading } = useQuery<ActiveCampaignConfig[]>({
+    queryKey: ["/api/integrations/activecampaign/configs"],
     retry: false,
   });
 
-  // Fetch pipelines for selection
+  // Fetch pipelines
   const { data: pipelines } = useQuery<Pipeline[]>({
     queryKey: ["/api/pipelines"],
   });
 
-  // Fetch webhook logs
-  const { data: logs = [] } = useQuery<any[]>({
-    queryKey: ["/api/integrations/activecampaign/logs"],
-    enabled: !!config,
-  });
-
-  // Populate form when config is loaded
-  useEffect(() => {
-    if (config) {
-      setApiUrl(config.activeCampaignApiUrl);
-      setSelectedPipelineId(config.defaultPipelineId?.toString() || "none");
-      setTags(config.defaultTags || []);
-    }
-  }, [config]);
-
-  // Save configuration mutation
-  const saveConfigMutation = useMutation({
-    mutationFn: async (data: {
-      activeCampaignApiUrl: string;
-      activeCampaignApiKey: string;
-      defaultPipelineId?: number;
-      defaultTags: string[];
-    }) => {
-      return fetch("/api/integrations/activecampaign/config", {
+  // Create configuration mutation
+  const createConfigMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return fetch("/api/integrations/activecampaign/configs", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(data),
       }).then(res => {
-        if (!res.ok) throw new Error("Failed to save config");
+        if (!res.ok) throw new Error("Failed to create config");
         return res.json();
       });
     },
     onSuccess: () => {
       toast({
-        title: "Configuração salva",
-        description: "Integração com ActiveCampaign configurada com sucesso!",
+        title: "Integração criada",
+        description: "Webhook configurado com sucesso!",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/integrations/activecampaign/config"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/integrations/activecampaign/configs"] });
+      setIsWizardOpen(false);
+      resetWizard();
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao salvar",
-        description: error.message || "Falha ao salvar configuração",
+        title: "Erro ao criar integração",
+        description: error.message || "Falha ao criar configuração",
         variant: "destructive",
       });
     },
@@ -104,8 +119,8 @@ export default function ActiveCampaignConfig() {
 
   // Delete configuration mutation
   const deleteConfigMutation = useMutation({
-    mutationFn: async () => {
-      return fetch("/api/integrations/activecampaign/config", {
+    mutationFn: async (id: number) => {
+      return fetch(`/api/integrations/activecampaign/configs/${id}`, {
         method: "DELETE",
         credentials: "include",
       }).then(res => {
@@ -115,76 +130,314 @@ export default function ActiveCampaignConfig() {
     },
     onSuccess: () => {
       toast({
-        title: "Configuração removida",
-        description: "Integração com ActiveCampaign desabilitada",
+        title: "Integração removida",
+        description: "Configuração deletada com sucesso",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/integrations/activecampaign/config"] });
-      // Reset form
-      setApiUrl("");
-      setApiKey("");
-      setSelectedPipelineId("");
-      setTags([]);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao remover",
-        description: error.message || "Falha ao remover configuração",
-        variant: "destructive",
-      });
+      queryClient.invalidateQueries({ queryKey: ["/api/integrations/activecampaign/configs"] });
     },
   });
 
-  const handleSave = () => {
-    if (!apiUrl || !apiKey) {
+  const resetWizard = () => {
+    setCurrentStep(1);
+    setWizardData({
+      name: "",
+      apiUrl: "",
+      apiKey: "",
+      pipelineId: "",
+      tags: [],
+      fieldMapping: { ...defaultFieldMapping },
+      webhookType: "deal"
+    });
+    setTagsInput("");
+  };
+
+  const handleNext = () => {
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleFinish = () => {
+    if (!wizardData.name || !wizardData.apiUrl || !wizardData.apiKey || !wizardData.pipelineId) {
       toast({
         title: "Campos obrigatórios",
-        description: "URL da API e Chave da API são obrigatórios",
+        description: "Nome, URL da API, Chave da API e Pipeline são obrigatórios",
         variant: "destructive",
       });
       return;
     }
 
-    saveConfigMutation.mutate({
-      activeCampaignApiUrl: apiUrl,
-      activeCampaignApiKey: apiKey,
-      defaultPipelineId: selectedPipelineId && selectedPipelineId !== "none" ? parseInt(selectedPipelineId) : undefined,
-      defaultTags: tags,
+    createConfigMutation.mutate({
+      name: wizardData.name,
+      activeCampaignApiUrl: wizardData.apiUrl,
+      activeCampaignApiKey: wizardData.apiKey,
+      pipelineId: parseInt(wizardData.pipelineId),
+      defaultTags: wizardData.tags,
+      fieldMapping: wizardData.fieldMapping,
+      webhookType: wizardData.webhookType
     });
   };
 
   const handleAddTag = () => {
-    if (tagsInput.trim() && !tags.includes(tagsInput.trim())) {
-      setTags([...tags, tagsInput.trim()]);
+    if (tagsInput.trim() && !wizardData.tags.includes(tagsInput.trim())) {
+      setWizardData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tagsInput.trim()]
+      }));
       setTagsInput("");
     }
   };
 
   const handleRemoveTag = (tag: string) => {
-    setTags(tags.filter(t => t !== tag));
+    setWizardData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(t => t !== tag)
+    }));
   };
 
-  const copyWebhookUrl = () => {
-    if (config?.webhookSecret) {
-      const webhookUrl = `${window.location.origin}/api/integrations/activecampaign/webhook`;
-      navigator.clipboard.writeText(webhookUrl);
-      toast({
-        title: "URL copiada",
-        description: "URL do webhook copiada para a área de transferência",
-      });
+  const updateFieldMapping = (acField: string, crmField: string) => {
+    setWizardData(prev => ({
+      ...prev,
+      fieldMapping: {
+        ...prev.fieldMapping,
+        [acField]: crmField
+      }
+    }));
+  };
+
+  const copyWebhookUrl = (config: ActiveCampaignConfig) => {
+    const webhookUrl = `${window.location.origin}/api/integrations/activecampaign/webhook/${config.id}`;
+    navigator.clipboard.writeText(webhookUrl);
+    toast({
+      title: "URL copiada",
+      description: "URL do webhook copiada para a área de transferência",
+    });
+  };
+
+  const copyWebhookSecret = (secret: string) => {
+    navigator.clipboard.writeText(secret);
+    toast({
+      title: "Secret copiado",
+      description: "Secret do webhook copiado para a área de transferência",
+    });
+  };
+
+  const renderWizardStep = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <Webhook className="h-8 w-8 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-semibold">Integração com Active Campaign</h3>
+              <div className="space-y-2 text-sm text-muted-foreground max-w-md mx-auto">
+                <p>1. Dentro da sua conta no Active Campaign, acesse a opção: Configurações</p>
+                <p>2. Em Configurações, selecione a opção: Desenvolvedor</p>
+                <p>3. Em acesso à API, copie a URL e a Chave</p>
+                <p>4. Adicione essas informações nos campos solicitados e cria sua integração</p>
+              </div>
+              <Button variant="link" className="text-blue-600">
+                Veja o passo a passo detalhado →
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">O que você deseja criar ou atualizar quando receber esse Webhook?</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <Card className={`cursor-pointer border-2 ${wizardData.webhookType === 'deal' ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}
+                    onClick={() => setWizardData(prev => ({ ...prev, webhookType: 'deal' }))}>
+                <CardContent className="flex flex-col items-center justify-center p-6">
+                  <Building className="h-8 w-8 mb-2" />
+                  <span className="font-medium">Negócio</span>
+                </CardContent>
+              </Card>
+              
+              <Card className={`cursor-pointer border-2 ${wizardData.webhookType === 'contact' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                    onClick={() => setWizardData(prev => ({ ...prev, webhookType: 'contact' }))}>
+                <CardContent className="flex flex-col items-center justify-center p-6">
+                  <User className="h-8 w-8 mb-2" />
+                  <span className="font-medium">Contato</span>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="integrationName">Nome da integração</Label>
+                <Input
+                  id="integrationName"
+                  placeholder="Nome da integração"
+                  value={wizardData.name}
+                  onChange={(e) => setWizardData(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="apiUrl">URL</Label>
+                <Input
+                  id="apiUrl"
+                  placeholder="Acesse Configurações > Desenvolvedor > Acesso à API > Copiar URL da API"
+                  value={wizardData.apiUrl}
+                  onChange={(e) => setWizardData(prev => ({ ...prev, apiUrl: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="apiKey">Chave</Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  placeholder="Acesse Configurações > Desenvolvedor > Acesso à API > Copiar chave da API"
+                  value={wizardData.apiKey}
+                  onChange={(e) => setWizardData(prev => ({ ...prev, apiKey: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Mapeamento de campos</h3>
+              <Button variant="outline" size="sm">
+                + Adicionar campo
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 font-medium text-sm">
+                <span>NOME DO CAMPO NO SEU FORMULÁRIO</span>
+                <span>MAPEAR CAMPO PARA</span>
+              </div>
+
+              {Object.entries(wizardData.fieldMapping).map(([acField, crmField]) => (
+                <div key={acField} className="grid grid-cols-2 gap-4 items-center">
+                  <span className="font-mono text-sm">{acField}</span>
+                  <div className="flex items-center gap-2">
+                    <Select value={crmField} onValueChange={(value) => updateFieldMapping(acField, value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Nome">Nome</SelectItem>
+                        <SelectItem value="Sobrenome">Sobrenome</SelectItem>
+                        <SelectItem value="Email">Email</SelectItem>
+                        <SelectItem value="Telefone">Telefone</SelectItem>
+                        <SelectItem value="Cidade">Cidade</SelectItem>
+                        <SelectItem value="Cargo">Cargo</SelectItem>
+                        <SelectItem value="ignore">Ignorar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button variant="ghost" size="icon" className="text-red-500">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              <Button variant="link" className="text-blue-600 p-0">
+                🔍 Buscar campos da integração
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Configurações adicionais</h3>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="pipeline">Pipeline</Label>
+                <Select value={wizardData.pipelineId} onValueChange={(value) => setWizardData(prev => ({ ...prev, pipelineId: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um pipeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pipelines?.map((pipeline) => (
+                      <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
+                        {pipeline.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Adicionar tag para contatos</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Nova tag"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
+                  />
+                  <Button onClick={handleAddTag} variant="outline">
+                    <Tag className="h-4 w-4" />
+                  </Button>
+                </div>
+                {wizardData.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {wizardData.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="gap-1">
+                        {tag}
+                        <button
+                          onClick={() => handleRemoveTag(tag)}
+                          className="ml-1 text-muted-foreground hover:text-foreground"
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Etapa</Label>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-blue-50">Base</Badge>
+                  <Button variant="ghost" size="icon">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-green-50">Ativo</Badge>
+                  <Button variant="ghost" size="icon">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
 
-  const copyWebhookSecret = () => {
-    if (config?.webhookSecret) {
-      navigator.clipboard.writeText(config.webhookSecret);
-      toast({
-        title: "Secret copiado",
-        description: "Secret do webhook copiado para a área de transferência",
-      });
-    }
-  };
-
-  if (configLoading) {
+  if (configsLoading) {
     return (
       <div className="container mx-auto p-6">
         <div className="animate-pulse space-y-4">
@@ -199,241 +452,173 @@ export default function ActiveCampaignConfig() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Integração ActiveCampaign</h1>
+          <h1 className="text-3xl font-bold">Integrações ActiveCampaign</h1>
           <p className="text-muted-foreground">
-            Configure webhooks para receber leads do ActiveCampaign automaticamente
+            Configure múltiplos webhooks para diferentes pipelines
           </p>
         </div>
-        {config && (
-          <Badge variant={config.isActive ? "default" : "secondary"}>
-            {config.isActive ? "Ativo" : "Inativo"}
-          </Badge>
+        <Dialog open={isWizardOpen} onOpenChange={setIsWizardOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={resetWizard}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Integração
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center justify-between">
+                <span>Integração com Active Campaign</span>
+                <Button variant="ghost" size="icon" onClick={() => setIsWizardOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogTitle>
+            </DialogHeader>
+
+            {/* Step indicator */}
+            <div className="flex items-center justify-between mb-6">
+              {wizardSteps.map((step, index) => (
+                <div key={step.id} className="flex items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    currentStep >= step.id ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {step.id}
+                  </div>
+                  <div className="ml-2 text-sm">
+                    <div className={`font-medium ${currentStep >= step.id ? 'text-blue-600' : 'text-gray-600'}`}>
+                      {step.title}
+                    </div>
+                  </div>
+                  {index < wizardSteps.length - 1 && (
+                    <div className="w-8 h-0.5 bg-gray-200 mx-4"></div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Step content */}
+            <div className="min-h-[400px]">
+              {renderWizardStep()}
+            </div>
+
+            {/* Navigation buttons */}
+            <div className="flex justify-between pt-6 border-t">
+              <Button 
+                variant="outline" 
+                onClick={handlePrevious}
+                disabled={currentStep === 1}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              
+              {currentStep < 4 ? (
+                <Button onClick={handleNext}>
+                  Continuar
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button 
+                  onClick={handleFinish}
+                  disabled={createConfigMutation.isPending}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {createConfigMutation.isPending ? "Salvando..." : "Salvar"}
+                </Button>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Existing configurations */}
+      <div className="grid gap-6">
+        {configs.length > 0 ? (
+          configs.map((config) => (
+            <Card key={config.id}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      {config.name}
+                      <Badge variant={config.isActive ? "default" : "secondary"}>
+                        {config.isActive ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      Pipeline: {pipelines?.find(p => p.id === config.pipelineId)?.name || "N/A"}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => deleteConfigMutation.mutate(config.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {config.webhookSecret && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>URL do Webhook</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={`${window.location.origin}/api/integrations/activecampaign/webhook/${config.id}`}
+                          className="font-mono text-sm"
+                        />
+                        <Button variant="outline" size="icon" onClick={() => copyWebhookUrl(config)}>
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Webhook Secret</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          type="password"
+                          value={config.webhookSecret}
+                          className="font-mono text-sm"
+                        />
+                        <Button variant="outline" size="icon" onClick={() => copyWebhookSecret(config.webhookSecret!)}>
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {config.defaultTags.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Tags Padrão</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {config.defaultTags.map((tag) => (
+                            <Badge key={tag} variant="secondary">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Webhook className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground text-center">
+                Nenhuma integração configurada ainda.
+                <br />
+                Clique em "Nova Integração" para começar.
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Configuration Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Configuração da API
-            </CardTitle>
-            <CardDescription>
-              Configure sua conexão com a API do ActiveCampaign
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="apiUrl">URL da API ActiveCampaign</Label>
-              <Input
-                id="apiUrl"
-                placeholder="https://youraccount.api-us1.com"
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="apiKey">Chave da API</Label>
-              <Input
-                id="apiKey"
-                type="password"
-                placeholder="Sua chave da API do ActiveCampaign"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pipeline">Pipeline Padrão</Label>
-              <Select value={selectedPipelineId} onValueChange={setSelectedPipelineId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um pipeline" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum pipeline</SelectItem>
-                  {pipelines?.filter(pipeline => pipeline.id && pipeline.id > 0 && pipeline.name).map((pipeline) => (
-                    <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
-                      {pipeline.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Tags Padrão</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Nova tag"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleAddTag()}
-                />
-                <Button onClick={handleAddTag} variant="outline">
-                  <Tag className="h-4 w-4" />
-                </Button>
-              </div>
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="gap-1">
-                      {tag}
-                      <button
-                        onClick={() => handleRemoveTag(tag)}
-                        className="ml-1 text-muted-foreground hover:text-foreground"
-                      >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                onClick={handleSave}
-                disabled={saveConfigMutation.isPending}
-                className="flex-1"
-              >
-                {saveConfigMutation.isPending ? "Salvando..." : "Salvar Configuração"}
-              </Button>
-              {config && (
-                <Button
-                  variant="destructive"
-                  onClick={() => deleteConfigMutation.mutate()}
-                  disabled={deleteConfigMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Webhook Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Webhook className="h-5 w-5" />
-              Configuração do Webhook
-            </CardTitle>
-            <CardDescription>
-              Use estas informações no ActiveCampaign
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {config?.webhookSecret ? (
-              <>
-                <div className="space-y-2">
-                  <Label>URL do Webhook</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value={`${window.location.origin}/api/integrations/activecampaign/webhook`}
-                      className="font-mono text-sm"
-                    />
-                    <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Webhook Secret</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      type="password"
-                      value={config.webhookSecret}
-                      className="font-mono text-sm"
-                    />
-                    <Button variant="outline" size="icon" onClick={copyWebhookSecret}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <Alert>
-                  <Database className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Configuração no ActiveCampaign:</strong>
-                    <br />
-                    1. Acesse Automations → Webhooks
-                    <br />
-                    2. Adicione a URL do webhook acima
-                    <br />
-                    3. Configure o header 'x-api-key' com o secret acima
-                    <br />
-                    4. Selecione os eventos de contato que deseja receber
-                  </AlertDescription>
-                </Alert>
-
-                <Button variant="outline" className="w-full" asChild>
-                  <a
-                    href="https://developers.activecampaign.com/reference/webhooks"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Documentação do ActiveCampaign
-                  </a>
-                </Button>
-              </>
-            ) : (
-              <Alert>
-                <AlertDescription>
-                  Configure e salve a integração primeiro para gerar as informações do webhook.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Webhook Logs */}
-      {config && logs && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Logs Recentes</CardTitle>
-            <CardDescription>
-              Últimos eventos recebidos do ActiveCampaign
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {logs.length > 0 ? (
-              <div className="space-y-2">
-                {logs.slice(0, 10).map((log: any) => (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Badge variant={log.status === "success" ? "default" : "destructive"}>
-                        {log.status}
-                      </Badge>
-                      <span className="text-sm">
-                        {log.contactId && `Contato: ${log.contactId}`}
-                        {log.dealId && ` • Deal: ${log.dealId}`}
-                      </span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(log.processedAt).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground py-4">
-                Nenhum evento recebido ainda
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

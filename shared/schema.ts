@@ -267,11 +267,14 @@ export type ActivityWithRelations = Activity & {
 export const activeCampaignConfigs = pgTable("activecampaign_configs", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  name: text("name").notNull(),
   activeCampaignApiUrl: text("activecampaign_api_url").notNull(),
   activeCampaignApiKey: text("activecampaign_api_key").notNull(),
   webhookSecret: text("webhook_secret").notNull(),
-  defaultPipelineId: integer("default_pipeline_id").references(() => pipelines.id),
+  pipelineId: integer("pipeline_id").references(() => pipelines.id).notNull(),
   defaultTags: jsonb("default_tags").$type<string[]>().default([]),
+  fieldMapping: jsonb("field_mapping").$type<Record<string, string>>().default({}),
+  webhookType: text("webhook_type").default("contact"), // contact or deal
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

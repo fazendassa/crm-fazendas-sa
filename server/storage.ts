@@ -100,10 +100,11 @@ export interface IStorage {
   }>;
 
   // ActiveCampaign Integration
-  getActiveCampaignConfig(userId: string): Promise<ActiveCampaignConfig | undefined>;
+  getActiveCampaignConfigs(userId: string): Promise<ActiveCampaignConfig[]>;
+  getActiveCampaignConfigById(configId: number, userId?: string): Promise<ActiveCampaignConfig | undefined>;
   createActiveCampaignConfig(config: InsertActiveCampaignConfig): Promise<ActiveCampaignConfig>;
-  updateActiveCampaignConfig(userId: string, config: Partial<InsertActiveCampaignConfig>): Promise<ActiveCampaignConfig | undefined>;
-  deleteActiveCampaignConfig(userId: string): Promise<void>;
+  updateActiveCampaignConfig(configId: number, config: Partial<InsertActiveCampaignConfig>): Promise<ActiveCampaignConfig | undefined>;
+  deleteActiveCampaignConfigById(configId: number, userId: string): Promise<void>;
   
   // ActiveCampaign Webhook Logs
   createWebhookLog(log: InsertActiveCampaignWebhookLog): Promise<ActiveCampaignWebhookLog>;
@@ -1136,45 +1137,60 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ActiveCampaign Integration Methods
-  async getActiveCampaignConfig(userId: string): Promise<ActiveCampaignConfig | undefined> {
-    const [config] = await db
+  async getActiveCampaignConfigs(userId: string): Promise<ActiveCampaignConfig[]> {
+    return await db
       .select()
       .from(activeCampaignConfigs)
-      .where(eq(activeCampaignConfigs.userId, userId));
+      .where(eq(activeCampaignConfigs.userId, userId))
+      .orderBy(desc(activeCampaignConfigs.createdAt));
+  }
+
+  async getActiveCampaignConfigById(configId: number, userId?: string): Promise<ActiveCampaignConfig | undefined> {
+    const query = db
+      .select()
+      .from(activeCampaignConfigs)
+      .where(eq(activeCampaignConfigs.id, configId));
+    
+    if (userId) {
+      query.where(and(eq(activeCampaignConfigs.id, configId), eq(activeCampaignConfigs.userId, userId)));
+    }
+    
+    const [config] = await query;
     return config || undefined;
   }
 
   async createActiveCampaignConfig(config: InsertActiveCampaignConfig): Promise<ActiveCampaignConfig> {
     // Validate required fields
-    if (!config.userId) {
-      throw new Error("User ID is required for ActiveCampaign configuration");
+    if (!config.userId || !config.name || !config.pipelineId) {
+      throw new Error("User ID, name, and pipeline ID are required for ActiveCampaign configuration");
     }
     
     const [newConfig] = await db
       .insert(activeCampaignConfigs)
       .values({
         ...config,
-        defaultTags: config.defaultTags || []
+        defaultTags: config.defaultTags || [],
+        fieldMapping: config.fieldMapping || {}
       })
       .returning();
     return newConfig;
   }
 
-  async updateActiveCampaignConfig(userId: string, config: Partial<InsertActiveCampaignConfig>): Promise<ActiveCampaignConfig | undefined> {
+  async updateActiveCampaignConfig(configId: number, config: Partial<InsertActiveCampaignConfig>): Promise<ActiveCampaignConfig | undefined> {
     const updateData: any = { ...config, updatedAt: new Date() };
     
     const [updatedConfig] = await db
       .update(activeCampaignConfigs)
       .set(updateData)
-      .where(eq(activeCampaignConfigs.userId, userId))
+      .where(eq(activeCampaignConfigs.id, configId))
       .returning();
     return updatedConfig || undefined;
   }
 
-  async deleteActiveCampaignConfig(userId: string): Promise<void> {
+  async deleteActiveCampaignConfigById(configId: number, userId: string): Promise<void> {
     await db
       .delete(activeCampaignConfigs)
-      .where(eq(activeCampaignConfigs.userId, userId));
+      .where(and(eq(activeCampaignConfigs.id, configId), eq(activeCampaignConfigs.userId, userId)));
   }
 
   async createWebhookLog(log: InsertActiveCampaignWebhookLog): Promise<ActiveCampaignWebhookLog> {
