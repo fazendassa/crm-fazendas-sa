@@ -1,31 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
-import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  closestCenter,
-  UniqueIdentifier,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+// Removed @dnd-kit dependencies - now using simple arrow buttons
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, X, Trash2, Edit, DollarSign, Settings2 } from "lucide-react";
+import { Plus, X, Trash2, Edit, DollarSign, Settings2, ChevronUp, ChevronDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import DealForm from "./deal-form";
 import type { DealWithRelations, PipelineStage } from "@shared/schema";
@@ -44,43 +27,7 @@ interface KanbanBoardProps {
 }
 
 // Sortable stage component for reordering
-function SortableStage({ stage }: { stage: PipelineStage }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: stage.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className="p-3 bg-white border rounded-lg cursor-move hover:shadow-md transition-shadow"
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className="w-4 h-4 rounded-full"
-          style={{ backgroundColor: stage.color }}
-        />
-        <span className="font-medium">{stage.title}</span>
-        <span className="text-sm text-gray-500">
-          Posição: {stage.posicaoestagio || stage.position}
-        </span>
-      </div>
-    </div>
-  );
-}
+// Removed SortableStage component - now using simple arrow buttons in modal
 
 export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [selectedDeal, setSelectedDeal] = useState<DealWithRelations | null>(null);
@@ -89,18 +36,8 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [isAddingStage, setIsAddingStage] = useState(false);
   const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
   const [reorderStages, setReorderStages] = useState<PipelineStage[]>([]);
-  const [activeStageId, setActiveStageId] = useState<UniqueIdentifier | null>(null);
-
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
 
   // Fetch pipeline stages - ensure they're ordered by posicaoestagio
   const { data: stages = [], isLoading: stagesLoading } = useQuery<PipelineStage[]>({
@@ -289,22 +226,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     setIsReorderModalOpen(true);
   };
 
-  const handleStageReorderDragStart = (event: DragStartEvent) => {
-    setActiveStageId(event.active.id);
-  };
-
-  const handleStageReorderDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveStageId(null);
-
-    if (over && active.id !== over.id) {
-      setReorderStages((stages) => {
-        const oldIndex = stages.findIndex((stage) => stage.id === active.id);
-        const newIndex = stages.findIndex((stage) => stage.id === over.id);
-        return arrayMove(stages, oldIndex, newIndex);
-      });
-    }
-  };
+  // Removed drag handlers - now using simple arrow buttons
 
   const saveStageOrder = () => {
     console.log("=== FRONTEND: saveStageOrder called ===");
@@ -322,6 +244,32 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     
     // Send as object with stages property
     updateStagePositionsMutation.mutate({ stages: stagesToUpdate });
+  };
+
+  // Function to move stage up in the reorder list
+  const moveStageUp = (stageId: number) => {
+    setReorderStages(prevStages => {
+      const currentIndex = prevStages.findIndex(stage => stage.id === stageId);
+      if (currentIndex <= 0) return prevStages; // Can't move up if it's already first
+      
+      const newStages = [...prevStages];
+      // Swap with previous item
+      [newStages[currentIndex - 1], newStages[currentIndex]] = [newStages[currentIndex], newStages[currentIndex - 1]];
+      return newStages;
+    });
+  };
+
+  // Function to move stage down in the reorder list
+  const moveStageDown = (stageId: number) => {
+    setReorderStages(prevStages => {
+      const currentIndex = prevStages.findIndex(stage => stage.id === stageId);
+      if (currentIndex >= prevStages.length - 1) return prevStages; // Can't move down if it's already last
+      
+      const newStages = [...prevStages];
+      // Swap with next item
+      [newStages[currentIndex], newStages[currentIndex + 1]] = [newStages[currentIndex + 1], newStages[currentIndex]];
+      return newStages;
+    });
   };
 
   const getInitials = (name: string) => {
@@ -361,32 +309,50 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Arraste os estágios para reordená-los:
+              Use as setas para reordenar os estágios:
             </p>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleStageReorderDragStart}
-              onDragEnd={handleStageReorderDragEnd}
-            >
-              <SortableContext
-                items={reorderStages.map(s => s.id)}
-                strategy={rectSortingStrategy}
-              >
-                <div className="space-y-2">
-                  {reorderStages.map((stage) => (
-                    <SortableStage key={stage.id} stage={stage} />
-                  ))}
-                </div>
-              </SortableContext>
-              <DragOverlay>
-                {activeStageId ? (
-                  <SortableStage 
-                    stage={reorderStages.find(s => s.id === activeStageId)!} 
+            <div className="space-y-2">
+              {reorderStages.map((stage, index) => (
+                <div 
+                  key={stage.id} 
+                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border"
+                >
+                  {/* Stage color indicator */}
+                  <div
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: stage.color || "#3b82f6" }}
                   />
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+                  
+                  {/* Stage name and position */}
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">{stage.title}</div>
+                    <div className="text-xs text-gray-500">Posição: {index}</div>
+                  </div>
+                  
+                  {/* Arrow buttons */}
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => moveStageUp(stage.id)}
+                      disabled={index === 0}
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => moveStageDown(stage.id)}
+                      disabled={index === reorderStages.length - 1}
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
             <div className="flex gap-2 pt-4">
               <Button 
                 onClick={saveStageOrder}
