@@ -572,7 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (isNaN(numericId) || !Number.isInteger(numericId) || numericId <= 0) {
           const errorMsg = `Invalid stage ID: ${id} (type: ${typeof id}, numeric: ${numericId})`;
           console.log(`❌ SERVER: ${errorMsg}`);
-          return res.status(400).json({ message: errorMsg });
+          return res.status(400).json({ message: "Invalid stage ID" });
         }
 
         if (isNaN(numericPosition) || !Number.isInteger(numericPosition) || numericPosition < 0) {

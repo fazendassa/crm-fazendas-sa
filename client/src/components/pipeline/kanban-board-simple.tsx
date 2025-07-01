@@ -307,11 +307,19 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   };
 
   const saveStageOrder = () => {
-    const stagesToUpdate = reorderStages.map((stage, index) => ({
-      id: stage.id,
-      position: index
-    }));
+    console.log("=== FRONTEND: saveStageOrder called ===");
+    console.log("reorderStages:", reorderStages);
+    
+    const stagesToUpdate = reorderStages.map((stage, index) => {
+      console.log(`Stage ${index}:`, { id: stage.id, type: typeof stage.id, position: index });
+      return {
+        id: Number(stage.id), // Ensure it's a number
+        position: index
+      };
+    });
 
+    console.log("stagesToUpdate:", stagesToUpdate);
+    
     // Send as object with stages property
     updateStagePositionsMutation.mutate({ stages: stagesToUpdate });
   };
