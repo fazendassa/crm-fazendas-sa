@@ -8,38 +8,17 @@ async function throwIfResNotOk(res: Response) {
 }
 
 export async function apiRequest(
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
-  endpoint: string,
+  url: string,
+  method: string = 'GET',
   data?: any
 ): Promise<any> {
-  // Ensure endpoint starts with /
-  let cleanEndpoint = endpoint;
-  if (!cleanEndpoint.startsWith('/')) {
-    cleanEndpoint = '/' + cleanEndpoint;
-  }
-
-  // Remove leading /api if present to avoid duplication
-  if (cleanEndpoint.startsWith('/api/')) {
-    cleanEndpoint = cleanEndpoint.substring(4);
-  } else if (cleanEndpoint.startsWith('/api')) {
-    cleanEndpoint = cleanEndpoint.substring(4);
-  }
-
-  // Ensure cleanEndpoint starts with /
-  if (!cleanEndpoint.startsWith('/')) {
-    cleanEndpoint = '/' + cleanEndpoint;
-  }
-
-  const url = `/api${cleanEndpoint}`;
-
   const config: RequestInit = {
-    method,
+    method: method.toUpperCase(),
     headers: {
       'Content-Type': 'application/json',
     },
   };
 
-  // Only add body for POST and PUT requests
   if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
     config.body = JSON.stringify(data);
   }
@@ -47,15 +26,23 @@ export async function apiRequest(
   const response = await fetch(url, config);
 
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    const errorText = await response.text();
+    let errorMessage;
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.message || `HTTP error! status: ${response.status}`;
+    } catch {
+      errorMessage = `HTTP error! status: ${response.status}`;
+    }
+    throw new Error(errorMessage);
   }
 
-  // Only parse JSON if there's content
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
-    return null;
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return await response.json();
   }
 
-  return response.json();
+  return await response.text();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
