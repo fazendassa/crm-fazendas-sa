@@ -9,8 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, DollarSign, ArrowUpDown, Settings } from "lucide-react";
+import { Plus, DollarSign, ArrowUpDown, Settings, Users } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import DealForm from "./deal-form";
 import type { DealWithRelations, PipelineStage } from "@shared/schema";
 
@@ -35,6 +37,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [newStageTitle, setNewStageTitle] = useState("");
   const [isManagingStages, setIsManagingStages] = useState(false);
   const [managementStages, setManagementStages] = useState<PipelineStage[]>([]);
+  const [ownerChangePopover, setOwnerChangePopover] = useState<{ dealId: number; isOpen: boolean } | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -47,6 +50,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Get deals by stage for this pipeline
   const { data: dealsData = [], isLoading: dealsLoading } = useQuery<{ stage: string; count: number; deals: DealWithRelations[] }[]>({
     queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`],
+  });
+
+  // Get users for owner selection
+  const { data: usersData = [] } = useQuery({
+    queryKey: ['/api/users'],
   });
 
   // Create new stage with auto-positioned next number
@@ -284,6 +292,48 @@ ${JSON.stringify(error, null, 2)}
       toast({
         title: "Erro ao mover oportunidade",
         description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update deal owner mutation
+  const updateDealOwnerMutation = useMutation({
+    mutationFn: async ({ dealId, ownerId }: { dealId: number; ownerId: string | null }) => {
+      const response = await fetch(`/api/deals/${dealId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ ownerId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Failed to update deal owner: ${response.status} ${errorData}`);
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      
+      setOwnerChangePopover(null);
+      
+      toast({
+        title: "Sucesso",
+        description: "Responsável atualizado com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Error updating deal owner:", error);
+      
+      toast({
+        title: "Erro ao atualizar responsável",
+        description: error.message || "Erro desconhecido",
         variant: "destructive",
       });
     },
@@ -597,45 +647,123 @@ ${JSON.stringify(error, null, 2)}
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className={`cursor-pointer hover:shadow-md transition-shadow bg-white ${
+                                className={`group cursor-pointer hover:shadow-md transition-shadow bg-white ${
                                   snapshot.isDragging ? 'shadow-lg rotate-2' : ''
                                 }`}
                                 onClick={() => handleEditDeal(deal)}
                               >
-                                <CardHeader className="pb-2">
-                                  <CardTitle className="text-sm font-medium">
-                                    {deal.title}
-                                  </CardTitle>
-                                </CardHeader>
-                                <CardContent className="pt-0">
-                                  <div className="space-y-2">
+                                <CardContent className="p-3">
+                                  <div className="space-y-3">
+                                    {/* Contact Name */}
+                                    {deal.contact ? (
+                                      <div className="font-medium text-sm text-gray-900">
+                                        {deal.contact.name}
+                                      </div>
+                                    ) : deal.company ? (
+                                      <div className="font-medium text-sm text-gray-900">
+                                        {deal.company.name}
+                                      </div>
+                                    ) : (
+                                      <div className="font-medium text-sm text-gray-500">
+                                        Sem contato
+                                      </div>
+                                    )}
+
+                                    {/* Deal Value */}
                                     {deal.value && (
-                                      <div className="flex items-center text-sm text-muted-foreground">
-                                        <DollarSign className="h-3 w-3 mr-1" />
+                                      <div className="flex items-center text-green-600 font-semibold">
+                                        <DollarSign className="h-4 w-4 mr-1" />
                                         {new Intl.NumberFormat('pt-BR', {
                                           style: 'currency',
                                           currency: 'BRL'
                                         }).format(parseFloat(deal.value))}
                                       </div>
                                     )}
-                                    {deal.company && (
-                                      <div className="text-xs text-muted-foreground">
-                                        {deal.company.name}
-                                      </div>
-                                    )}
-                                  </div>
-                                  {deal.ownerId && (
-                                        <div className="flex items-center space-x-2 mt-2">
-                                          <Avatar className="w-5 h-5">
+
+                                    {/* Owner Avatar with Quick Change */}
+                                    <div className="flex items-center justify-between">
+                                      {deal.ownerId ? (
+                                        <div className="flex items-center space-x-2">
+                                          <Avatar className="w-6 h-6">
                                             <AvatarFallback className="text-xs">
                                               {getUserInitials(deal.ownerId)}
                                             </AvatarFallback>
                                           </Avatar>
-                                          <span className="text-xs font-medium">
+                                          <span className="text-xs text-gray-600">
                                             {getUserDisplayName(deal.ownerId)}
                                           </span>
                                         </div>
+                                      ) : (
+                                        <span className="text-xs text-gray-400">Sem responsável</span>
                                       )}
+                                      
+                                      {/* Quick Owner Change Popover */}
+                                      <Popover
+                                        open={ownerChangePopover?.dealId === deal.id && ownerChangePopover.isOpen}
+                                        onOpenChange={(open) => {
+                                          if (open) {
+                                            setOwnerChangePopover({ dealId: deal.id, isOpen: true });
+                                          } else {
+                                            setOwnerChangePopover(null);
+                                          }
+                                        }}
+                                      >
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                            }}
+                                          >
+                                            <Users className="h-3 w-3" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent 
+                                          className="w-64 p-2" 
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <div className="space-y-2">
+                                            <Label className="text-sm font-medium">Alterar Responsável</Label>
+                                            <Select
+                                              value={deal.ownerId || 'none'}
+                                              onValueChange={(value) => {
+                                                const newOwnerId = value === 'none' ? null : value;
+                                                updateDealOwnerMutation.mutate({
+                                                  dealId: deal.id,
+                                                  ownerId: newOwnerId
+                                                });
+                                              }}
+                                            >
+                                              <SelectTrigger>
+                                                <SelectValue placeholder="Selecione um responsável" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="none">Nenhum responsável</SelectItem>
+                                                {usersData?.map((user: any) => (
+                                                  <SelectItem key={user.id} value={user.id}>
+                                                    <div className="flex items-center space-x-2">
+                                                      <Avatar className="w-4 h-4">
+                                                        <AvatarFallback className="text-xs">
+                                                          {getUserInitials(user.id)}
+                                                        </AvatarFallback>
+                                                      </Avatar>
+                                                      <span>
+                                                        {user.firstName && user.lastName 
+                                                          ? `${user.firstName} ${user.lastName}` 
+                                                          : user.email || user.id}
+                                                      </span>
+                                                    </div>
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
+                                  </div>
                                 </CardContent>
                               </Card>
                             )}
