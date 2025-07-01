@@ -11,7 +11,8 @@ import {
   Settings,
   DollarSign,
   BarChart3,
-  LogOut
+  LogOut,
+  Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,12 @@ const navigation = [
     href: '/users', 
     icon: Users,
     permission: 'view:users' as const
+  },
+  { 
+    name: 'ActiveCampaign', 
+    href: '/integrations/activecampaign', 
+    icon: Zap,
+    permission: 'manage:settings' as const
   },
   { 
     name: 'Administração', 
