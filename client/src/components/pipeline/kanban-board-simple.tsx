@@ -20,29 +20,6 @@ interface KanbanBoardProps {
   pipelineId: number;
 }
 
-// Dynamic functions for user initials and display name using real user data
-const getUserInitials = (ownerId: string) => {
-  const user = usersData?.find((u: any) => u.id === ownerId);
-  if (user?.firstName && user?.lastName) {
-    return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
-  }
-  if (user?.email) {
-    return user.email.substring(0, 2).toUpperCase();
-  }
-  return ownerId.substring(0, 2).toUpperCase();
-};
-
-const getUserDisplayName = (ownerId: string) => {
-  const user = usersData?.find((u: any) => u.id === ownerId);
-  if (user?.firstName && user?.lastName) {
-    return `${user.firstName} ${user.lastName}`;
-  }
-  if (user?.email) {
-    return user.email;
-  }
-  return `User ${ownerId}`;
-};
-
 export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [selectedDeal, setSelectedDeal] = useState<DealWithRelations | null>(null);
   const [isDealDialogOpen, setIsDealDialogOpen] = useState(false);
@@ -70,6 +47,29 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const { data: usersData = [] } = useQuery({
     queryKey: ['/api/users'],
   });
+
+  // Dynamic functions for user initials and display name using real user data
+  const getUserInitials = (ownerId: string) => {
+    const user = usersData?.find((u: any) => u.id === ownerId);
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.substring(0, 2).toUpperCase();
+    }
+    return ownerId.substring(0, 2).toUpperCase();
+  };
+
+  const getUserDisplayName = (ownerId: string) => {
+    const user = usersData?.find((u: any) => u.id === ownerId);
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    if (user?.email) {
+      return user.email;
+    }
+    return `User ${ownerId}`;
+  };
 
   // Create new stage with auto-positioned next number
   const createStageMutation = useMutation({
