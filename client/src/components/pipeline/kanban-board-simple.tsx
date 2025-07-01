@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
 import {
@@ -83,7 +83,6 @@ function SortableStage({ stage }: { stage: PipelineStage }) {
 }
 
 export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
-  const [kanbanColumns, setKanbanColumns] = useState<KanbanColumn[]>([]);
   const [selectedDeal, setSelectedDeal] = useState<DealWithRelations | null>(null);
   const [isDealDialogOpen, setIsDealDialogOpen] = useState(false);
   const [newStageTitle, setNewStageTitle] = useState("");
@@ -117,7 +116,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Update deal mutation
   const updateDealMutation = useMutation({
     mutationFn: async ({ dealId, stage }: { dealId: number; stage: string }) => {
-      return apiRequest("PUT", `/api/deals/${dealId}`, { stage });
+      return apiRequest(`/api/deals/${dealId}`, "PUT", { stage });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
@@ -139,7 +138,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const createStageMutation = useMutation({
     mutationFn: async (title: string) => {
       const maxPosition = Math.max(...stages.map(s => s.posicaoestagio || s.position), -1);
-      return apiRequest("POST", "/api/pipeline-stages", {
+      return apiRequest("/api/pipeline-stages", "POST", {
         pipelineId,
         title,
         position: maxPosition + 1,
@@ -202,7 +201,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
       console.log("=== FRONT-END DEBUG: Payload to send ===");
       console.log("Payload:", payload);
 
-      return apiRequest("PUT", "/api/pipeline-stages/positions", payload);
+      return apiRequest("/api/pipeline-stages/positions", "PUT", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/pipeline-stages?pipelineId=${pipelineId}`] });
@@ -223,10 +222,9 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   });
 
   // Build columns from stages and deals
-  useEffect(() => {
+  const kanbanColumns = useMemo(() => {
     if (!stages || stages.length === 0) {
-      setKanbanColumns([]);
-      return;
+      return [];
     }
 
     const columns: KanbanColumn[] = stages
@@ -241,7 +239,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
           : [],
       }));
 
-    setKanbanColumns(columns);
+    return columns;
   }, [stages, dealsData]);
 
   const handleDragEnd = (result: DropResult) => {
