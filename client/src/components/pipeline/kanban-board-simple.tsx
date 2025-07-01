@@ -20,13 +20,27 @@ interface KanbanBoardProps {
   pipelineId: number;
 }
 
-// Placeholder functions for user initials and display name.  Replace with your actual logic
+// Dynamic functions for user initials and display name using real user data
 const getUserInitials = (ownerId: string) => {
+  const user = usersData?.find((u: any) => u.id === ownerId);
+  if (user?.firstName && user?.lastName) {
+    return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+  }
+  if (user?.email) {
+    return user.email.substring(0, 2).toUpperCase();
+  }
   return ownerId.substring(0, 2).toUpperCase();
 };
 
 const getUserDisplayName = (ownerId: string) => {
-  return `User ${ownerId}`; // Replace with the actual user's name or identifier
+  const user = usersData?.find((u: any) => u.id === ownerId);
+  if (user?.firstName && user?.lastName) {
+    return `${user.firstName} ${user.lastName}`;
+  }
+  if (user?.email) {
+    return user.email;
+  }
+  return `User ${ownerId}`;
 };
 
 export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
@@ -654,24 +668,16 @@ ${JSON.stringify(error, null, 2)}
                               >
                                 <CardContent className="p-3">
                                   <div className="space-y-3">
-                                    {/* Contact Name */}
-                                    {deal.contact ? (
-                                      <div className="font-medium text-sm text-gray-900">
-                                        {deal.contact.name}
-                                      </div>
-                                    ) : deal.company ? (
-                                      <div className="font-medium text-sm text-gray-900">
-                                        {deal.company.name}
-                                      </div>
-                                    ) : (
-                                      <div className="font-medium text-sm text-gray-500">
-                                        Sem contato
-                                      </div>
-                                    )}
+                                    {/* Contact/Company Name - NO TITLE */}
+                                    <div className="font-medium text-base text-gray-900">
+                                      {deal.contact ? deal.contact.name : 
+                                       deal.company ? deal.company.name : 
+                                       'Sem contato'}
+                                    </div>
 
                                     {/* Deal Value */}
                                     {deal.value && (
-                                      <div className="flex items-center text-green-600 font-semibold">
+                                      <div className="flex items-center text-green-600 font-semibold text-sm">
                                         <DollarSign className="h-4 w-4 mr-1" />
                                         {new Intl.NumberFormat('pt-BR', {
                                           style: 'currency',
@@ -680,24 +686,8 @@ ${JSON.stringify(error, null, 2)}
                                       </div>
                                     )}
 
-                                    {/* Owner Avatar with Quick Change */}
-                                    <div className="flex items-center justify-between">
-                                      {deal.ownerId ? (
-                                        <div className="flex items-center space-x-2">
-                                          <Avatar className="w-6 h-6">
-                                            <AvatarFallback className="text-xs">
-                                              {getUserInitials(deal.ownerId)}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                          <span className="text-xs text-gray-600">
-                                            {getUserDisplayName(deal.ownerId)}
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <span className="text-xs text-gray-400">Sem responsável</span>
-                                      )}
-                                      
-                                      {/* Quick Owner Change Popover */}
+                                    {/* Owner Avatar - Larger and Centered */}
+                                    <div className="flex items-center justify-center">
                                       <Popover
                                         open={ownerChangePopover?.dealId === deal.id && ownerChangePopover.isOpen}
                                         onOpenChange={(open) => {
@@ -709,16 +699,22 @@ ${JSON.stringify(error, null, 2)}
                                         }}
                                       >
                                         <PopoverTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                            }}
-                                          >
-                                            <Users className="h-3 w-3" />
-                                          </Button>
+                                          <div className="relative cursor-pointer group">
+                                            {deal.ownerId ? (
+                                              <Avatar className="w-10 h-10 border-2 border-gray-200 hover:border-blue-400 transition-all">
+                                                <AvatarFallback className="text-sm font-medium">
+                                                  {getUserInitials(deal.ownerId)}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                            ) : (
+                                              <div className="w-10 h-10 border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center hover:border-blue-400 transition-all">
+                                                <Users className="h-4 w-4 text-gray-400" />
+                                              </div>
+                                            )}
+                                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                              <Users className="h-2 w-2 text-white" />
+                                            </div>
+                                          </div>
                                         </PopoverTrigger>
                                         <PopoverContent 
                                           className="w-64 p-2" 
