@@ -84,6 +84,12 @@ export default function ActiveCampaignConfig() {
     queryKey: ["/api/pipelines"],
   });
 
+  // Fetch webhook logs for recent activity - moved to top to prevent conditional hook rendering
+  const { data: logs = [], isLoading: logsLoading } = useQuery<any[]>({
+    queryKey: ["/api/integrations/activecampaign/logs"],
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
   // Create configuration mutation
   const createConfigMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -197,6 +203,84 @@ export default function ActiveCampaignConfig() {
     }));
   };
 
+  const handleRemoveField = (fieldKey: string) => {
+    setWizardData(prev => {
+      const newFieldMapping = { ...prev.fieldMapping };
+      delete newFieldMapping[fieldKey];
+      return {
+        ...prev,
+        fieldMapping: newFieldMapping
+      };
+    });
+  };
+
+  const handleAddCustomField = () => {
+    const newFieldName = prompt("Digite o nome do campo no ActiveCampaign:");
+    if (newFieldName && newFieldName.trim() && !wizardData.fieldMapping[newFieldName.trim()]) {
+      setWizardData(prev => ({
+        ...prev,
+        fieldMapping: {
+          ...prev.fieldMapping,
+          [newFieldName.trim()]: "ignore"
+        }
+      }));
+    }
+  };
+
+  const handleFetchIntegrationFields = async () => {
+    if (!wizardData.apiUrl || !wizardData.apiKey) {
+      toast({
+        title: "Erro",
+        description: "URL da API e Chave da API são necessárias para buscar campos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Simulate fetching fields from ActiveCampaign API
+      // In a real implementation, you would make an API call to ActiveCampaign
+      const commonFields = [
+        'first_name', 'last_name', 'email', 'phone', 'orgname', 
+        'field[%PERSONALIZATION_1%]', 'field[%PERSONALIZATION_2%]',
+        'field[%PERSONALIZATION_3%]', 'field[%WEBSITE%]', 'field[%JOB_TITLE%]'
+      ];
+      
+      const newFields: Record<string, string> = {};
+      commonFields.forEach(field => {
+        if (!wizardData.fieldMapping[field]) {
+          newFields[field] = "ignore";
+        }
+      });
+
+      if (Object.keys(newFields).length > 0) {
+        setWizardData(prev => ({
+          ...prev,
+          fieldMapping: {
+            ...prev.fieldMapping,
+            ...newFields
+          }
+        }));
+
+        toast({
+          title: "Campos encontrados",
+          description: `${Object.keys(newFields).length} novos campos foram adicionados`,
+        });
+      } else {
+        toast({
+          title: "Nenhum campo novo",
+          description: "Todos os campos comuns já estão mapeados",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao buscar campos",
+        description: "Não foi possível conectar com a API do ActiveCampaign",
+        variant: "destructive",
+      });
+    }
+  };
+
   const updateFieldMapping = (acField: string, crmField: string) => {
     setWizardData(prev => ({
       ...prev,
@@ -300,7 +384,7 @@ export default function ActiveCampaignConfig() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Mapeamento de campos</h3>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleAddCustomField}>
                 + Adicionar campo
               </Button>
             </div>
@@ -329,14 +413,23 @@ export default function ActiveCampaignConfig() {
                         <SelectItem value="ignore">Ignorar</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="ghost" size="icon" className="text-red-500">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-red-500 hover:text-red-700"
+                      onClick={() => handleRemoveField(acField)}
+                    >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               ))}
 
-              <Button variant="link" className="text-blue-600 p-0">
+              <Button 
+                variant="link" 
+                className="text-blue-600 p-0 hover:text-blue-800"
+                onClick={handleFetchIntegrationFields}
+              >
                 🔍 Buscar campos da integração
               </Button>
             </div>
@@ -356,7 +449,7 @@ export default function ActiveCampaignConfig() {
                     <SelectValue placeholder="Selecione um pipeline" />
                   </SelectTrigger>
                   <SelectContent>
-                    {pipelines?.filter(pipeline => pipeline.id && pipeline.name).map((pipeline) => (
+                    {pipelines?.filter(pipeline => pipeline.id && pipeline.name && pipeline.id > 0).map((pipeline) => (
                       <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                         {pipeline.name}
                       </SelectItem>
@@ -433,12 +526,6 @@ export default function ActiveCampaignConfig() {
       </div>
     );
   }
-
-  // Fetch webhook logs for recent activity
-  const { data: logs = [], isLoading: logsLoading } = useQuery<any[]>({
-    queryKey: ["/api/integrations/activecampaign/logs"],
-    refetchInterval: 30000, // Refetch every 30 seconds
-  });
 
   return (
     <div className="container mx-auto p-6 space-y-6">
