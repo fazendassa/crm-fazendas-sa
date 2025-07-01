@@ -231,7 +231,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const saveStageOrder = () => {
     console.log("=== FRONTEND: saveStageOrder called ===");
     console.log("reorderStages:", reorderStages);
-    
+
     const stagesToUpdate = reorderStages.map((stage, index) => {
       console.log(`Stage ${index}:`, { id: stage.id, type: typeof stage.id, position: index });
       return {
@@ -241,7 +241,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     });
 
     console.log("stagesToUpdate:", stagesToUpdate);
-    
+
     // Send as object with stages property
     updateStagePositionsMutation.mutate({ stages: stagesToUpdate });
   };
@@ -251,7 +251,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     setReorderStages(prevStages => {
       const currentIndex = prevStages.findIndex(stage => stage.id === stageId);
       if (currentIndex <= 0) return prevStages; // Can't move up if it's already first
-      
+
       const newStages = [...prevStages];
       // Swap with previous item
       [newStages[currentIndex - 1], newStages[currentIndex]] = [newStages[currentIndex], newStages[currentIndex - 1]];
@@ -264,7 +264,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     setReorderStages(prevStages => {
       const currentIndex = prevStages.findIndex(stage => stage.id === stageId);
       if (currentIndex >= prevStages.length - 1) return prevStages; // Can't move down if it's already last
-      
+
       const newStages = [...prevStages];
       // Swap with next item
       [newStages[currentIndex], newStages[currentIndex + 1]] = [newStages[currentIndex + 1], newStages[currentIndex]];
@@ -312,46 +312,61 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
               Use as setas para reordenar os estágios:
             </p>
             <div className="space-y-2">
-              {reorderStages.map((stage, index) => (
-                <div 
-                  key={stage.id} 
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border"
-                >
-                  {/* Stage color indicator */}
+              {reorderStages.map((stage, index) => {
+                const isProspecção = stage.title === "Prospecção";
+                const isFechamento = stage.title === "Fechamento";
+                const isFixed = isProspecção || isFechamento;
+
+                // Determine if buttons should be disabled
+                const canMoveUp = !isProspecção && index > 0 && 
+                  !(index === 1 && reorderStages[0].title === "Prospecção");
+                const canMoveDown = !isFechamento && index < reorderStages.length - 1 && 
+                  !(index === reorderStages.length - 2 && reorderStages[reorderStages.length - 1].title === "Fechamento");
+
+                return (
                   <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: stage.color || "#3b82f6" }}
-                  />
-                  
-                  {/* Stage name and position */}
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">{stage.title}</div>
-                    <div className="text-xs text-gray-500">Posição: {index}</div>
+                    key={stage.id}
+                    className={`flex items-center justify-between p-3 border rounded-lg ${
+                      isFixed ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: stage.color }}
+                      ></div>
+                      <span className="font-medium">{stage.title}</span>
+                      {isFixed && (
+                        <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                          Fixo
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => moveStageUp(stage.id)}
+                        disabled={!canMoveUp}
+                        title={!canMoveUp ? "Não pode mover para cima" : "Mover para cima"}
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => moveStageDown(stage.id)}
+                        disabled={!canMoveDown}
+                        title={!canMoveDown ? "Não pode mover para baixo" : "Mover para baixo"}
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                  
-                  {/* Arrow buttons */}
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => moveStageUp(stage.id)}
-                      disabled={index === 0}
-                    >
-                      <ChevronUp className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => moveStageDown(stage.id)}
-                      disabled={index === reorderStages.length - 1}
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="flex gap-2 pt-4">
               <Button 

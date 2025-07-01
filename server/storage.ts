@@ -693,10 +693,10 @@ export class DatabaseStorage implements IStorage {
     if (pipelineId) {
       return await db.select().from(pipelineStages)
         .where(eq(pipelineStages.pipelineId, pipelineId))
-        .orderBy(pipelineStages.posicaoestagio, pipelineStages.position);
+        .orderBy(pipelineStages.position, pipelineStages.posicaoestagio, pipelineStages.id);
     }
     return await db.select().from(pipelineStages)
-      .orderBy(pipelineStages.posicaoestagio, pipelineStages.position);
+      .orderBy(pipelineStages.position, pipelineStages.posicaoestagio, pipelineStages.id);
   }
 
   async createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage> {
@@ -816,6 +816,20 @@ export class DatabaseStorage implements IStorage {
   async updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void> {
     try {
       console.log("=== STORAGE: Updating stage positions ===");
+      console.log("Stages to update:", stages);
+
+      // First, get pipeline info to validate stages belong to same pipeline
+      const firstStage = await db
+        .select({ pipelineId: pipelineStages.pipelineId })
+        .from(pipelineStages)
+        .where(eq(pipelineStages.id, stages[0].id))
+        .limit(1);
+
+      if (!firstStage.length) {
+        throw new Error("Stage not found");
+      }
+
+      const pipelineId = firstStage[0].pipelineId;
 
       // Update each stage position in database
       for (const stage of stages) {
@@ -827,7 +841,8 @@ export class DatabaseStorage implements IStorage {
         const result = await db
           .update(pipelineStages)
           .set({ 
-            position: position, 
+            position: position,
+            posicaoestagio: position, // Keep both fields in sync
             updatedAt: new Date() 
           })
           .where(eq(pipelineStages.id, stageId))
