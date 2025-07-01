@@ -176,20 +176,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const updateStagePositionsMutation = useMutation({
     mutationFn: async (stages: { id: number; position: number }[]) => {
       console.log("=== FRONT-END DEBUG: Before mutationFn ===");
-      console.log("Raw updatedStages:", reorderStages);
-      console.log("updatedStages length:", reorderStages.length);
-
-      reorderStages.forEach((stage, index) => {
-        console.log(`Stage ${index + 1}:`);
-        console.log("  - Raw stage:", stage);
-        console.log("  - stage.id:", stage.id);
-        console.log("  - stage.id type:", typeof stage.id);
-        console.log("  - stage.id is string:", typeof stage.id === "string");
-        console.log("  - stage.id is number:", typeof stage.id === "number");
-        console.log("  - stage.id toString():", stage.id.toString());
-        console.log("  - Number(stage.id):", Number(stage.id));
-        console.log("  - parseInt(stage.id):", parseInt(stage.id.toString()));
-      });
+      console.log("Stages to update:", stages);
 
       const payload = stages.map((stage, index) => ({
         id: Number(stage.id),
@@ -198,13 +185,6 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
       console.log("=== FRONT-END DEBUG: Payload to send ===");
       console.log("Payload:", payload);
-      console.log("Payload length:", payload.length);
-
-      payload.forEach((item, index) => {
-        console.log(`Payload item ${index}:`, item);
-        console.log("  - id:", item.id, "type:", typeof item.id);
-        console.log("  - position:", item.position, "type:", typeof item.position);
-      });
 
       return apiRequest("PUT", "/api/pipeline-stages/positions", { stages: payload });
     },

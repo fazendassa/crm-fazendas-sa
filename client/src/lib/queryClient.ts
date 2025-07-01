@@ -9,7 +9,7 @@ async function throwIfResNotOk(res: Response) {
 
 export async function apiRequest(
   endpoint: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
   data?: any
 ): Promise<any> {
   // Ensure endpoint starts with /
@@ -17,19 +17,19 @@ export async function apiRequest(
   if (!cleanEndpoint.startsWith('/')) {
     cleanEndpoint = '/' + cleanEndpoint;
   }
-  
+
   // Remove leading /api if present to avoid duplication
   if (cleanEndpoint.startsWith('/api/')) {
     cleanEndpoint = cleanEndpoint.substring(4);
   } else if (cleanEndpoint.startsWith('/api')) {
     cleanEndpoint = cleanEndpoint.substring(4);
   }
-  
+
   // Ensure cleanEndpoint starts with /
   if (!cleanEndpoint.startsWith('/')) {
     cleanEndpoint = '/' + cleanEndpoint;
   }
-  
+
   const url = `/api${cleanEndpoint}`;
 
   const config: RequestInit = {
@@ -40,7 +40,7 @@ export async function apiRequest(
   };
 
   // Only add body for POST and PUT requests
-  if (data && (method === 'POST' || method === 'PUT')) {
+  if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
     config.body = JSON.stringify(data);
   }
 
