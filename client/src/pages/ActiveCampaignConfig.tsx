@@ -66,7 +66,9 @@ export default function ActiveCampaignConfig() {
     pipelineId: "",
     tags: [] as string[],
     fieldMapping: { ...defaultFieldMapping },
-    webhookType: "deal" // deal or contact
+    webhookType: "deal", // deal or contact
+    defaultStage: "",
+    defaultStatus: "active"
   });
 
   // Form state
@@ -80,8 +82,13 @@ export default function ActiveCampaignConfig() {
   });
 
   // Fetch pipelines
-  const { data: pipelines } = useQuery<Pipeline[]>({
+  const { data: pipelines = [] } = useQuery<Pipeline[]>({
     queryKey: ["/api/pipelines"],
+  });
+
+  // Fetch available tags
+  const { data: availableTags = [] } = useQuery<string[]>({
+    queryKey: ["/api/contacts/tags"],
   });
 
   // Fetch webhook logs for recent activity - moved to top to prevent conditional hook rendering
@@ -149,7 +156,9 @@ export default function ActiveCampaignConfig() {
       pipelineId: "",
       tags: [],
       fieldMapping: { ...defaultFieldMapping },
-      webhookType: "deal"
+      webhookType: "deal",
+      defaultStage: "",
+      defaultStatus: "active"
     });
     setTagsInput("");
   };
@@ -182,7 +191,9 @@ export default function ActiveCampaignConfig() {
       pipelineId: parseInt(wizardData.pipelineId),
       defaultTags: wizardData.tags,
       fieldMapping: wizardData.fieldMapping,
-      webhookType: wizardData.webhookType
+      webhookType: wizardData.webhookType,
+      defaultStage: wizardData.defaultStage,
+      defaultStatus: wizardData.defaultStatus
     });
   };
 
@@ -449,7 +460,7 @@ export default function ActiveCampaignConfig() {
                     <SelectValue placeholder="Selecione um pipeline" />
                   </SelectTrigger>
                   <SelectContent>
-                    {pipelines?.filter(pipeline => pipeline.id && pipeline.name && pipeline.id > 0).map((pipeline) => (
+                    {pipelines?.map((pipeline) => (
                       <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                         {pipeline.name}
                       </SelectItem>
@@ -459,7 +470,31 @@ export default function ActiveCampaignConfig() {
               </div>
 
               <div className="space-y-2">
-                <Label>Adicionar tag para contatos</Label>
+                <Label>Tags para contatos</Label>
+                
+                {/* Available tags */}
+                {availableTags.length > 0 && (
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Tags existentes (clique para adicionar):</Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {availableTags.filter(tag => !wizardData.tags.includes(tag)).map((tag) => (
+                        <Badge 
+                          key={tag} 
+                          variant="outline" 
+                          className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                          onClick={() => setWizardData(prev => ({
+                            ...prev,
+                            tags: [...prev.tags, tag]
+                          }))}
+                        >
+                          + {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add new tag */}
                 <div className="flex gap-2">
                   <Input
                     placeholder="Nova tag"
@@ -471,41 +506,62 @@ export default function ActiveCampaignConfig() {
                     <Tag className="h-4 w-4" />
                   </Button>
                 </div>
+
+                {/* Selected tags */}
                 {wizardData.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {wizardData.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="gap-1">
-                        {tag}
-                        <button
-                          onClick={() => handleRemoveTag(tag)}
-                          className="ml-1 text-muted-foreground hover:text-foreground"
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Tags selecionadas:</Label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {wizardData.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="gap-1">
+                          {tag}
+                          <button
+                            onClick={() => handleRemoveTag(tag)}
+                            className="ml-1 text-muted-foreground hover:text-foreground"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label>Etapa</Label>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-blue-50">Base</Badge>
-                  <Button variant="ghost" size="icon">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Label>Etapa inicial (opcional)</Label>
+                <Select 
+                  value={wizardData.defaultStage || ""} 
+                  onValueChange={(value) => setWizardData(prev => ({ ...prev, defaultStage: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma etapa inicial" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Primeira etapa do pipeline</SelectItem>
+                    <SelectItem value="prospecção">Prospecção</SelectItem>
+                    <SelectItem value="qualificação">Qualificação</SelectItem>
+                    <SelectItem value="proposta">Proposta</SelectItem>
+                    <SelectItem value="fechamento">Fechamento</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Status</Label>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-green-50">Ativo</Badge>
-                  <Button variant="ghost" size="icon">
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Label>Status inicial dos contatos</Label>
+                <Select 
+                  value={wizardData.defaultStatus || "active"} 
+                  onValueChange={(value) => setWizardData(prev => ({ ...prev, defaultStatus: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="inactive">Inativo</SelectItem>
+                    <SelectItem value="prospect">Prospect</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
