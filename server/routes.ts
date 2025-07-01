@@ -1088,16 +1088,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Log the webhook event
-      const logData = {
-        configId: config.id,
-        webhookData: req.body,
-        contactId: createdContact?.id || null,
-        dealId: createdDeal?.id || null,
-        status: errorMessage ? 'error' : 'success',
-        errorMessage: errorMessage
-      };
+      try {
+        const logData = {
+          configId: config.id,
+          webhookData: req.body,
+          contactId: createdContact?.id || null,
+          dealId: createdDeal?.id || null,
+          status: errorMessage ? 'error' : 'success',
+          errorMessage: errorMessage || null
+        };
 
-      await storage.createWebhookLog(logData);
+        await storage.createWebhookLog(logData);
+        console.log('✓ WEBHOOK: Event logged successfully');
+      } catch (logError) {
+        console.error('❌ WEBHOOK: Failed to log event:', logError);
+        // Don't fail the webhook processing if logging fails
+      }
 
       console.log('✓ WEBHOOK: Event logged successfully');
       console.log('=== WEBHOOK PROCESSING COMPLETE ===\n');
