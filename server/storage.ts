@@ -88,6 +88,7 @@ export interface IStorage {
   createPipelineStage(stage: InsertPipelineStage): Promise<PipelineStage>;
   updatePipelineStage(id: number, stage: Partial<InsertPipelineStage>): Promise<PipelineStage>;
   deletePipelineStage(id: number): Promise<void>;
+  updateStagePositions(stages: { id: number; posicaoestagio: number }[]): Promise<void>;
   updateStagePositions(stages: Array<{ id: number; position: number }>): Promise<void>;
 
 
@@ -738,7 +739,33 @@ export class DatabaseStorage implements IStorage {
     return updatedStage;
   }
 
-  
+  async updateStagePositions(stages: { id: number; posicaoestagio: number }[]): Promise<void> {
+    console.log("=== STORAGE: Updating stage positions with automatic reordering ===");
+
+    // First, validate that we don't exceed 12 stages
+    if (stages.length > 12) {
+      throw new Error("Pipeline cannot have more than 12 stages");
+    }
+
+    // Update positions and ensure sequential ordering (1-12)
+    for (let i = 0; i < stages.length; i++) {
+      const stage = stages[i];
+      const newPosition = i + 1; // Start from 1, not 0
+
+      console.log(`📝 STORAGE: Updating stage ${stage.id} to position ${newPosition}`);
+
+      await db
+        .update(pipelineStages)
+        .set({ 
+          posicaoestagio: newPosition,
+          position: newPosition, // Also update the old position field for consistency
+          updatedAt: new Date() 
+        })
+        .where(eq(pipelineStages.id, stage.id));
+    }
+
+    console.log("✅ STORAGE: All positions updated with sequential ordering");
+  }
 
   async deletePipelineStage(id: number): Promise<void> {
     // First get the stage being deleted to know its pipeline
@@ -921,7 +948,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         stage: deals.stage,
         count: count(),
-        totalValue: sql<string>`COALESCE(SUM(CAST(${deals.value} AS DECIMAL)), 0)`
+        totalValue: sql<string>`coalesce(sum(cast(${deals.value} as decimal)), 0)`
       })
       .from(deals)
       .groupBy(deals.stage)
