@@ -295,7 +295,7 @@ export const activeCampaignWebhookLogs = pgTable("activecampaign_webhook_logs", 
 // Relations for ActiveCampaign integration
 export const activeCampaignConfigsRelations = relations(activeCampaignConfigs, ({ one, many }) => ({
   pipeline: one(pipelines, {
-    fields: [activeCampaignConfigs.defaultPipelineId],
+    fields: [activeCampaignConfigs.pipelineId],
     references: [pipelines.id],
   }),
   webhookLogs: many(activeCampaignWebhookLogs),

@@ -370,7 +370,7 @@ export default function ActiveCampaignConfig() {
                     <SelectValue placeholder="Selecione um pipeline" />
                   </SelectTrigger>
                   <SelectContent>
-                    {pipelines?.map((pipeline) => (
+                    {pipelines?.filter(pipeline => pipeline.id && pipeline.name).map((pipeline) => (
                       <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                         {pipeline.name}
                       </SelectItem>
