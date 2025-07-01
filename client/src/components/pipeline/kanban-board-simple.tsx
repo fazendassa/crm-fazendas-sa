@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "react-beautiful-dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,15 @@ import type { DealWithRelations, PipelineStage } from "@shared/schema";
 interface KanbanBoardProps {
   pipelineId: number;
 }
+
+// Placeholder functions for user initials and display name.  Replace with your actual logic
+const getUserInitials = (ownerId: string) => {
+  return ownerId.substring(0, 2).toUpperCase();
+};
+
+const getUserDisplayName = (ownerId: string) => {
+  return `User ${ownerId}`; // Replace with the actual user's name or identifier
+};
 
 export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [selectedDeal, setSelectedDeal] = useState<DealWithRelations | null>(null);
@@ -68,7 +77,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     },
     onError: (error: any) => {
       console.error("Error creating stage:", error);
-      
+
       const errorMessage = `
 ERRO AO CRIAR ESTÁGIO:
 • Mensagem: ${error.message || 'Erro desconhecido'}
@@ -80,7 +89,7 @@ ERRO AO CRIAR ESTÁGIO:
 Detalhes técnicos:
 ${JSON.stringify(error, null, 2)}
       `.trim();
-      
+
       toast({
         title: "Erro ao criar estágio",
         description: errorMessage,
@@ -95,7 +104,7 @@ ${JSON.stringify(error, null, 2)}
       console.log("=== FRONT-END DEBUG: Before mutationFn ===");
       console.log("Raw updatedStages:", updatedStages);
       console.log("updatedStages length:", updatedStages.length);
-      
+
       // Verificar cada stage individualmente
       updatedStages.forEach((stage, index) => {
         console.log(`Stage ${index + 1}:`);
@@ -113,7 +122,7 @@ ${JSON.stringify(error, null, 2)}
       const stageUpdates = updatedStages.map((stage, index) => {
         const stageId = stage.id;
         const position = index;
-        
+
         // Validação explícita no front-end
         if (!stageId || (typeof stageId !== 'number' && typeof stageId !== 'string')) {
           console.error(`❌ FRONT-END: Invalid stage ID detected:`, {
@@ -124,7 +133,7 @@ ${JSON.stringify(error, null, 2)}
           });
           throw new Error(`Invalid stage ID: ${stageId} (type: ${typeof stageId})`);
         }
-        
+
         if (typeof position !== 'number' || position < 0) {
           console.error(`❌ FRONT-END: Invalid position detected:`, {
             stage,
@@ -134,14 +143,14 @@ ${JSON.stringify(error, null, 2)}
           });
           throw new Error(`Invalid position: ${position} (type: ${typeof position})`);
         }
-        
+
         const processedUpdate = {
           id: typeof stageId === 'string' ? parseInt(stageId) : stageId,
           position: position
         };
-        
+
         console.log(`✅ FRONT-END: Processed stage ${index + 1}:`, processedUpdate);
-        
+
         return processedUpdate;
       });
 
@@ -163,7 +172,7 @@ ${JSON.stringify(error, null, 2)}
       if (!response.ok) {
         const errorText = await response.text();
         console.log("Server error response:", errorText);
-        
+
         let errorData;
         try {
           errorData = JSON.parse(errorText);
@@ -200,10 +209,10 @@ ${JSON.stringify(error, null, 2)}
     },
     onError: (error: any) => {
       console.error("Error updating stage positions:", error);
-      
+
       // Criar mensagem de erro detalhada
       const errorDetails = typeof error === 'object' && error !== null ? error : { message: String(error) };
-      
+
       const errorMessage = `
 ERRO DETALHADO:
 • Status: ${errorDetails.status || 'N/A'}
@@ -218,7 +227,7 @@ ERRO DETALHADO:
 Payload enviado:
 ${errorDetails.payload ? JSON.stringify(errorDetails.payload, null, 2) : 'N/A'}
       `.trim();
-      
+
       toast({
         title: "Erro ao atualizar posições dos estágios",
         description: errorMessage,
@@ -260,7 +269,7 @@ ${errorDetails.payload ? JSON.stringify(errorDetails.payload, null, 2) : 'N/A'}
       console.error("Error updating deal stage:", error);
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
-      
+
       const errorMessage = `
 ERRO AO MOVER OPORTUNIDADE:
 • Mensagem: ${error.message || 'Erro desconhecido'}
@@ -271,7 +280,7 @@ ERRO AO MOVER OPORTUNIDADE:
 Detalhes técnicos:
 ${JSON.stringify(error, null, 2)}
       `.trim();
-      
+
       toast({
         title: "Erro ao mover oportunidade",
         description: errorMessage,
@@ -476,7 +485,7 @@ ${JSON.stringify(error, null, 2)}
               <p className="text-sm text-muted-foreground">
                 Arraste os estágios para reordená-los. A ordem aqui será refletida no kanban.
               </p>
-              
+
               <DragDropContext onDragEnd={handleStageReorder}>
                 <Droppable droppableId="stage-management">
                   {(provided) => (
@@ -615,6 +624,18 @@ ${JSON.stringify(error, null, 2)}
                                       </div>
                                     )}
                                   </div>
+                                  {deal.ownerId && (
+                                        <div className="flex items-center space-x-2 mt-2">
+                                          <Avatar className="w-5 h-5">
+                                            <AvatarFallback className="text-xs">
+                                              {getUserInitials(deal.ownerId)}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          <span className="text-xs font-medium">
+                                            {getUserDisplayName(deal.ownerId)}
+                                          </span>
+                                        </div>
+                                      )}
                                 </CardContent>
                               </Card>
                             )}

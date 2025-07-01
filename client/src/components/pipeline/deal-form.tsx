@@ -18,6 +18,7 @@ const formSchema = z.object({
   stage: z.string().min(1, "Estágio é obrigatório"),
   contactId: z.coerce.number().optional(),
   companyId: z.coerce.number().optional(),
+  ownerId: z.string().optional(),
   value: z.string().optional(),
   expectedCloseDate: z.string().optional(),
 });
@@ -48,6 +49,10 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
     queryFn: () => fetch(`/api/pipeline-stages?pipelineId=${pipelineId}`).then(res => res.json()),
   });
 
+  const { data: usersData } = useQuery({
+    queryKey: ['/api/users'],
+  });
+
   const {
     register,
     handleSubmit,
@@ -63,6 +68,7 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
       stage: deal?.stage || defaultStage || '',
       contactId: deal?.contactId || undefined,
       companyId: deal?.companyId || undefined,
+      ownerId: deal?.ownerId || undefined,
       expectedCloseDate: deal?.expectedCloseDate 
         ? new Date(deal.expectedCloseDate).toISOString().split('T')[0]
         : '',
@@ -92,6 +98,7 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
         expectedCloseDate: data.expectedCloseDate || null,
         contactId: data.contactId || null,
         companyId: data.companyId || null,
+        ownerId: data.ownerId || null,
       };
 
       console.log("Processed deal data:", dealData);
@@ -265,6 +272,28 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
             {companiesData?.companies?.map((company: any) => (
               <SelectItem key={company.id} value={company.id.toString()}>
                 {company.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="ownerId">Responsável</Label>
+        <Select 
+          value={watch('ownerId') || 'none'} 
+          onValueChange={(value) => setValue('ownerId', value === 'none' ? undefined : value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um responsável" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Nenhum responsável</SelectItem>
+            {usersData?.map((user: any) => (
+              <SelectItem key={user.id} value={user.id}>
+                {user.firstName && user.lastName 
+                  ? `${user.firstName} ${user.lastName}` 
+                  : user.email || user.id}
               </SelectItem>
             ))}
           </SelectContent>
