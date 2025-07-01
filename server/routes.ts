@@ -557,13 +557,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`=== SERVER: Processing ${stages.length} stage position updates ===`);
       console.log("Received stages:", stages);
 
-      // Validate all stages first
+      // Validate and transform stages for posicaoestagio
+      const stagesToUpdate = [];
       for (const stage of stages) {
         const { id, position } = stage;
         const numericId = Number(id);
         const numericPosition = Number(position);
 
-        // More detailed validation logging
         console.log(`🔍 SERVER: Validating stage - ID: ${id} (${typeof id}), Position: ${position} (${typeof position})`);
 
         if (isNaN(numericId) || !Number.isInteger(numericId) || numericId <= 0) {
@@ -578,41 +578,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: errorMsg });
         }
 
-        // Verify stage exists in database
-        try {
-          const existingStage = await storage.getPipelineStage(numericId);
-          if (!existingStage) {
-            const errorMsg = `Stage with ID ${numericId} not found in database`;
-            console.log(`❌ SERVER: ${errorMsg}`);
-            return res.status(400).json({ message: errorMsg });
-          }
-          console.log(`✅ SERVER: Stage ${numericId} exists and validated`);
-        } catch (error) {
-          console.error(`❌ SERVER: Error checking stage ${numericId}:`, error);
-          return res.status(500).json({ message: `Error validating stage ${numericId}` });
-        }
+        stagesToUpdate.push({
+          id: numericId,
+          posicaoestagio: numericPosition
+        });
 
-        console.log(`✅ SERVER: Stage ${numericId} with position ${numericPosition} validated`);
+        console.log(`✅ SERVER: Stage ${numericId} with posicaoestagio ${numericPosition} validated`);
       }
 
-      // Update all positions
-      const formattedStages = stages.map((stage: any) => ({
-        id: Number(stage.id),
-        position: Number(stage.position)
-      }));
-
-      await storage.updateStagePositions(formattedStages);
+      // Update positions using new method
+      await storage.updateStagePositions(stagesToUpdate);
 
       console.log("✅ SERVER: All stage positions updated successfully");
-      return res.status(200).json({ message: "Stage positions updated successfully" });
-
+      res.json({ message: "Stage positions updated successfully" });
     } catch (error) {
       console.error("❌ SERVER: Error updating stage positions:", error);
-      return res.status(500).json({ message: "Erro interno ao atualizar posições" });
+      res.status(500).json({ message: "Failed to update stage positions" });
     }
   });
-
-
 
   // Dashboard metrics
   app.get('/api/dashboard/metrics', isAuthenticated, async (req, res) => {
@@ -760,8 +743,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-
-
   // Preview import file to get columns
   app.post('/api/contacts/preview-import', isAuthenticated, upload.single('file'), async (req, res) => {
     try {
@@ -828,7 +809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         message: 'Erro interno do servidor',
         error: error instanceof Error ? error.message : 'Erro desconhecido'
-      });
+            });
     }
   });
 

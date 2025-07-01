@@ -76,7 +76,7 @@ function SortableStage({ stage }: { stage: PipelineStage }) {
         />
         <span className="font-medium">{stage.title}</span>
         <span className="text-sm text-gray-500">
-          Posição: {stage.position}
+          Posição: {stage.posicaoestagio || stage.position}
         </span>
       </div>
     </div>
@@ -138,11 +138,12 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Create stage mutation
   const createStageMutation = useMutation({
     mutationFn: async (title: string) => {
-      const maxPosition = Math.max(...stages.map(s => s.position), -1);
+      const maxPosition = Math.max(...stages.map(s => s.posicaoestagio || s.position), -1);
       return apiRequest("POST", "/api/pipeline-stages", {
         pipelineId,
         title,
         position: maxPosition + 1,
+        posicaoestagio: maxPosition + 1,
         color: "#3b82f6",
         isDefault: false,
       });
@@ -217,7 +218,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     }
 
     const columns: KanbanColumn[] = stages
-      .sort((a, b) => a.position - b.position)
+      .sort((a, b) => (a.posicaoestagio || a.position) - (b.posicaoestagio || b.position))
       .map((stage) => ({
         id: stage.id.toString(),
         title: stage.title,
@@ -274,7 +275,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   };
 
   const openReorderModal = () => {
-    setReorderStages([...stages].sort((a, b) => a.position - b.position));
+    setReorderStages([...stages].sort((a, b) => (a.posicaoestagio || a.position) - (b.posicaoestagio || b.position)));
     setIsReorderModalOpen(true);
   };
 
