@@ -270,8 +270,10 @@ export const activeCampaignConfigs = pgTable("activecampaign_configs", {
   activeCampaignApiUrl: text("activecampaign_api_url").notNull(),
   activeCampaignApiKey: text("activecampaign_api_key").notNull(),
   webhookSecret: text("webhook_secret").notNull(),
-  defaultPipelineId: integer("default_pipeline_id").references(() => pipelines.id),
+  pipelineId: integer("pipeline_id").references(() => pipelines.id).notNull(),
   defaultTags: jsonb("default_tags").$type<string[]>().default([]),
+  fieldMapping: jsonb("field_mapping").$type<Record<string, string>>().default({}),
+  webhookType: text("webhook_type").default("contact"), // contact or deal
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -292,7 +294,7 @@ export const activeCampaignWebhookLogs = pgTable("activecampaign_webhook_logs", 
 // Relations for ActiveCampaign integration
 export const activeCampaignConfigsRelations = relations(activeCampaignConfigs, ({ one, many }) => ({
   pipeline: one(pipelines, {
-    fields: [activeCampaignConfigs.defaultPipelineId],
+    fields: [activeCampaignConfigs.pipelineId],
     references: [pipelines.id],
   }),
   webhookLogs: many(activeCampaignWebhookLogs),
@@ -318,6 +320,8 @@ export const insertActiveCampaignConfigSchema = createInsertSchema(activeCampaig
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  name: z.string().optional(), // Allow name in the schema for backward compatibility
 });
 export type InsertActiveCampaignConfig = z.infer<typeof insertActiveCampaignConfigSchema>;
 export type ActiveCampaignConfig = typeof activeCampaignConfigs.$inferSelect;
