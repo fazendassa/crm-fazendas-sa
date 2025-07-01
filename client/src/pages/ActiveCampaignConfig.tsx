@@ -253,7 +253,7 @@ export default function ActiveCampaignConfig() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum pipeline</SelectItem>
-                  {pipelines?.filter(pipeline => pipeline.id && pipeline.id > 0).map((pipeline) => (
+                  {pipelines?.filter(pipeline => pipeline.id && pipeline.id > 0 && pipeline.name).map((pipeline) => (
                     <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
                       {pipeline.name}
                     </SelectItem>

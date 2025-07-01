@@ -835,13 +835,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Configuration not found" });
       }
       
-      // Don't expose sensitive data in response
+      // Include webhookSecret in response for configuration display
       const safeConfig = {
         id: config.id,
         activeCampaignApiUrl: config.activeCampaignApiUrl,
         defaultPipelineId: config.defaultPipelineId,
         defaultTags: config.defaultTags,
         isActive: config.isActive,
+        webhookSecret: config.webhookSecret,
         createdAt: config.createdAt,
         updatedAt: config.updatedAt
       };
