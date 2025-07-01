@@ -256,7 +256,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   });
 
   // Get deals by stage for this pipeline
-  const { data: dealsData = [], isLoading: dealsLoading } } = useQuery<{ stage: string; count: number; deals: DealWithRelations[] }[]>({
+  const { data: dealsData = [], isLoading: dealsLoading } = useQuery<{ stage: string; count: number; deals: DealWithRelations[] }[]>({
     queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`],
   });
 
