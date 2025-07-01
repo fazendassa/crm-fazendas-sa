@@ -551,68 +551,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Batch update stage positions
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
-      console.log("=== SERVER: Received request body ===");
-      console.log("Full req.body:", JSON.stringify(req.body, null, 2));
+      console.log("=== SERVER DEBUG: Full request info ===");
+      console.log("Method:", req.method);
+      console.log("URL:", req.url);
+      console.log("Headers:", req.headers);  
+      console.log("Body:", req.body);
+      console.log("Body type:", typeof req.body);
+      console.log("Body stringified:", JSON.stringify(req.body));
       
       const { stages } = req.body;
+      console.log("Extracted stages:", stages);
+      console.log("Stages type:", typeof stages);
+      console.log("Is stages array?", Array.isArray(stages));
 
       if (!stages) {
-        console.log("❌ SERVER: No stages property found in request body");
-        return res.status(400).json({ message: "Missing 'stages' property" });
+        console.log("❌ SERVER: No stages found");
+        return res.status(400).json({ message: "Missing stages" });
       }
 
       if (!Array.isArray(stages)) {
-        console.log("❌ SERVER: stages is not an array:", typeof stages);
-        return res.status(400).json({ message: "Payload inválido: 'stages' deve ser um array" });
+        console.log("❌ SERVER: stages not array, type:", typeof stages);
+        return res.status(400).json({ message: "Stages must be array" });
       }
 
-      console.log(`=== SERVER: Processing ${stages.length} stage position updates ===`);
-      console.log("Received stages:", JSON.stringify(stages, null, 2));
-
-      // Validate and transform stages for posicaoestagio
-      const stagesToUpdate = [];
-      for (let i = 0; i < stages.length; i++) {
-        const stage = stages[i];
-        console.log(`🔍 SERVER: Processing stage ${i}:`, JSON.stringify(stage, null, 2));
+      console.log(`Processing ${stages.length} stages`);
+      
+      // Simplify validation - just check basics
+      const stagesToUpdate = stages.map((stage, index) => {
+        console.log(`Stage ${index}:`, stage);
+        const id = parseInt(stage.id);
+        const position = parseInt(stage.position);
         
-        const { id, position } = stage;
-        const numericId = Number(id);
-        const numericPosition = Number(position);
-
-        console.log(`🔍 SERVER: Validating stage - ID: ${id} (${typeof id}), Position: ${position} (${typeof position})`);
-        console.log(`🔍 SERVER: Converted - numericId: ${numericId} (${typeof numericId}), numericPosition: ${numericPosition} (${typeof numericPosition})`);
-
-        if (isNaN(numericId) || !Number.isInteger(numericId) || numericId <= 0) {
-          const errorMsg = `Invalid stage ID: ${id} (type: ${typeof id}, numeric: ${numericId})`;
-          console.log(`❌ SERVER: ${errorMsg}`);
-          return res.status(400).json({ message: "Invalid stage ID" });
+        console.log(`Parsed: id=${id}, position=${position}`);
+        
+        if (isNaN(id) || isNaN(position)) {
+          throw new Error(`Invalid data at index ${index}: id=${stage.id}, position=${stage.position}`);
         }
+        
+        return { id, position };
+      });
 
-        if (isNaN(numericPosition) || !Number.isInteger(numericPosition) || numericPosition < 0) {
-          const errorMsg = `Invalid stage position: ${position} (type: ${typeof position}, numeric: ${numericPosition})`;
-          console.log(`❌ SERVER: ${errorMsg}`);
-          return res.status(400).json({ message: "Invalid stage position" });
-        }
+      console.log("Final stages to update:", stagesToUpdate);
 
-        stagesToUpdate.push({
-          id: numericId,
-          position: numericPosition
-        });
-
-        console.log(`✅ SERVER: Stage ${numericId} with position ${numericPosition} validated`);
-      }
-
-      console.log("=== SERVER: Final stagesToUpdate ===");
-      console.log(JSON.stringify(stagesToUpdate, null, 2));
-
-      // Update positions using new method
+      // Call storage method
       await storage.updateStagePositions(stagesToUpdate);
 
-      console.log("✅ SERVER: All stage positions updated successfully");
-      res.json({ message: "Stage positions updated successfully" });
+      console.log("✅ Success");
+      res.json({ message: "Success" });
     } catch (error) {
-      console.error("❌ SERVER: Error updating stage positions:", error);
-      res.status(500).json({ message: "Failed to update stage positions" });
+      console.error("❌ Error:", error);
+      res.status(500).json({ message: error.message || "Failed" });
     }
   });
 
