@@ -1,22 +1,47 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "react-beautiful-dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, DollarSign, ArrowUpDown, Settings } from "lucide-react";
+import { Plus, DollarSign, ArrowUpDown, Settings, Users } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import DealForm from "./deal-form";
 import type { DealWithRelations, PipelineStage } from "@shared/schema";
 
 interface KanbanBoardProps {
   pipelineId: number;
 }
+
+// Dynamic functions for user initials and display name using real user data
+const getUserInitials = (ownerId: string) => {
+  const user = usersData?.find((u: any) => u.id === ownerId);
+  if (user?.firstName && user?.lastName) {
+    return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+  }
+  if (user?.email) {
+    return user.email.substring(0, 2).toUpperCase();
+  }
+  return ownerId.substring(0, 2).toUpperCase();
+};
+
+const getUserDisplayName = (ownerId: string) => {
+  const user = usersData?.find((u: any) => u.id === ownerId);
+  if (user?.firstName && user?.lastName) {
+    return `${user.firstName} ${user.lastName}`;
+  }
+  if (user?.email) {
+    return user.email;
+  }
+  return `User ${ownerId}`;
+};
 
 export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [selectedDeal, setSelectedDeal] = useState<DealWithRelations | null>(null);
@@ -26,6 +51,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   const [newStageTitle, setNewStageTitle] = useState("");
   const [isManagingStages, setIsManagingStages] = useState(false);
   const [managementStages, setManagementStages] = useState<PipelineStage[]>([]);
+  const [ownerChangePopover, setOwnerChangePopover] = useState<{ dealId: number; isOpen: boolean } | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -38,6 +64,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
   // Get deals by stage for this pipeline
   const { data: dealsData = [], isLoading: dealsLoading } = useQuery<{ stage: string; count: number; deals: DealWithRelations[] }[]>({
     queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`],
+  });
+
+  // Get users for owner selection
+  const { data: usersData = [] } = useQuery({
+    queryKey: ['/api/users'],
   });
 
   // Create new stage with auto-positioned next number
@@ -68,7 +99,7 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
     },
     onError: (error: any) => {
       console.error("Error creating stage:", error);
-      
+
       const errorMessage = `
 ERRO AO CRIAR ESTÁGIO:
 • Mensagem: ${error.message || 'Erro desconhecido'}
@@ -80,7 +111,7 @@ ERRO AO CRIAR ESTÁGIO:
 Detalhes técnicos:
 ${JSON.stringify(error, null, 2)}
       `.trim();
-      
+
       toast({
         title: "Erro ao criar estágio",
         description: errorMessage,
@@ -95,7 +126,7 @@ ${JSON.stringify(error, null, 2)}
       console.log("=== FRONT-END DEBUG: Before mutationFn ===");
       console.log("Raw updatedStages:", updatedStages);
       console.log("updatedStages length:", updatedStages.length);
-      
+
       // Verificar cada stage individualmente
       updatedStages.forEach((stage, index) => {
         console.log(`Stage ${index + 1}:`);
@@ -113,7 +144,7 @@ ${JSON.stringify(error, null, 2)}
       const stageUpdates = updatedStages.map((stage, index) => {
         const stageId = stage.id;
         const position = index;
-        
+
         // Validação explícita no front-end
         if (!stageId || (typeof stageId !== 'number' && typeof stageId !== 'string')) {
           console.error(`❌ FRONT-END: Invalid stage ID detected:`, {
@@ -124,7 +155,7 @@ ${JSON.stringify(error, null, 2)}
           });
           throw new Error(`Invalid stage ID: ${stageId} (type: ${typeof stageId})`);
         }
-        
+
         if (typeof position !== 'number' || position < 0) {
           console.error(`❌ FRONT-END: Invalid position detected:`, {
             stage,
@@ -134,14 +165,14 @@ ${JSON.stringify(error, null, 2)}
           });
           throw new Error(`Invalid position: ${position} (type: ${typeof position})`);
         }
-        
+
         const processedUpdate = {
           id: typeof stageId === 'string' ? parseInt(stageId) : stageId,
           position: position
         };
-        
+
         console.log(`✅ FRONT-END: Processed stage ${index + 1}:`, processedUpdate);
-        
+
         return processedUpdate;
       });
 
@@ -163,7 +194,7 @@ ${JSON.stringify(error, null, 2)}
       if (!response.ok) {
         const errorText = await response.text();
         console.log("Server error response:", errorText);
-        
+
         let errorData;
         try {
           errorData = JSON.parse(errorText);
@@ -200,10 +231,10 @@ ${JSON.stringify(error, null, 2)}
     },
     onError: (error: any) => {
       console.error("Error updating stage positions:", error);
-      
+
       // Criar mensagem de erro detalhada
       const errorDetails = typeof error === 'object' && error !== null ? error : { message: String(error) };
-      
+
       const errorMessage = `
 ERRO DETALHADO:
 • Status: ${errorDetails.status || 'N/A'}
@@ -218,7 +249,7 @@ ERRO DETALHADO:
 Payload enviado:
 ${errorDetails.payload ? JSON.stringify(errorDetails.payload, null, 2) : 'N/A'}
       `.trim();
-      
+
       toast({
         title: "Erro ao atualizar posições dos estágios",
         description: errorMessage,
@@ -260,7 +291,7 @@ ${errorDetails.payload ? JSON.stringify(errorDetails.payload, null, 2) : 'N/A'}
       console.error("Error updating deal stage:", error);
       queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
-      
+
       const errorMessage = `
 ERRO AO MOVER OPORTUNIDADE:
 • Mensagem: ${error.message || 'Erro desconhecido'}
@@ -271,10 +302,52 @@ ERRO AO MOVER OPORTUNIDADE:
 Detalhes técnicos:
 ${JSON.stringify(error, null, 2)}
       `.trim();
-      
+
       toast({
         title: "Erro ao mover oportunidade",
         description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update deal owner mutation
+  const updateDealOwnerMutation = useMutation({
+    mutationFn: async ({ dealId, ownerId }: { dealId: number; ownerId: string | null }) => {
+      const response = await fetch(`/api/deals/${dealId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ ownerId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Failed to update deal owner: ${response.status} ${errorData}`);
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/deals/by-stage?pipelineId=${pipelineId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      
+      setOwnerChangePopover(null);
+      
+      toast({
+        title: "Sucesso",
+        description: "Responsável atualizado com sucesso",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Error updating deal owner:", error);
+      
+      toast({
+        title: "Erro ao atualizar responsável",
+        description: error.message || "Erro desconhecido",
         variant: "destructive",
       });
     },
@@ -476,7 +549,7 @@ ${JSON.stringify(error, null, 2)}
               <p className="text-sm text-muted-foreground">
                 Arraste os estágios para reordená-los. A ordem aqui será refletida no kanban.
               </p>
-              
+
               <DragDropContext onDragEnd={handleStageReorder}>
                 <Droppable droppableId="stage-management">
                   {(provided) => (
@@ -588,32 +661,104 @@ ${JSON.stringify(error, null, 2)}
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                className={`cursor-pointer hover:shadow-md transition-shadow bg-white ${
+                                className={`group cursor-pointer hover:shadow-md transition-shadow bg-white ${
                                   snapshot.isDragging ? 'shadow-lg rotate-2' : ''
                                 }`}
                                 onClick={() => handleEditDeal(deal)}
                               >
-                                <CardHeader className="pb-2">
-                                  <CardTitle className="text-sm font-medium">
-                                    {deal.title}
-                                  </CardTitle>
-                                </CardHeader>
-                                <CardContent className="pt-0">
-                                  <div className="space-y-2">
+                                <CardContent className="p-3">
+                                  <div className="space-y-3">
+                                    {/* Contact/Company Name - NO TITLE */}
+                                    <div className="font-medium text-base text-gray-900">
+                                      {deal.contact ? deal.contact.name : 
+                                       deal.company ? deal.company.name : 
+                                       'Sem contato'}
+                                    </div>
+
+                                    {/* Deal Value */}
                                     {deal.value && (
-                                      <div className="flex items-center text-sm text-muted-foreground">
-                                        <DollarSign className="h-3 w-3 mr-1" />
+                                      <div className="flex items-center text-green-600 font-semibold text-sm">
+                                        <DollarSign className="h-4 w-4 mr-1" />
                                         {new Intl.NumberFormat('pt-BR', {
                                           style: 'currency',
                                           currency: 'BRL'
                                         }).format(parseFloat(deal.value))}
                                       </div>
                                     )}
-                                    {deal.company && (
-                                      <div className="text-xs text-muted-foreground">
-                                        {deal.company.name}
-                                      </div>
-                                    )}
+
+                                    {/* Owner Avatar - Larger and Centered */}
+                                    <div className="flex items-center justify-center">
+                                      <Popover
+                                        open={ownerChangePopover?.dealId === deal.id && ownerChangePopover.isOpen}
+                                        onOpenChange={(open) => {
+                                          if (open) {
+                                            setOwnerChangePopover({ dealId: deal.id, isOpen: true });
+                                          } else {
+                                            setOwnerChangePopover(null);
+                                          }
+                                        }}
+                                      >
+                                        <PopoverTrigger asChild>
+                                          <div className="relative cursor-pointer group">
+                                            {deal.ownerId ? (
+                                              <Avatar className="w-10 h-10 border-2 border-gray-200 hover:border-blue-400 transition-all">
+                                                <AvatarFallback className="text-sm font-medium">
+                                                  {getUserInitials(deal.ownerId)}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                            ) : (
+                                              <div className="w-10 h-10 border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center hover:border-blue-400 transition-all">
+                                                <Users className="h-4 w-4 text-gray-400" />
+                                              </div>
+                                            )}
+                                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                              <Users className="h-2 w-2 text-white" />
+                                            </div>
+                                          </div>
+                                        </PopoverTrigger>
+                                        <PopoverContent 
+                                          className="w-64 p-2" 
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <div className="space-y-2">
+                                            <Label className="text-sm font-medium">Alterar Responsável</Label>
+                                            <Select
+                                              value={deal.ownerId || 'none'}
+                                              onValueChange={(value) => {
+                                                const newOwnerId = value === 'none' ? null : value;
+                                                updateDealOwnerMutation.mutate({
+                                                  dealId: deal.id,
+                                                  ownerId: newOwnerId
+                                                });
+                                              }}
+                                            >
+                                              <SelectTrigger>
+                                                <SelectValue placeholder="Selecione um responsável" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="none">Nenhum responsável</SelectItem>
+                                                {usersData?.map((user: any) => (
+                                                  <SelectItem key={user.id} value={user.id}>
+                                                    <div className="flex items-center space-x-2">
+                                                      <Avatar className="w-4 h-4">
+                                                        <AvatarFallback className="text-xs">
+                                                          {getUserInitials(user.id)}
+                                                        </AvatarFallback>
+                                                      </Avatar>
+                                                      <span>
+                                                        {user.firstName && user.lastName 
+                                                          ? `${user.firstName} ${user.lastName}` 
+                                                          : user.email || user.id}
+                                                      </span>
+                                                    </div>
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
                                   </div>
                                 </CardContent>
                               </Card>

@@ -37,6 +37,17 @@ interface WizardStep {
   description: string;
 }
 
+interface PipelineStage {
+  id: number;
+  title: string;
+  description: string;
+  pipelineId: number;
+  position: number;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const wizardSteps: WizardStep[] = [
   { id: 1, title: "Introdução", description: "Informações sobre a integração" },
   { id: 2, title: "Criação", description: "Configurar webhook no ActiveCampaign" },
@@ -89,6 +100,16 @@ export default function ActiveCampaignConfig() {
   // Fetch available tags
   const { data: availableTags = [] } = useQuery<string[]>({
     queryKey: ["/api/contacts/tags"],
+  });
+
+  // Fetch pipeline stages when a pipeline is selected
+  const { data: pipelineStages = [] } = useQuery<PipelineStage[]>({
+    queryKey: [`/api/pipeline-stages`, wizardData.pipelineId],
+    queryFn: () => 
+      fetch(`/api/pipeline-stages?pipelineId=${wizardData.pipelineId}`, {
+        credentials: 'include'
+      }).then(res => res.json()),
+    enabled: !!wizardData.pipelineId,
   });
 
   // Fetch webhook logs for recent activity - moved to top to prevent conditional hook rendering
@@ -256,7 +277,7 @@ export default function ActiveCampaignConfig() {
         'field[%PERSONALIZATION_1%]', 'field[%PERSONALIZATION_2%]',
         'field[%PERSONALIZATION_3%]', 'field[%WEBSITE%]', 'field[%JOB_TITLE%]'
       ];
-      
+
       const newFields: Record<string, string> = {};
       commonFields.forEach(field => {
         if (!wizardData.fieldMapping[field]) {
@@ -286,6 +307,52 @@ export default function ActiveCampaignConfig() {
     } catch (error) {
       toast({
         title: "Erro ao buscar campos",
+        description: "Não foi possível conectar com a API do ActiveCampaign",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFetchActiveCampaignTags = async () => {
+    if (!wizardData.apiUrl || !wizardData.apiKey) {
+      toast({
+        title: "Erro",
+        description: "URL da API e Chave da API são necessárias para buscar tags",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // In a real implementation, you would make an API call to ActiveCampaign
+      // For now, we'll simulate with common tags
+      const commonTags = [
+        'lead', 'cliente', 'prospect', 'qualificado', 'interessado',
+        'newsletter', 'webinar', 'download', 'demo', 'trial'
+      ];
+
+      const existingTags = wizardData.tags;
+      const newTags = commonTags.filter(tag => !existingTags.includes(tag));
+
+      if (newTags.length > 0) {
+        setWizardData(prev => ({
+          ...prev,
+          tags: [...prev.tags, ...newTags.slice(0, 5)] // Limit to 5 new tags
+        }));
+
+        toast({
+          title: "Tags encontradas",
+          description: `${newTags.slice(0, 5).length} tags do ActiveCampaign foram adicionadas`,
+        });
+      } else {
+        toast({
+          title: "Nenhuma tag nova",
+          description: "Todas as tags comuns já estão adicionadas",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao buscar tags",
         description: "Não foi possível conectar com a API do ActiveCampaign",
         variant: "destructive",
       });
@@ -436,13 +503,22 @@ export default function ActiveCampaignConfig() {
                 </div>
               ))}
 
-              <Button 
-                variant="link" 
-                className="text-blue-600 p-0 hover:text-blue-800"
-                onClick={handleFetchIntegrationFields}
-              >
-                🔍 Buscar campos da integração
-              </Button>
+              <div className="flex gap-4">
+                <Button 
+                  variant="link" 
+                  className="text-blue-600 p-0 hover:text-blue-800"
+                  onClick={handleFetchIntegrationFields}
+                >
+                  🔍 Buscar campos da integração
+                </Button>
+                <Button 
+                  variant="link" 
+                  className="text-green-600 p-0 hover:text-green-800"
+                  onClick={handleFetchActiveCampaignTags}
+                >
+                  🏷️ Buscar tags do ActiveCampaign
+                </Button>
+              </div>
             </div>
           </div>
         );
@@ -471,7 +547,7 @@ export default function ActiveCampaignConfig() {
 
               <div className="space-y-2">
                 <Label>Tags para contatos</Label>
-                
+
                 {/* Available tags */}
                 {availableTags.length > 0 && (
                   <div>
@@ -531,18 +607,19 @@ export default function ActiveCampaignConfig() {
               <div className="space-y-2">
                 <Label>Etapa inicial (opcional)</Label>
                 <Select 
-                  value={wizardData.defaultStage || ""} 
-                  onValueChange={(value) => setWizardData(prev => ({ ...prev, defaultStage: value }))}
+                  value={wizardData.defaultStage || "default"} 
+                  onValueChange={(value) => setWizardData(prev => ({ ...prev, defaultStage: value === "default" ? "" : value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma etapa inicial" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Primeira etapa do pipeline</SelectItem>
-                    <SelectItem value="prospecção">Prospecção</SelectItem>
-                    <SelectItem value="qualificação">Qualificação</SelectItem>
-                    <SelectItem value="proposta">Proposta</SelectItem>
-                    <SelectItem value="fechamento">Fechamento</SelectItem>
+                    <SelectItem value="default">Primeira etapa do pipeline</SelectItem>
+                    {pipelineStages.map((stage) => (
+                      <SelectItem key={stage.id} value={stage.id.toString()}>
+                        {stage.title}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

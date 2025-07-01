@@ -105,7 +105,7 @@ export interface IStorage {
   createActiveCampaignConfig(config: InsertActiveCampaignConfig): Promise<ActiveCampaignConfig>;
   updateActiveCampaignConfig(configId: number, config: Partial<InsertActiveCampaignConfig>): Promise<ActiveCampaignConfig | undefined>;
   deleteActiveCampaignConfigById(configId: number, userId: string): Promise<void>;
-  
+
   // ActiveCampaign Webhook Logs
   createWebhookLog(log: InsertActiveCampaignWebhookLog): Promise<ActiveCampaignWebhookLog>;
   getWebhookLogs(configId?: number, limit?: number, offset?: number): Promise<ActiveCampaignWebhookLog[]>;
@@ -437,6 +437,7 @@ export class DatabaseStorage implements IStorage {
             expectedCloseDate: deals.expectedCloseDate,
             contactId: deals.contactId,
             companyId: deals.companyId,
+            ownerId: deals.ownerId,
             description: deals.description,
             createdAt: deals.createdAt,
             updatedAt: deals.updatedAt,
@@ -477,6 +478,7 @@ export class DatabaseStorage implements IStorage {
             expectedCloseDate: deals.expectedCloseDate,
             contactId: deals.contactId,
             companyId: deals.companyId,
+            ownerId: deals.ownerId,
             description: deals.description,
             createdAt: deals.createdAt,
             updatedAt: deals.updatedAt,
@@ -763,11 +765,11 @@ export class DatabaseStorage implements IStorage {
         return stage;
       } else {
         console.log(`❌ STORAGE: Stage with ID ${stageId} not found in database`);
-        
+
         // Additional debugging: let's see what stages DO exist
         const allStages = await db.select({ id: pipelineStages.id, title: pipelineStages.title }).from(pipelineStages);
         console.log(`📋 STORAGE: Available stages in database:`, allStages);
-        
+
         return undefined;
       }
     } catch (error) {
@@ -1150,11 +1152,11 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(activeCampaignConfigs)
       .where(eq(activeCampaignConfigs.id, configId));
-    
+
     if (userId) {
       query.where(and(eq(activeCampaignConfigs.id, configId), eq(activeCampaignConfigs.userId, userId)));
     }
-    
+
     const [config] = await query;
     return config || undefined;
   }
@@ -1164,10 +1166,10 @@ export class DatabaseStorage implements IStorage {
     if (!config.userId || !config.defaultPipelineId) {
       throw new Error("User ID and pipeline ID are required for ActiveCampaign configuration");
     }
-    
+
     // Remove name field from config as it doesn't exist in the table
     const { name, ...configData } = config as any;
-    
+
     const [newConfig] = await db
       .insert(activeCampaignConfigs)
       .values({
@@ -1181,7 +1183,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateActiveCampaignConfig(configId: number, config: Partial<InsertActiveCampaignConfig>): Promise<ActiveCampaignConfig | undefined> {
     const updateData: any = { ...config, updatedAt: new Date() };
-    
+
     const [updatedConfig] = await db
       .update(activeCampaignConfigs)
       .set(updateData)
@@ -1211,11 +1213,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(activeCampaignWebhookLogs.processedAt))
       .limit(limit)
       .offset(offset);
-    
+
     if (configId) {
       return await baseQuery.where(eq(activeCampaignWebhookLogs.configId, configId));
     }
-    
+
     return await baseQuery;
   }
 }

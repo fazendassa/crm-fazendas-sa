@@ -405,11 +405,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Pipeline endpoints
   app.get("/api/pipelines", isAuthenticated, async (req, res) => {
     try {
-      const pipelines = await storage.getPipelines();
+      const userId = (req.user as any).claims.sub;
+      const pipelines = await storage.getPipelines(userId);
       res.json(pipelines);
     } catch (error) {
       console.error("Error fetching pipelines:", error);
       res.status(500).json({ message: "Failed to fetch pipelines" });
+    }
+  });
+
+  // Get pipeline stages
+  app.get("/api/pipelines/:pipelineId/stages", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const pipelineId = parseInt(req.params.pipelineId);
+      const stages = await storage.getStagesByPipelineId(pipelineId, userId);
+      res.json(stages);
+    } catch (error) {
+      console.error("Error fetching pipeline stages:", error);
+      res.status(500).json({ message: "Failed to fetch pipeline stages" });
     }
   });
 
@@ -824,7 +838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   // ActiveCampaign Integration Routes
-  
+
   // Get user's ActiveCampaign configurations
   app.get("/api/integrations/activecampaign/configs", isAuthenticated, async (req, res) => {
     try {
@@ -843,11 +857,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = (req.user as any).claims.sub;
       const configId = parseInt(req.params.id);
       const config = await storage.getActiveCampaignConfigById(configId, userId);
-      
+
       if (!config) {
         return res.status(404).json({ message: "Configuration not found" });
       }
-      
+
       res.json(config);
     } catch (error) {
       console.error("Error fetching ActiveCampaign config:", error);
@@ -917,9 +931,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('URL Params:', req.params);
       console.log('Headers:', req.headers);
       console.log('Body:', JSON.stringify(req.body, null, 2));
-      
+
       const configId = parseInt(req.params.configId);
-      
+
       if (!configId) {
         console.log('❌ WEBHOOK: No config ID provided');
         return res.status(400).json({ message: "Configuration ID required" });
@@ -927,7 +941,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get specific configuration
       const config = await storage.getActiveCampaignConfigById(configId);
-      
+
       if (!config) {
         console.log('❌ WEBHOOK: Configuration not found for ID:', configId);
         return res.status(404).json({ message: "Configuration not found" });
@@ -942,7 +956,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get webhook secret from header (make optional for now)
       const providedSecret = req.headers['x-api-key'] || req.headers['x-webhook-secret'] || req.headers['authorization'];
-      
+
       // For now, skip secret validation to test webhook functionality
       if (config.webhookSecret && providedSecret && config.webhookSecret !== providedSecret) {
         console.log('⚠️ WEBHOOK: Secret mismatch, but continuing for testing');
@@ -951,17 +965,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const webhookData = req.body;
-      
+
       // Extract contact data from ActiveCampaign webhook format
       console.log('🔍 WEBHOOK: Extracting contact data...');
-      
+
       // ActiveCampaign sends data in contact[field] format
       const contactEmail = webhookData['contact[email]'] || webhookData.email;
       const contactFirstName = webhookData['contact[first_name]'] || webhookData.first_name || '';
       const contactLastName = webhookData['contact[last_name]'] || webhookData.last_name || '';
       const contactPhone = webhookData['contact[phone]'] || webhookData.phone || '';
       const contactOrgName = webhookData['contact[orgname]'] || webhookData.orgname || '';
-      
+
       console.log('📋 WEBHOOK: Extracted fields:', {
         email: contactEmail,
         firstName: contactFirstName,
@@ -1031,7 +1045,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Check if company already exists
             const companies = await storage.getCompanies(contactOrgName);
             let company = companies.find(c => c.name.toLowerCase() === contactOrgName.toLowerCase());
-            
+
             if (!company) {
               // Create new company
               company = await storage.createCompany({
@@ -1043,7 +1057,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } else {
               console.log('✅ WEBHOOK: Company found:', company.id);
             }
-            
+
             // Update contact with company
             if (company && createdContact) {
               createdContact = await storage.updateContact(createdContact.id, {
@@ -1132,7 +1146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
-      
+
       const logs = await storage.getWebhookLogs(undefined, limit, offset);
       res.json(logs);
     } catch (error) {
@@ -1146,16 +1160,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = (req.user as any).claims.sub;
       const configId = parseInt(req.params.configId);
-      
+
       const config = await storage.getActiveCampaignConfigById(configId, userId);
-      
+
       if (!config) {
         return res.status(404).json({ message: "Configuration not found" });
       }
 
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
-      
+
       const logs = await storage.getWebhookLogs(configId, limit, offset);
       res.json(logs);
     } catch (error) {
@@ -1169,7 +1183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const configId = parseInt(req.params.configId);
       const config = await storage.getActiveCampaignConfigById(configId);
-      
+
       if (!config) {
         return res.status(404).json({ message: "Configuration not found" });
       }
@@ -1184,10 +1198,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       console.log('🧪 TEST WEBHOOK: Simulating webhook for config:', configId);
-      
+
       // Process the test data (simulate the webhook processing)
       req.body = testWebhookData;
-      
+
       // Redirect to the actual webhook handler
       return res.json({
         message: "Test webhook data ready. Use POST method to actually test the webhook.",
