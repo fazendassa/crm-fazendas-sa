@@ -828,7 +828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's ActiveCampaign configuration
   app.get("/api/integrations/activecampaign/config", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = (req.user as any).claims.sub;
       const config = await storage.getActiveCampaignConfig(userId);
       
       if (!config) {
@@ -856,7 +856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create or update ActiveCampaign configuration
   app.post("/api/integrations/activecampaign/config", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = (req.user as any).claims.sub;
       const { activeCampaignApiUrl, activeCampaignApiKey, defaultPipelineId, defaultTags } = req.body;
 
       // Validation
@@ -918,7 +918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete ActiveCampaign configuration
   app.delete("/api/integrations/activecampaign/config", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = (req.user as any).claims.sub;
       await storage.deleteActiveCampaignConfig(userId);
       res.json({ message: "Configuration deleted successfully" });
     } catch (error) {
@@ -1077,7 +1077,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get webhook logs
   app.get("/api/integrations/activecampaign/logs", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).id;
+      const userId = (req.user as any).claims.sub;
       const config = await storage.getActiveCampaignConfig(userId);
       
       if (!config) {

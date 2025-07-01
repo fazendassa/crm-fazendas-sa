@@ -215,8 +215,10 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(companies, eq(contacts.companyId, companies.id));
 
     const conditions = [];
-    if (search) {
-      conditions.push(ilike(contacts.name, `%${search}%`));
+    if (search && search.trim() !== '') {
+      conditions.push(
+        sql`(${ilike(contacts.name, `%${search}%`)} OR ${ilike(contacts.email, `%${search}%`)})`
+      );
     }
     if (companyId) {
       conditions.push(eq(contacts.companyId, companyId));
@@ -1143,6 +1145,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createActiveCampaignConfig(config: InsertActiveCampaignConfig): Promise<ActiveCampaignConfig> {
+    // Validate required fields
+    if (!config.userId) {
+      throw new Error("User ID is required for ActiveCampaign configuration");
+    }
+    
     const [newConfig] = await db
       .insert(activeCampaignConfigs)
       .values({
