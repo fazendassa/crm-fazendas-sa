@@ -550,6 +550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Batch update stage positions
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
+    console.log("🚀 ROUTE: Entering PUT /api/pipeline-stages/positions endpoint");
     try {
       console.log("=== SERVER DEBUG: Full request info ===");
       console.log("Method:", req.method);
