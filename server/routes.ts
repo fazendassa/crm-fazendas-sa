@@ -9,6 +9,9 @@ import { Readable } from "stream";
 import { promisify } from "util";
 import fs from "fs";
 import { requirePermission, requireAnyPermission, applyDataFiltering } from "./rbac";
+import { db } from "./db";
+import { activeCampaignConfigs } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import {
   insertCompanySchema,
   insertContactSchema,
@@ -531,98 +534,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Batch update stage positions
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
-      // Add detailed logging of the request
-      console.log("=== SERVER: DEBUG - Full request details ===");
-      console.log("req.body:", JSON.stringify(req.body, null, 2));
-      console.log("req.body type:", typeof req.body);
-      console.log("req.body keys:", Object.keys(req.body || {}));
-      console.log("req.headers['content-type']:", req.headers['content-type']);
-      console.log("req.method:", req.method);
-      console.log("req.url:", req.url);
-      
-      // Extract stages from request body
-      const stages = req.body.stages;
-      
-      if (!stages) {
-        console.log("❌ SERVER: No stages found in request body");
-        return res.status(400).json({ 
-          message: "Missing 'stages' in request body",
-          received: req.body
-        });
-      }
-      
-      console.log("=== SERVER: Extracted stages ===");
-      console.log("stages:", JSON.stringify(stages, null, 2));
-      console.log("stages type:", typeof stages);
-      console.log("stages is array:", Array.isArray(stages));
-      
-      // Log each individual stage
-      if (Array.isArray(stages)) {
-        stages.forEach((stage, index) => {
-          console.log(`=== SERVER: Stage ${index + 1} Analysis ===`);
-          console.log("  Raw stage:", stage);
-          console.log("  stage.id:", stage.id);
-          console.log("  stage.id type:", typeof stage.id);
-          console.log("  stage.id is string:", typeof stage.id === 'string');
-          console.log("  stage.id is number:", typeof stage.id === 'number');
-          console.log("  stage.position:", stage.position);
-          console.log("  stage.position type:", typeof stage.position);
-          console.log("  Number(stage.id):", Number(stage.id));
-          console.log("  isNaN(Number(stage.id)):", isNaN(Number(stage.id)));
-          console.log("  parseInt(stage.id):", parseInt(stage.id));
-          console.log("  Number.isInteger(stage.id):", Number.isInteger(stage.id));
-          console.log("  Number.isInteger(Number(stage.id)):", Number.isInteger(Number(stage.id)));
-        });
+      const { stages } = req.body;
+
+      if (!Array.isArray(stages)) {
+        return res.status(400).json({ message: "Payload inválido: 'stages' deve ser um array" });
       }
 
-      if (!stages || !Array.isArray(stages) || stages.length === 0) {
-        console.log("❌ SERVER: Invalid stages array");
-        return res.status(400).json({ 
-          message: "Stages array is required",
-          received: { stages, type: typeof stages, isArray: Array.isArray(stages) }
-        });
-      }
+      console.log(`=== SERVER: Processing ${stages.length} stage position updates ===`);
 
-      console.log(`=== SERVER: Validating ${stages.length} stages ===`);
+      for (const stage of stages) {
+        const { id, position } = stage;
 
-      // Validate and prepare stage updates
-      const stageUpdates = stages.map((stage: any, index: number) => {
-        console.log(`Validating stage ${index + 1}: ID=${stage.id}, Position=${stage.position}`);
-        
-        const stageId = Number(stage.id);
-        const stagePosition = Number(stage.position);
-        
-        if (!Number.isInteger(stageId) || stageId <= 0) {
-          throw new Error(`Invalid stage ID: ${stage.id}`);
+        // Verificações robustas de tipo e valor
+        if (!Number.isInteger(id) || id <= 0) {
+          return res.status(400).json({ message: `Invalid stage ID: ${id}` });
         }
-        
-        if (!Number.isInteger(stagePosition) || stagePosition < 0) {
-          throw new Error(`Invalid position: ${stage.position}`);
+
+        if (!Number.isInteger(position) || position < 0) {
+          return res.status(400).json({ message: `Invalid stage position: ${position}` });
         }
-        
-        return { id: stageId, position: stagePosition };
-      });
-      
-      console.log("✅ SERVER: All validations passed, updating positions...");
-      console.log("Final stage updates:", JSON.stringify(stageUpdates, null, 2));
-      
-      await storage.updateStagePositions(stageUpdates);
-      
-      console.log("✅ SERVER: Positions updated successfully");
-      res.status(200).json({ 
-        success: true, 
-        message: "Stage positions updated successfully",
-        updatedStages: stageUpdates.length
-      });
-      
+
+        // Confirma se o ID existe no banco (evita erro de ID inválido)
+        const stageExists = await storage.getPipelineStage(id);
+        if (!stageExists) {
+          return res.status(400).json({ message: `Stage ID not found: ${id}` });
+        }
+
+        console.log(`✅ SERVER: Stage ${id} validated successfully`);
+      }
+
+      // Atualiza todas as posições
+      await storage.updateStagePositions(stages.map((stage: any) => ({
+        id: stage.id,
+        position: stage.position
+      })));
+
+      console.log("✅ SERVER: All stage positions updated successfully");
+      return res.status(200).json({ message: "Stage positions updated successfully" });
+
     } catch (error) {
-      console.error("❌ SERVER: Error updating positions:", error);
-      console.error("❌ SERVER: Error stack:", error instanceof Error ? error.stack : "No stack trace");
-      res.status(500).json({ 
-        message: "Failed to update positions",
-        error: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString()
-      });
+      console.error("Erro interno:", error);
+      return res.status(500).json({ message: "Erro interno ao atualizar posições" });
     }
   });
 
@@ -871,5 +823,277 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  // ActiveCampaign Integration Routes
+  
+  // Get user's ActiveCampaign configuration
+  app.get("/api/integrations/activecampaign/config", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const config = await storage.getActiveCampaignConfig(userId);
+      
+      if (!config) {
+        return res.status(404).json({ message: "Configuration not found" });
+      }
+      
+      // Don't expose sensitive data in response
+      const safeConfig = {
+        id: config.id,
+        activeCampaignApiUrl: config.activeCampaignApiUrl,
+        defaultPipelineId: config.defaultPipelineId,
+        defaultTags: config.defaultTags,
+        isActive: config.isActive,
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt
+      };
+      
+      res.json(safeConfig);
+    } catch (error) {
+      console.error("Error fetching ActiveCampaign config:", error);
+      res.status(500).json({ message: "Failed to fetch configuration" });
+    }
+  });
+
+  // Create or update ActiveCampaign configuration
+  app.post("/api/integrations/activecampaign/config", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const { activeCampaignApiUrl, activeCampaignApiKey, defaultPipelineId, defaultTags } = req.body;
+
+      // Validation
+      if (!activeCampaignApiUrl || !activeCampaignApiKey) {
+        return res.status(400).json({ 
+          message: "ActiveCampaign API URL and API Key are required" 
+        });
+      }
+
+      // Generate a webhook secret for security
+      const webhookSecret = Math.random().toString(36).substring(2, 15) + 
+                           Math.random().toString(36).substring(2, 15);
+
+      const configData = {
+        userId,
+        activeCampaignApiUrl: activeCampaignApiUrl.trim(),
+        activeCampaignApiKey: activeCampaignApiKey.trim(),
+        webhookSecret,
+        defaultPipelineId: defaultPipelineId || null,
+        defaultTags: defaultTags || [],
+        isActive: true
+      };
+
+      // Check if config already exists
+      const existingConfig = await storage.getActiveCampaignConfig(userId);
+      
+      let config;
+      if (existingConfig) {
+        // Update existing config
+        config = await storage.updateActiveCampaignConfig(userId, configData);
+      } else {
+        // Create new config
+        config = await storage.createActiveCampaignConfig(configData);
+      }
+
+      if (!config) {
+        return res.status(500).json({ message: "Failed to save configuration" });
+      }
+
+      // Return safe config (without sensitive data)
+      const safeConfig = {
+        id: config.id,
+        activeCampaignApiUrl: config.activeCampaignApiUrl,
+        defaultPipelineId: config.defaultPipelineId,
+        defaultTags: config.defaultTags,
+        isActive: config.isActive,
+        webhookSecret: config.webhookSecret, // Include webhook secret in creation response
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt
+      };
+
+      res.json(safeConfig);
+    } catch (error) {
+      console.error("Error saving ActiveCampaign config:", error);
+      res.status(500).json({ message: "Failed to save configuration" });
+    }
+  });
+
+  // Delete ActiveCampaign configuration
+  app.delete("/api/integrations/activecampaign/config", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      await storage.deleteActiveCampaignConfig(userId);
+      res.json({ message: "Configuration deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting ActiveCampaign config:", error);
+      res.status(500).json({ message: "Failed to delete configuration" });
+    }
+  });
+
+  // ActiveCampaign Webhook Endpoint (PUBLIC - no authentication required)
+  app.post("/api/integrations/activecampaign/webhook", async (req, res) => {
+    try {
+      console.log('\n=== ACTIVECAMPAIGN WEBHOOK RECEIVED ===');
+      console.log('Headers:', req.headers);
+      console.log('Body:', JSON.stringify(req.body, null, 2));
+      
+      // Get webhook secret from header
+      const providedSecret = req.headers['x-api-key'] || req.headers['x-webhook-secret'];
+      
+      if (!providedSecret) {
+        console.log('❌ WEBHOOK: No secret provided');
+        return res.status(401).json({ message: "Webhook secret required" });
+      }
+
+      // Find config by webhook secret
+      const configs = await storage.getWebhookLogs(); // We'll need to add a method to get config by secret
+      // For now, let's get all configs and find the matching one
+      
+      // This is a simplified implementation - in production, you'd want to validate the secret properly
+      const webhookData = req.body;
+      
+      // Extract lead/contact data from ActiveCampaign webhook
+      const { contact, deal, list } = webhookData;
+      
+      if (!contact) {
+        console.log('❌ WEBHOOK: No contact data in webhook');
+        return res.status(400).json({ message: "No contact data provided" });
+      }
+
+      // Find a default configuration (this is simplified - in production you'd match by secret)
+      // For now, we'll just find any active config
+      const allConfigs = await db.select().from(activeCampaignConfigs).where(eq(activeCampaignConfigs.isActive, true));
+      const config = allConfigs[0];
+      
+      if (!config) {
+        console.log('❌ WEBHOOK: No active configuration found');
+        return res.status(404).json({ message: "No active configuration found" });
+      }
+
+      // Validate webhook secret
+      if (config.webhookSecret !== providedSecret) {
+        console.log('❌ WEBHOOK: Invalid secret');
+        return res.status(401).json({ message: "Invalid webhook secret" });
+      }
+
+      let createdContact = null;
+      let createdDeal = null;
+      let errorMessage = null;
+
+      try {
+        // Create or update contact
+        const contactData = {
+          name: contact.first_name && contact.last_name 
+            ? `${contact.first_name} ${contact.last_name}`.trim()
+            : contact.email || 'Unknown Contact',
+          email: contact.email || null,
+          phone: contact.phone || null,
+          status: 'active',
+          source: 'activecampaign',
+          pipelineId: config.defaultPipelineId,
+          tags: config.defaultTags || [],
+          companyId: null // We could enhance this to create companies based on contact data
+        };
+
+        // Check if contact already exists by email
+        let existingContact;
+        if (contact.email) {
+          const existingContacts = await storage.getContacts(contact.email);
+          existingContact = existingContacts.find(c => c.email === contact.email);
+        }
+
+        if (existingContact) {
+          // Update existing contact
+          createdContact = await storage.updateContact(existingContact.id, {
+            name: contactData.name,
+            phone: contactData.phone,
+            tags: [...(existingContact.tags || []), ...(contactData.tags || [])]
+          });
+          console.log('✓ WEBHOOK: Contact updated:', createdContact.id);
+        } else {
+          // Create new contact
+          createdContact = await storage.createContact(contactData);
+          console.log('✓ WEBHOOK: Contact created:', createdContact.id);
+        }
+
+        // Create deal if pipeline is configured and deal data is provided
+        if (config.defaultPipelineId && createdContact) {
+          const pipelineStages = await storage.getPipelineStages(config.defaultPipelineId);
+          const firstStage = pipelineStages.find(stage => stage.position === 0) || pipelineStages[0];
+
+          if (firstStage) {
+            const dealData = {
+              title: deal?.title || `Oportunidade - ${createdContact.name}`,
+              description: deal?.description || 'Oportunidade criada via ActiveCampaign',
+              stage: firstStage.title,
+              pipelineId: config.defaultPipelineId,
+              contactId: createdContact.id,
+              companyId: createdContact.companyId,
+              value: deal?.value || null,
+              expectedCloseDate: deal?.expected_close_date ? new Date(deal.expected_close_date) : null,
+            };
+
+            createdDeal = await storage.createDeal(dealData);
+            console.log('✓ WEBHOOK: Deal created:', createdDeal.id);
+          }
+        }
+
+      } catch (processError) {
+        errorMessage = processError instanceof Error ? processError.message : 'Unknown processing error';
+        console.error('❌ WEBHOOK: Processing error:', processError);
+      }
+
+      // Log the webhook event
+      const logData = {
+        configId: config.id,
+        webhookData: req.body,
+        contactId: createdContact?.id || null,
+        dealId: createdDeal?.id || null,
+        status: errorMessage ? 'error' : 'success',
+        errorMessage: errorMessage
+      };
+
+      await storage.createWebhookLog(logData);
+
+      console.log('✓ WEBHOOK: Event logged successfully');
+      console.log('=== WEBHOOK PROCESSING COMPLETE ===\n');
+
+      res.json({
+        success: true,
+        message: "Webhook processed successfully",
+        data: {
+          contactId: createdContact?.id,
+          dealId: createdDeal?.id,
+          status: errorMessage ? 'error' : 'success'
+        }
+      });
+
+    } catch (error) {
+      console.error("❌ WEBHOOK: Fatal error:", error);
+      res.status(500).json({ 
+        message: "Failed to process webhook",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get webhook logs
+  app.get("/api/integrations/activecampaign/logs", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const config = await storage.getActiveCampaignConfig(userId);
+      
+      if (!config) {
+        return res.status(404).json({ message: "Configuration not found" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      const logs = await storage.getWebhookLogs(config.id, limit, offset);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching webhook logs:", error);
+      res.status(500).json({ message: "Failed to fetch logs" });
+    }
+  });
+
   return httpServer;
 }

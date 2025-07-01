@@ -262,3 +262,73 @@ export type ActivityWithRelations = Activity & {
   company?: Company;
   user?: User;
 };
+
+// ActiveCampaign Integration Configuration
+export const activeCampaignConfigs = pgTable("activecampaign_configs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  activeCampaignApiUrl: text("activecampaign_api_url").notNull(),
+  activeCampaignApiKey: text("activecampaign_api_key").notNull(),
+  webhookSecret: text("webhook_secret").notNull(),
+  defaultPipelineId: integer("default_pipeline_id").references(() => pipelines.id),
+  defaultTags: jsonb("default_tags").$type<string[]>().default([]),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ActiveCampaign Webhook Logs for debugging
+export const activeCampaignWebhookLogs = pgTable("activecampaign_webhook_logs", {
+  id: serial("id").primaryKey(),
+  configId: integer("config_id").references(() => activeCampaignConfigs.id),
+  webhookData: jsonb("webhook_data").$type<Record<string, any>>().notNull(),
+  contactId: integer("contact_id").references(() => contacts.id),
+  dealId: integer("deal_id").references(() => deals.id),
+  status: text("status").notNull(), // success, error, warning
+  errorMessage: text("error_message"),
+  processedAt: timestamp("processed_at").defaultNow(),
+});
+
+// Relations for ActiveCampaign integration
+export const activeCampaignConfigsRelations = relations(activeCampaignConfigs, ({ one, many }) => ({
+  pipeline: one(pipelines, {
+    fields: [activeCampaignConfigs.defaultPipelineId],
+    references: [pipelines.id],
+  }),
+  webhookLogs: many(activeCampaignWebhookLogs),
+}));
+
+export const activeCampaignWebhookLogsRelations = relations(activeCampaignWebhookLogs, ({ one }) => ({
+  config: one(activeCampaignConfigs, {
+    fields: [activeCampaignWebhookLogs.configId],
+    references: [activeCampaignConfigs.id],
+  }),
+  contact: one(contacts, {
+    fields: [activeCampaignWebhookLogs.contactId],
+    references: [contacts.id],
+  }),
+  deal: one(deals, {
+    fields: [activeCampaignWebhookLogs.dealId],
+    references: [deals.id],
+  }),
+}));
+
+// Insert schemas for ActiveCampaign
+export const insertActiveCampaignConfigSchema = createInsertSchema(activeCampaignConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertActiveCampaignConfig = z.infer<typeof insertActiveCampaignConfigSchema>;
+export type ActiveCampaignConfig = typeof activeCampaignConfigs.$inferSelect;
+
+export const insertActiveCampaignWebhookLogSchema = createInsertSchema(activeCampaignWebhookLogs).omit({
+  id: true,
+  processedAt: true,
+});
+export type InsertActiveCampaignWebhookLog = z.infer<typeof insertActiveCampaignWebhookLogSchema>;
+export type ActiveCampaignWebhookLog = typeof activeCampaignWebhookLogs.$inferSelect;
+
+export type ActiveCampaignConfigWithRelations = ActiveCampaignConfig & {
+  pipeline?: Pipeline | null;
+};

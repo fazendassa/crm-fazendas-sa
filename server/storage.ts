@@ -6,6 +6,8 @@ import {
   activities,
   pipelines,
   pipelineStages,
+  activeCampaignConfigs,
+  activeCampaignWebhookLogs,
   type User,
   type UpsertUser,
   type Company,
@@ -23,6 +25,10 @@ import {
   type InsertPipeline,
   type PipelineStage,
   type InsertPipelineStage,
+  type ActiveCampaignConfig,
+  type ActiveCampaignWebhookLog,
+  type InsertActiveCampaignConfig,
+  type InsertActiveCampaignWebhookLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, and, count, desc, ne, sql, isNotNull, sum } from "drizzle-orm";
@@ -92,6 +98,16 @@ export interface IStorage {
     openDeals: number;
     projectedRevenue: string;
   }>;
+
+  // ActiveCampaign Integration
+  getActiveCampaignConfig(userId: string): Promise<ActiveCampaignConfig | undefined>;
+  createActiveCampaignConfig(config: InsertActiveCampaignConfig): Promise<ActiveCampaignConfig>;
+  updateActiveCampaignConfig(userId: string, config: Partial<InsertActiveCampaignConfig>): Promise<ActiveCampaignConfig | undefined>;
+  deleteActiveCampaignConfig(userId: string): Promise<void>;
+  
+  // ActiveCampaign Webhook Logs
+  createWebhookLog(log: InsertActiveCampaignWebhookLog): Promise<ActiveCampaignWebhookLog>;
+  getWebhookLogs(configId?: number, limit?: number, offset?: number): Promise<ActiveCampaignWebhookLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1115,6 +1131,66 @@ export class DatabaseStorage implements IStorage {
     console.log('Lista de erros:', errors);
 
     return { success, errors };
+  }
+
+  // ActiveCampaign Integration Methods
+  async getActiveCampaignConfig(userId: string): Promise<ActiveCampaignConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(activeCampaignConfigs)
+      .where(eq(activeCampaignConfigs.userId, userId));
+    return config || undefined;
+  }
+
+  async createActiveCampaignConfig(config: InsertActiveCampaignConfig): Promise<ActiveCampaignConfig> {
+    const [newConfig] = await db
+      .insert(activeCampaignConfigs)
+      .values({
+        ...config,
+        defaultTags: config.defaultTags || []
+      })
+      .returning();
+    return newConfig;
+  }
+
+  async updateActiveCampaignConfig(userId: string, config: Partial<InsertActiveCampaignConfig>): Promise<ActiveCampaignConfig | undefined> {
+    const updateData: any = { ...config, updatedAt: new Date() };
+    
+    const [updatedConfig] = await db
+      .update(activeCampaignConfigs)
+      .set(updateData)
+      .where(eq(activeCampaignConfigs.userId, userId))
+      .returning();
+    return updatedConfig || undefined;
+  }
+
+  async deleteActiveCampaignConfig(userId: string): Promise<void> {
+    await db
+      .delete(activeCampaignConfigs)
+      .where(eq(activeCampaignConfigs.userId, userId));
+  }
+
+  async createWebhookLog(log: InsertActiveCampaignWebhookLog): Promise<ActiveCampaignWebhookLog> {
+    const [newLog] = await db
+      .insert(activeCampaignWebhookLogs)
+      .values(log)
+      .returning();
+    return newLog;
+  }
+
+  async getWebhookLogs(configId?: number, limit = 50, offset = 0): Promise<ActiveCampaignWebhookLog[]> {
+    const baseQuery = db
+      .select()
+      .from(activeCampaignWebhookLogs)
+      .orderBy(desc(activeCampaignWebhookLogs.processedAt))
+      .limit(limit)
+      .offset(offset);
+    
+    if (configId) {
+      return await baseQuery.where(eq(activeCampaignWebhookLogs.configId, configId));
+    }
+    
+    return await baseQuery;
   }
 }
 
