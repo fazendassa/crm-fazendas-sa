@@ -551,23 +551,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Batch update stage positions
   app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
     try {
+      console.log("=== SERVER: Received request body ===");
+      console.log("Full req.body:", JSON.stringify(req.body, null, 2));
+      
       const { stages } = req.body;
 
+      if (!stages) {
+        console.log("❌ SERVER: No stages property found in request body");
+        return res.status(400).json({ message: "Missing 'stages' property" });
+      }
+
       if (!Array.isArray(stages)) {
+        console.log("❌ SERVER: stages is not an array:", typeof stages);
         return res.status(400).json({ message: "Payload inválido: 'stages' deve ser um array" });
       }
 
       console.log(`=== SERVER: Processing ${stages.length} stage position updates ===`);
-      console.log("Received stages:", stages);
+      console.log("Received stages:", JSON.stringify(stages, null, 2));
 
       // Validate and transform stages for posicaoestagio
       const stagesToUpdate = [];
-      for (const stage of stages) {
+      for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
+        console.log(`🔍 SERVER: Processing stage ${i}:`, JSON.stringify(stage, null, 2));
+        
         const { id, position } = stage;
         const numericId = Number(id);
         const numericPosition = Number(position);
 
         console.log(`🔍 SERVER: Validating stage - ID: ${id} (${typeof id}), Position: ${position} (${typeof position})`);
+        console.log(`🔍 SERVER: Converted - numericId: ${numericId} (${typeof numericId}), numericPosition: ${numericPosition} (${typeof numericPosition})`);
 
         if (isNaN(numericId) || !Number.isInteger(numericId) || numericId <= 0) {
           const errorMsg = `Invalid stage ID: ${id} (type: ${typeof id}, numeric: ${numericId})`;
@@ -578,7 +591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (isNaN(numericPosition) || !Number.isInteger(numericPosition) || numericPosition < 0) {
           const errorMsg = `Invalid stage position: ${position} (type: ${typeof position}, numeric: ${numericPosition})`;
           console.log(`❌ SERVER: ${errorMsg}`);
-          return res.status(400).json({ message: errorMsg });
+          return res.status(400).json({ message: "Invalid stage position" });
         }
 
         stagesToUpdate.push({
@@ -586,8 +599,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           position: numericPosition
         });
 
-        console.log(`✅ SERVER: Stage ${numericId} with posicaoestagio ${numericPosition} validated`);
+        console.log(`✅ SERVER: Stage ${numericId} with position ${numericPosition} validated`);
       }
+
+      console.log("=== SERVER: Final stagesToUpdate ===");
+      console.log(JSON.stringify(stagesToUpdate, null, 2));
 
       // Update positions using new method
       await storage.updateStagePositions(stagesToUpdate);
