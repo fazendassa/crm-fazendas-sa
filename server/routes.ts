@@ -511,6 +511,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch update stage positions - MUST be before /:id route
+  app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
+    console.log("🚀 ROUTE: Entering PUT /api/pipeline-stages/positions endpoint");
+    try {
+      console.log("=== SERVER DEBUG: Full request info ===");
+      console.log("Method:", req.method);
+      console.log("URL:", req.url);
+      console.log("Headers:", req.headers);  
+      console.log("Body:", req.body);
+      console.log("Body type:", typeof req.body);
+      console.log("Body stringified:", JSON.stringify(req.body));
+      
+      const { stages } = req.body;
+      console.log("Extracted stages:", stages);
+      console.log("Stages type:", typeof stages);
+      console.log("Is stages array?", Array.isArray(stages));
+
+      if (!stages) {
+        console.log("❌ SERVER: No stages found");
+        return res.status(400).json({ message: "Missing stages" });
+      }
+
+      if (!Array.isArray(stages)) {
+        console.log("❌ SERVER: Stages is not an array");
+        return res.status(400).json({ message: "Stages must be an array" });
+      }
+
+      console.log("📤 SERVER: Calling storage.updateStagePositions with:", stages);
+      await storage.updateStagePositions(stages);
+      console.log("✅ SERVER: Stage positions updated successfully");
+      
+      res.json({ message: "Stage positions updated successfully" });
+    } catch (error) {
+      console.error("❌ SERVER: Error updating stage positions:", error);
+      res.status(500).json({ message: "Failed to update stage positions" });
+    }
+  });
+
   app.put("/api/pipeline-stages/:id", isAuthenticated, async (req, res) => {
     try {
       const stageId = parseInt(req.params.id);
@@ -545,63 +583,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting pipeline stage:", error);
       res.status(500).json({ message: "Failed to delete pipeline stage" });
-    }
-  });
-
-  // Batch update stage positions
-  app.put("/api/pipeline-stages/positions", isAuthenticated, async (req, res) => {
-    console.log("🚀 ROUTE: Entering PUT /api/pipeline-stages/positions endpoint");
-    try {
-      console.log("=== SERVER DEBUG: Full request info ===");
-      console.log("Method:", req.method);
-      console.log("URL:", req.url);
-      console.log("Headers:", req.headers);  
-      console.log("Body:", req.body);
-      console.log("Body type:", typeof req.body);
-      console.log("Body stringified:", JSON.stringify(req.body));
-      
-      const { stages } = req.body;
-      console.log("Extracted stages:", stages);
-      console.log("Stages type:", typeof stages);
-      console.log("Is stages array?", Array.isArray(stages));
-
-      if (!stages) {
-        console.log("❌ SERVER: No stages found");
-        return res.status(400).json({ message: "Missing stages" });
-      }
-
-      if (!Array.isArray(stages)) {
-        console.log("❌ SERVER: stages not array, type:", typeof stages);
-        return res.status(400).json({ message: "Stages must be array" });
-      }
-
-      console.log(`Processing ${stages.length} stages`);
-      
-      // Simplify validation - just check basics
-      const stagesToUpdate = stages.map((stage, index) => {
-        console.log(`Stage ${index}:`, stage);
-        const id = parseInt(stage.id);
-        const position = parseInt(stage.position);
-        
-        console.log(`Parsed: id=${id}, position=${position}`);
-        
-        if (isNaN(id) || isNaN(position)) {
-          throw new Error(`Invalid data at index ${index}: id=${stage.id}, position=${stage.position}`);
-        }
-        
-        return { id, position };
-      });
-
-      console.log("Final stages to update:", stagesToUpdate);
-
-      // Call storage method
-      await storage.updateStagePositions(stagesToUpdate);
-
-      console.log("✅ Success");
-      res.json({ message: "Success" });
-    } catch (error) {
-      console.error("❌ Error:", error);
-      res.status(500).json({ message: error.message || "Failed" });
     }
   });
 
