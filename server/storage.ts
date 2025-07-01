@@ -1161,16 +1161,19 @@ export class DatabaseStorage implements IStorage {
 
   async createActiveCampaignConfig(config: InsertActiveCampaignConfig): Promise<ActiveCampaignConfig> {
     // Validate required fields
-    if (!config.userId || !config.name || !config.pipelineId) {
-      throw new Error("User ID, name, and pipeline ID are required for ActiveCampaign configuration");
+    if (!config.userId || !config.pipelineId) {
+      throw new Error("User ID and pipeline ID are required for ActiveCampaign configuration");
     }
+    
+    // Remove name field from config as it doesn't exist in the table
+    const { name, ...configData } = config as any;
     
     const [newConfig] = await db
       .insert(activeCampaignConfigs)
       .values({
-        ...config,
-        defaultTags: config.defaultTags || [],
-        fieldMapping: config.fieldMapping || {}
+        ...configData,
+        defaultTags: configData.defaultTags || [],
+        fieldMapping: configData.fieldMapping || {}
       })
       .returning();
     return newConfig;

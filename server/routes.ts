@@ -859,12 +859,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/integrations/activecampaign/configs", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      const { name, activeCampaignApiUrl, activeCampaignApiKey, pipelineId, defaultTags, fieldMapping, webhookType } = req.body;
+      const { activeCampaignApiUrl, activeCampaignApiKey, pipelineId, defaultTags, fieldMapping, webhookType } = req.body;
 
       // Validation
-      if (!name || !activeCampaignApiUrl || !activeCampaignApiKey || !pipelineId) {
+      if (!activeCampaignApiUrl || !activeCampaignApiKey || !pipelineId) {
         return res.status(400).json({ 
-          message: "Name, ActiveCampaign API URL, API Key, and Pipeline are required" 
+          message: "ActiveCampaign API URL, API Key, and Pipeline are required" 
         });
       }
 
@@ -874,7 +874,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const configData = {
         userId,
-        name: name.trim(),
         activeCampaignApiUrl: activeCampaignApiUrl.trim(),
         activeCampaignApiKey: activeCampaignApiKey.trim(),
         webhookSecret,
@@ -971,7 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: contact.phone || null,
           status: 'active',
           source: 'activecampaign',
-          pipelineId: config.defaultPipelineId,
+          pipelineId: config.pipelineId,
           tags: config.defaultTags || [],
           companyId: null // We could enhance this to create companies based on contact data
         };
@@ -1058,7 +1057,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get webhook logs
+  // Get webhook logs for all configurations of the user
+  app.get("/api/integrations/activecampaign/logs", isAuthenticated, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      
+      const logs = await storage.getWebhookLogs(undefined, limit, offset);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching webhook logs:", error);
+      res.status(500).json({ message: "Failed to fetch logs" });
+    }
+  });
+
+  // Get webhook logs for specific configuration
   app.get("/api/integrations/activecampaign/logs/:configId", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;

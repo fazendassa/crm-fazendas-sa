@@ -267,7 +267,6 @@ export type ActivityWithRelations = Activity & {
 export const activeCampaignConfigs = pgTable("activecampaign_configs", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
-  name: text("name").notNull(),
   activeCampaignApiUrl: text("activecampaign_api_url").notNull(),
   activeCampaignApiKey: text("activecampaign_api_key").notNull(),
   webhookSecret: text("webhook_secret").notNull(),
@@ -321,6 +320,8 @@ export const insertActiveCampaignConfigSchema = createInsertSchema(activeCampaig
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  name: z.string().optional(), // Allow name in the schema for backward compatibility
 });
 export type InsertActiveCampaignConfig = z.infer<typeof insertActiveCampaignConfigSchema>;
 export type ActiveCampaignConfig = typeof activeCampaignConfigs.$inferSelect;

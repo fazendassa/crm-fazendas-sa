@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast";
 
 interface ActiveCampaignConfig {
   id: number;
-  name: string;
   activeCampaignApiUrl: string;
   pipelineId: number;
   defaultTags: string[];
@@ -63,7 +62,6 @@ export default function ActiveCampaignConfig() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [wizardData, setWizardData] = useState({
-    name: "",
     apiUrl: "",
     apiKey: "",
     pipelineId: "",
@@ -140,7 +138,6 @@ export default function ActiveCampaignConfig() {
   const resetWizard = () => {
     setCurrentStep(1);
     setWizardData({
-      name: "",
       apiUrl: "",
       apiKey: "",
       pipelineId: "",
@@ -164,17 +161,16 @@ export default function ActiveCampaignConfig() {
   };
 
   const handleFinish = () => {
-    if (!wizardData.name || !wizardData.apiUrl || !wizardData.apiKey || !wizardData.pipelineId) {
+    if (!wizardData.apiUrl || !wizardData.apiKey || !wizardData.pipelineId) {
       toast({
         title: "Campos obrigatórios",
-        description: "Nome, URL da API, Chave da API e Pipeline são obrigatórios",
+        description: "URL da API, Chave da API e Pipeline são obrigatórios",
         variant: "destructive",
       });
       return;
     }
 
     createConfigMutation.mutate({
-      name: wizardData.name,
       activeCampaignApiUrl: wizardData.apiUrl,
       activeCampaignApiKey: wizardData.apiKey,
       pipelineId: parseInt(wizardData.pipelineId),
@@ -275,16 +271,6 @@ export default function ActiveCampaignConfig() {
             </div>
 
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="integrationName">Nome da integração</Label>
-                <Input
-                  id="integrationName"
-                  placeholder="Nome da integração"
-                  value={wizardData.name}
-                  onChange={(e) => setWizardData(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="apiUrl">URL</Label>
                 <Input
@@ -539,7 +525,7 @@ export default function ActiveCampaignConfig() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      {config.name}
+                      Integração ActiveCampaign #{config.id}
                       <Badge variant={config.isActive ? "default" : "secondary"}>
                         {config.isActive ? "Ativo" : "Inativo"}
                       </Badge>
