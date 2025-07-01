@@ -434,6 +434,12 @@ export default function ActiveCampaignConfig() {
     );
   }
 
+  // Fetch webhook logs for recent activity
+  const { data: logs = [], isLoading: logsLoading } = useQuery<any[]>({
+    queryKey: ["/api/integrations/activecampaign/logs"],
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -670,6 +676,48 @@ export default function ActiveCampaignConfig() {
           </Card>
         )}
       </div>
+       {/* Recent Logs Section */}
+       <div className="space-y-4">
+            <h2 className="text-2xl font-bold">Logs Recentes</h2>
+            {logsLoading ? (
+                <p>Carregando logs...</p>
+            ) : logs.length > 0 ? (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Data/Hora
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Tipo
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Descrição
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {logs.map((log, index) => (
+                                <tr key={index}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {new Date(log.createdAt).toLocaleString()}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {log.type}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {log.description}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <p>Nenhum log encontrado.</p>
+            )}
+        </div>
     </div>
   );
 }
