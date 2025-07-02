@@ -808,7 +808,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // Setup Socket.IO for WhatsApp integration
-  const { Server } = require("socket.io");
+  const { Server } = await import("socket.io");
   const io = new Server(httpServer, {
     cors: {
       origin: "*",
@@ -817,7 +817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Import WhatsApp service and setup Socket.IO
-  const { whatsappService } = require("./whatsappService");
+  const { whatsappService } = await import("./whatsappService");
   whatsappService.setSocketIO(io);
 
   // WhatsApp Integration Routes
