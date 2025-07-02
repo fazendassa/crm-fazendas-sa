@@ -8,6 +8,9 @@ import {
   pipelineStages,
   activeCampaignConfigs,
   activeCampaignWebhookLogs,
+  whatsappSessions,
+  whatsappMessages,
+  whatsappContacts,
   type User,
   type UpsertUser,
   type Company,
@@ -29,9 +32,16 @@ import {
   type ActiveCampaignWebhookLog,
   type InsertActiveCampaignConfig,
   type InsertActiveCampaignWebhookLog,
+  type WhatsappSession,
+  type InsertWhatsappSession,
+  type WhatsappMessage,
+  type InsertWhatsappMessage,
+  type WhatsappMessageWithRelations,
+  type WhatsappContact,
+  type InsertWhatsappContact,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, and, count, desc, ne, sql, isNotNull, sum } from "drizzle-orm";
+import { eq, ilike, and, or, count, desc, ne, sql, isNotNull, sum } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -110,6 +120,24 @@ export interface IStorage {
   // ActiveCampaign Webhook Logs
   createWebhookLog(log: InsertActiveCampaignWebhookLog): Promise<ActiveCampaignWebhookLog>;
   getWebhookLogs(configId?: number, limit?: number, offset?: number): Promise<ActiveCampaignWebhookLog[]>;
+
+  // WhatsApp Session operations
+  getWhatsappSessions(): Promise<WhatsappSession[]>;
+  getWhatsappSession(id: number): Promise<WhatsappSession | undefined>;
+  createWhatsappSession(session: InsertWhatsappSession): Promise<WhatsappSession>;
+  updateWhatsappSession(id: number, session: Partial<InsertWhatsappSession>): Promise<WhatsappSession>;
+  deleteWhatsappSession(id: number): Promise<void>;
+
+  // WhatsApp Contact operations
+  getWhatsappContacts(sessionId?: number): Promise<WhatsappContact[]>;
+  getWhatsappContact(phoneNumber: string): Promise<WhatsappContact | undefined>;
+  createWhatsappContact(contact: InsertWhatsappContact): Promise<WhatsappContact>;
+  updateWhatsappContact(id: number, contact: Partial<InsertWhatsappContact>): Promise<WhatsappContact>;
+
+  // WhatsApp Message operations
+  getWhatsappMessages(phoneNumber?: string, sessionId?: number, limit?: number, offset?: number): Promise<WhatsappMessageWithRelations[]>;
+  createWhatsappMessage(message: InsertWhatsappMessage): Promise<WhatsappMessage>;
+  updateWhatsappMessage(id: number, message: Partial<InsertWhatsappMessage>): Promise<WhatsappMessage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1281,6 +1309,129 @@ export class DatabaseStorage implements IStorage {
     }
 
     return await baseQuery;
+  }
+
+  // WhatsApp Session operations
+  async getWhatsappSessions(): Promise<WhatsappSession[]> {
+    return await db.select().from(whatsappSessions).orderBy(desc(whatsappSessions.createdAt));
+  }
+
+  async getWhatsappSession(id: number): Promise<WhatsappSession | undefined> {
+    const [session] = await db.select().from(whatsappSessions).where(eq(whatsappSessions.id, id));
+    return session;
+  }
+
+  async createWhatsappSession(session: InsertWhatsappSession): Promise<WhatsappSession> {
+    const [newSession] = await db.insert(whatsappSessions).values(session).returning();
+    return newSession;
+  }
+
+  async updateWhatsappSession(id: number, session: Partial<InsertWhatsappSession>): Promise<WhatsappSession> {
+    const [updatedSession] = await db
+      .update(whatsappSessions)
+      .set({ ...session, updatedAt: new Date() })
+      .where(eq(whatsappSessions.id, id))
+      .returning();
+    return updatedSession;
+  }
+
+  async deleteWhatsappSession(id: number): Promise<void> {
+    await db.delete(whatsappSessions).where(eq(whatsappSessions.id, id));
+  }
+
+  // WhatsApp Contact operations
+  async getWhatsappContacts(sessionId?: number): Promise<WhatsappContact[]> {
+    const query = db.select().from(whatsappContacts).orderBy(desc(whatsappContacts.updatedAt));
+    
+    if (sessionId) {
+      return await query;
+    }
+    
+    return await query;
+  }
+
+  async getWhatsappContact(phoneNumber: string): Promise<WhatsappContact | undefined> {
+    const [contact] = await db.select().from(whatsappContacts).where(eq(whatsappContacts.phoneNumber, phoneNumber));
+    return contact;
+  }
+
+  async createWhatsappContact(contact: InsertWhatsappContact): Promise<WhatsappContact> {
+    const [newContact] = await db.insert(whatsappContacts).values(contact).returning();
+    return newContact;
+  }
+
+  async updateWhatsappContact(id: number, contact: Partial<InsertWhatsappContact>): Promise<WhatsappContact> {
+    const [updatedContact] = await db
+      .update(whatsappContacts)
+      .set({ ...contact, updatedAt: new Date() })
+      .where(eq(whatsappContacts.id, id))
+      .returning();
+    return updatedContact;
+  }
+
+  // WhatsApp Message operations
+  async getWhatsappMessages(phoneNumber?: string, sessionId?: number, limit = 100, offset = 0): Promise<WhatsappMessageWithRelations[]> {
+    const baseQuery = db
+      .select({
+        id: whatsappMessages.id,
+        sessionId: whatsappMessages.sessionId,
+        messageId: whatsappMessages.messageId,
+        fromNumber: whatsappMessages.fromNumber,
+        toNumber: whatsappMessages.toNumber,
+        messageType: whatsappMessages.messageType,
+        content: whatsappMessages.content,
+        mediaUrl: whatsappMessages.mediaUrl,
+        timestamp: whatsappMessages.timestamp,
+        isIncoming: whatsappMessages.isIncoming,
+        contactId: whatsappMessages.contactId,
+        dealId: whatsappMessages.dealId,
+        status: whatsappMessages.status,
+        createdAt: whatsappMessages.createdAt,
+        session: whatsappSessions,
+        contact: contacts,
+        deal: deals,
+      })
+      .from(whatsappMessages)
+      .leftJoin(whatsappSessions, eq(whatsappMessages.sessionId, whatsappSessions.id))
+      .leftJoin(contacts, eq(whatsappMessages.contactId, contacts.id))
+      .leftJoin(deals, eq(whatsappMessages.dealId, deals.id))
+      .orderBy(desc(whatsappMessages.timestamp))
+      .limit(limit)
+      .offset(offset);
+
+    const conditions = [];
+    if (phoneNumber) {
+      conditions.push(
+        and(
+          eq(whatsappMessages.fromNumber, phoneNumber),
+          eq(whatsappMessages.toNumber, phoneNumber)
+        )
+      );
+    }
+
+    if (sessionId) {
+      conditions.push(eq(whatsappMessages.sessionId, sessionId));
+    }
+
+    if (conditions.length > 0) {
+      return await baseQuery.where(and(...conditions)) as WhatsappMessageWithRelations[];
+    }
+
+    return await baseQuery as WhatsappMessageWithRelations[];
+  }
+
+  async createWhatsappMessage(message: InsertWhatsappMessage): Promise<WhatsappMessage> {
+    const [newMessage] = await db.insert(whatsappMessages).values(message).returning();
+    return newMessage;
+  }
+
+  async updateWhatsappMessage(id: number, message: Partial<InsertWhatsappMessage>): Promise<WhatsappMessage> {
+    const [updatedMessage] = await db
+      .update(whatsappMessages)
+      .set(message)
+      .where(eq(whatsappMessages.id, id))
+      .returning();
+    return updatedMessage;
   }
 }
 

@@ -15,6 +15,7 @@ import Admin from "@/pages/admin";
 import UserManagement from "@/pages/user-management";
 import ContactImport from "@/pages/contact-import";
 import ActiveCampaignConfig from "@/pages/ActiveCampaignConfig";
+import WhatsApp from "@/pages/whatsapp-simple";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { lazy, Suspense } from 'react';
@@ -68,6 +69,7 @@ function Router() {
             <Route path="/pipeline" component={Pipeline} />
             <Route path="/activities" component={Activities} />
             <Route path="/integrations/activecampaign" component={ActiveCampaignConfig} />
+            <Route path="/whatsapp" component={WhatsApp} />
             <Route path="/admin" component={Admin} />
             <Route path="/users" component={UserManagement} />
             <Route component={NotFound} />
