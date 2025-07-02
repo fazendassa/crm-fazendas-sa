@@ -1,8 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import helmet from "helmet";
+import cors from "cors";
+import { pool } from "./db";
 
 const app = express();
+app.use(helmet());
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -36,16 +41,28 @@ app.use((req, res, next) => {
   next();
 });
 
+// Test database connection
+async function testDatabaseConnection() {
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    console.log('✅ Database connection successful');
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    return false;
+  }
+}
+
 (async () => {
+  // Test database connection before starting server
+  const dbConnected = await testDatabaseConnection();
+  if (!dbConnected) {
+    console.error('Failed to connect to database. Server will start but some features may not work.');
+  }
+
   const server = await registerRoutes(app);
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
