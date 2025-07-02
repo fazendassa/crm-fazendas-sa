@@ -838,10 +838,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Session name is required" });
       }
 
+      // First, create the session in the database
+      const newSession = await storage.createWhatsappSession({
+        sessionName,
+        status: 'disconnected',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Then, create the WhatsApp session
       const result = await whatsappService.createSession(sessionName);
       if (result.success) {
-        res.json({ message: "Session created successfully", qrCode: result.qrCode });
+        res.json({ 
+          message: "Session created successfully", 
+          qrCode: result.qrCode,
+          session: newSession
+        });
       } else {
+        // If WhatsApp session creation fails, update the database status
+        await storage.updateWhatsappSession(newSession.id, { status: 'error' });
         res.status(400).json({ message: result.error });
       }
     } catch (error) {
