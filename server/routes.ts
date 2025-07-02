@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./storage-broken";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import multer from "multer";
 import * as XLSX from "xlsx";
@@ -1185,6 +1185,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error in test webhook:", error);
       res.status(500).json({ message: "Failed to test webhook" });
+    }
+  });
+
+  // WhatsApp routes
+  app.get('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const sessions = await storage.getWhatsappSessions();
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching WhatsApp sessions:", error);
+      res.status(500).json({ message: "Failed to fetch WhatsApp sessions" });
+    }
+  });
+
+  app.post('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const { sessionName } = req.body;
+      if (!sessionName) {
+        return res.status(400).json({ message: "Session name is required" });
+      }
+
+      const newSession = await storage.createWhatsappSession({
+        sessionName,
+        status: 'disconnected',
+        isActive: true,
+      });
+
+      res.json(newSession);
+    } catch (error) {
+      console.error("Error creating WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to create WhatsApp session" });
+    }
+  });
+
+  app.post('/api/whatsapp/sessions/:id/connect', isAuthenticated, async (req: any, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const session = await storage.getWhatsappSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      // In a real implementation, you would use the whatsappService here
+      // For now, just update the status to connecting
+      await storage.updateWhatsappSession(sessionId, { status: 'connecting' });
+      
+      res.json({ success: true, message: "Connecting to WhatsApp..." });
+    } catch (error) {
+      console.error("Error connecting WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to connect WhatsApp session" });
+    }
+  });
+
+  app.post('/api/whatsapp/sessions/:id/disconnect', isAuthenticated, async (req: any, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const session = await storage.getWhatsappSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      await storage.updateWhatsappSession(sessionId, { status: 'disconnected' });
+      
+      res.json({ success: true, message: "Disconnected from WhatsApp" });
+    } catch (error) {
+      console.error("Error disconnecting WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to disconnect WhatsApp session" });
+    }
+  });
+
+  app.get('/api/whatsapp/contacts', isAuthenticated, async (req: any, res) => {
+    try {
+      const { sessionId } = req.query;
+      const contacts = await storage.getWhatsappContacts(sessionId ? parseInt(sessionId) : undefined);
+      res.json(contacts);
+    } catch (error) {
+      console.error("Error fetching WhatsApp contacts:", error);
+      res.status(500).json({ message: "Failed to fetch WhatsApp contacts" });
+    }
+  });
+
+  app.get('/api/whatsapp/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const { phoneNumber, sessionId, limit = 100, offset = 0 } = req.query;
+      const messages = await storage.getWhatsappMessages(
+        phoneNumber as string,
+        sessionId ? parseInt(sessionId as string) : undefined,
+        parseInt(limit as string),
+        parseInt(offset as string)
+      );
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching WhatsApp messages:", error);
+      res.status(500).json({ message: "Failed to fetch WhatsApp messages" });
+    }
+  });
+
+  app.post('/api/whatsapp/send-message', isAuthenticated, async (req: any, res) => {
+    try {
+      const { sessionId, phoneNumber, message } = req.body;
+      
+      if (!sessionId || !phoneNumber || !message) {
+        return res.status(400).json({ message: "Session ID, phone number, and message are required" });
+      }
+
+      // In a real implementation, you would use the whatsappService here
+      // For now, just save the message as sent
+      const session = await storage.getWhatsappSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const newMessage = await storage.createWhatsappMessage({
+        sessionId,
+        messageId: `${Date.now()}-${Math.random()}`,
+        fromNumber: session.phoneNumber || '',
+        toNumber: phoneNumber,
+        messageType: 'text',
+        content: message,
+        timestamp: new Date(),
+        isIncoming: false,
+        status: 'sent',
+      });
+
+      res.json({ success: true, message: newMessage });
+    } catch (error) {
+      console.error("Error sending WhatsApp message:", error);
+      res.status(500).json({ message: "Failed to send WhatsApp message" });
     }
   });
 
