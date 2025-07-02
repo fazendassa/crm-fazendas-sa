@@ -1,10 +1,10 @@
-import { create, Whatsapp } from '@wppconnect-team/wppconnect';
+import * as wppconnect from '@wppconnect-team/wppconnect';
 import { Server as SocketIOServer } from 'socket.io';
 import { storage } from './storage-broken';
 import type { WhatsappSession, InsertWhatsappMessage, InsertWhatsappContact } from '@shared/schema';
 
 interface WhatsappClient {
-  client: Whatsapp;
+  client: wppconnect.Whatsapp;
   sessionName: string;
   status: 'connected' | 'disconnected' | 'connecting' | 'error';
   phoneNumber?: string;
@@ -33,10 +33,10 @@ class WhatsappService {
 
       let qrCode: string | undefined;
 
-      const client = await create({
+      const client = await wppconnect.create({
         session: sessionName,
         catchQR: (base64Qr, asciiQR, attempt, urlCode) => {
-          console.log('QR CODE received:', asciiQR);
+          console.log('QR CODE received for session:', sessionName);
           qrCode = base64Qr;
           // Emit QR code to frontend
           this.io?.emit('qr-code', { sessionName, qrCode: base64Qr });
@@ -47,13 +47,20 @@ class WhatsappService {
           
           this.updateSessionStatus(sessionName, statusSession as any);
           this.io?.emit('session-status', { sessionName, status: statusSession });
+          
+          if (statusSession === 'authenticated' || statusSession === 'isLogged') {
+            this.updateSessionStatus(sessionName, 'connected');
+            this.io?.emit('session-status', { sessionName, status: 'connected' });
+          }
         },
         headless: true,
         devtools: false,
         useChrome: true,
         debug: false,
         logQR: false,
-        browserWS: '',
+        disableWelcome: true,
+        updatesLog: false,
+        autoClose: 60000,
         browserArgs: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -61,7 +68,9 @@ class WhatsappService {
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
           '--no-zygote',
-          '--disable-gpu'
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor'
         ],
       });
 

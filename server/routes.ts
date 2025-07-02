@@ -806,11 +806,206 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-  // ActiveCampaign Integration Routes
+  
+  // Setup Socket.IO for WhatsApp integration
+  const { Server } = require("socket.io");
+  const io = new Server(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    }
+  });
 
-  // Get user's ActiveCampaign configurations
+  // Import WhatsApp service and setup Socket.IO
+  const { whatsappService } = require("./whatsappService");
+  whatsappService.setSocketIO(io);
+
+  // WhatsApp Integration Routes
+  app.get("/api/whatsapp/sessions", isAuthenticated, async (req, res) => {
+    try {
+      const sessions = await storage.getWhatsappSessions();
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching WhatsApp sessions:", error);
+      res.status(500).json({ message: "Failed to fetch WhatsApp sessions" });
+    }
+  });
+
+  app.post("/api/whatsapp/sessions", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionName } = req.body;
+      if (!sessionName) {
+        return res.status(400).json({ message: "Session name is required" });
+      }
+
+      const result = await whatsappService.createSession(sessionName);
+      if (result.success) {
+        res.json({ message: "Session created successfully", qrCode: result.qrCode });
+      } else {
+        res.status(400).json({ message: result.error });
+      }
+    } catch (error) {
+      console.error("Error creating WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to create WhatsApp session" });
+    }
+  });
+
+  app.post("/api/whatsapp/sessions/:id/connect", isAuthenticated, async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const session = await storage.getWhatsappSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const result = await whatsappService.createSession(session.sessionName);
+      if (result.success) {
+        res.json({ message: "Session connected successfully", qrCode: result.qrCode });
+      } else {
+        res.status(400).json({ message: result.error });
+      }
+    } catch (error) {
+      console.error("Error connecting WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to connect WhatsApp session" });
+    }
+  });
+
+  app.post("/api/whatsapp/sessions/:id/disconnect", isAuthenticated, async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const session = await storage.getWhatsappSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const result = await whatsappService.disconnectSession(session.sessionName);
+      if (result.success) {
+        res.json({ message: "Session disconnected successfully" });
+      } else {
+        res.status(400).json({ message: result.error });
+      }
+    } catch (error) {
+      console.error("Error disconnecting WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to disconnect WhatsApp session" });
+    }
+  });
+
+  app.post("/api/whatsapp/send-message", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionId, phoneNumber, message } = req.body;
+      
+      if (!sessionId || !phoneNumber || !message) {
+        return res.status(400).json({ message: "Session ID, phone number, and message are required" });
+      }
+
+      const session = await storage.getWhatsappSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const result = await whatsappService.sendMessage(session.sessionName, phoneNumber, message);
+      if (result.success) {
+        res.json({ message: "Message sent successfully" });
+      } else {
+        res.status(400).json({ message: result.error });
+      }
+    } catch (error) {
+      console.error("Error sending WhatsApp message:", error);
+      res.status(500).json({ message: "Failed to send WhatsApp message" });
+    }
+  });
+
+  app.get("/api/whatsapp/contacts", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionId } = req.query;
+      const contacts = await storage.getWhatsappContacts(sessionId ? parseInt(sessionId as string) : undefined);
+      res.json(contacts);
+    } catch (error) {
+      console.error("Error fetching WhatsApp contacts:", error);
+      res.status(500).json({ message: "Failed to fetch WhatsApp contacts" });
+    }
+  });
+
+  app.get("/api/whatsapp/messages", isAuthenticated, async (req, res) => {
+    try {
+      const { sessionId, phoneNumber } = req.query;
+      const messages = await storage.getWhatsappMessages(
+        sessionId ? parseInt(sessionId as string) : undefined,
+        phoneNumber as string
+      );
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching WhatsApp messages:", error);
+      res.status(500).json({ message: "Failed to fetch WhatsApp messages" });
+    }
+  });
+
+  // ActiveCampaign Integration Routes
   app.get("/api/integrations/activecampaign/configs", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
       const configs = await storage.getActiveCampaignConfigs(userId);
-      res
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching ActiveCampaign configs:", error);
+      res.status(500).json({ message: "Failed to fetch ActiveCampaign configs" });
+    }
+  });
+
+  app.post("/api/integrations/activecampaign/configs", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { name, apiUrl, apiKey } = req.body;
+
+      if (!name || !apiUrl || !apiKey) {
+        return res.status(400).json({ message: "Name, API URL, and API Key are required" });
+      }
+
+      const config = await storage.createActiveCampaignConfig({
+        userId,
+        name,
+        apiUrl,
+        apiKey,
+        isActive: true,
+      });
+
+      res.status(201).json(config);
+    } catch (error) {
+      console.error("Error creating ActiveCampaign config:", error);
+      res.status(500).json({ message: "Failed to create ActiveCampaign config" });
+    }
+  });
+
+  app.put("/api/integrations/activecampaign/configs/:id", isAuthenticated, async (req, res) => {
+    try {
+      const configId = parseInt(req.params.id);
+      const { name, apiUrl, apiKey, isActive } = req.body;
+
+      const config = await storage.updateActiveCampaignConfig(configId, {
+        name,
+        apiUrl,
+        apiKey,
+        isActive,
+      });
+
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating ActiveCampaign config:", error);
+      res.status(500).json({ message: "Failed to update ActiveCampaign config" });
+    }
+  });
+
+  app.delete("/api/integrations/activecampaign/configs/:id", isAuthenticated, async (req, res) => {
+    try {
+      const configId = parseInt(req.params.id);
+      await storage.deleteActiveCampaignConfig(configId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting ActiveCampaign config:", error);
+      res.status(500).json({ message: "Failed to delete ActiveCampaign config" });
+    }
+  });
+
+  return httpServer;
