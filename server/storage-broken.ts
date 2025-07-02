@@ -1402,7 +1402,7 @@ export class DatabaseStorage implements IStorage {
     const conditions = [];
     if (phoneNumber) {
       conditions.push(
-        and(
+        or(
           eq(whatsappMessages.fromNumber, phoneNumber),
           eq(whatsappMessages.toNumber, phoneNumber)
         )

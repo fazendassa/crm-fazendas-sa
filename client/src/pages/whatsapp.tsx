@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { io } from "socket.io-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +99,43 @@ export default function WhatsApp() {
   const [newSessionName, setNewSessionName] = useState("");
   const [qrCode, setQrCode] = useState<string | null>(null);
 
+  // Setup Socket.IO connection
+  useEffect(() => {
+    const socket = io();
+    
+    socket.on('qr-code', (data) => {
+      console.log('QR Code received:', data);
+      if (data.qrCode) {
+        setQrCode(data.qrCode);
+        toast({
+          title: "QR Code atualizado",
+          description: "Escaneie o código QR com seu WhatsApp",
+        });
+      }
+    });
+
+    socket.on('session-status', (data) => {
+      console.log('Session status update:', data);
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/sessions"] });
+      
+      if (data.status === 'connected') {
+        setQrCode(null);
+        toast({
+          title: "WhatsApp conectado!",
+          description: "Sessão conectada com sucesso",
+        });
+      }
+    });
+
+    socket.on('new-message', (data) => {
+      console.log('New message received:', data);
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/contacts"] });
+    });
+
+    return () => socket.disconnect();
+  }, [toast, queryClient]);
+
   // Fetch WhatsApp sessions
   const { data: sessions = [], isLoading: sessionsLoading } = useQuery<WhatsappSession[]>({
     queryKey: ["/api/whatsapp/sessions"],
@@ -157,17 +195,26 @@ export default function WhatsApp() {
         method: "POST",
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to connect session");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to connect session");
+      }
       return response.json();
     },
     onSuccess: (data) => {
+      console.log('Connect response:', data);
       if (data.qrCode) {
         setQrCode(data.qrCode);
+        toast({
+          title: "QR Code gerado",
+          description: "Escaneie o código QR com seu WhatsApp",
+        });
+      } else {
+        toast({
+          title: "Conectando",
+          description: "Iniciando conexão WhatsApp...",
+        });
       }
-      toast({
-        title: "Conectando",
-        description: "Iniciando conexão WhatsApp...",
-      });
       queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/sessions"] });
     },
     onError: (error: any) => {
