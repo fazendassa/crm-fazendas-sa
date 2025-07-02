@@ -15,7 +15,7 @@ import Admin from "@/pages/admin";
 import UserManagement from "@/pages/user-management";
 import ContactImport from "@/pages/contact-import";
 import ActiveCampaignConfig from "@/pages/ActiveCampaignConfig";
-import WhatsApp from "@/pages/whatsapp-simple";
+import WhatsApp from "@/pages/whatsapp-real";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { lazy, Suspense } from 'react';
