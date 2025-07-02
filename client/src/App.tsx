@@ -40,27 +40,21 @@ function Router() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-white">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50">
           <Switch>
             <Route path="/" component={Dashboard} />
-            <Route path="/contacts">
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
-                <Contacts />
-              </Suspense>
-            </Route>
+            <Route path="/contacts" component={Contacts} />
             <Route path="/contacts/:id">
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
-                 {/* @ts-expect-error */}
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>}>
                 <Route path="/contacts/:id" component={lazy(() => import("./pages/contact-detail"))} />
               </Suspense>
             </Route>
             <Route path="/contact-import">
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
-                 {/* @ts-expect-error */}
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>}>
                 <Route path="/contact-import" component={lazy(() => import("./pages/contact-import"))} />
               </Suspense>
             </Route>
