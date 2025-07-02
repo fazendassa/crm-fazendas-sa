@@ -1,134 +1,153 @@
-import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import {
-  Home,
-  Users,
-  Building2,
-  BarChart3,
-  Activity,
-  Settings,
-  UserCog,
-  ChevronLeft,
-  ChevronRight,
-  Upload
-} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { usePermissions } from "@/hooks/usePermissions";
+import { usePermissions, useRoutePermissions } from "@/hooks/usePermissions";
+import { 
+  LayoutDashboard, 
+  Users, 
+  Building2, 
+  TrendingUp, 
+  Activity, 
+  Settings,
+  DollarSign,
+  BarChart3,
+  LogOut,
+  Zap
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ROLE_LABELS } from "@shared/rbac";
 
-const sidebarItems = [
-  { icon: Home, label: "Dashboard", href: "/" },
-  { icon: Users, label: "Contatos", href: "/contacts" },
-  { icon: Building2, label: "Empresas", href: "/companies" },
-  { icon: BarChart3, label: "Pipeline", href: "/pipeline" },
-  { icon: Activity, label: "Atividades", href: "/activities" },
-  { icon: Upload, label: "Importar Contatos", href: "/contact-import" },
-];
-
-const adminItems = [
-  { icon: Settings, label: "Administração", href: "/admin" },
-  { icon: UserCog, label: "Usuários", href: "/user-management" },
+const navigation = [
+  { 
+    name: 'Dashboard', 
+    href: '/', 
+    icon: LayoutDashboard,
+    permission: 'view:dashboard' as const
+  },
+  { 
+    name: 'Contatos', 
+    href: '/contacts', 
+    icon: Users,
+    permission: 'view:contacts' as const
+  },
+  { 
+    name: 'Empresas', 
+    href: '/companies', 
+    icon: Building2,
+    permission: 'view:companies' as const
+  },
+  { 
+    name: 'Pipeline', 
+    href: '/pipeline', 
+    icon: TrendingUp,
+    permission: 'view:pipelines' as const
+  },
+  { 
+    name: 'Atividades', 
+    href: '/activities', 
+    icon: Activity,
+    permission: 'view:activities' as const
+  },
+  { 
+    name: 'Financeiro', 
+    href: '/billing', 
+    icon: DollarSign,
+    permission: 'view:billing' as const
+  },
+  { 
+    name: 'Relatórios', 
+    href: '/reports', 
+    icon: BarChart3,
+    permission: 'view:team_reports' as const,
+    fallbackPermission: 'view:own_reports' as const
+  },
+  { 
+    name: 'Usuários', 
+    href: '/users', 
+    icon: Users,
+    permission: 'view:users' as const
+  },
+  { 
+    name: 'ActiveCampaign', 
+    href: '/integrations/activecampaign', 
+    icon: Zap,
+    permission: 'manage:settings' as const
+  },
+  { 
+    name: 'Administração', 
+    href: '/admin', 
+    icon: Settings,
+    permission: 'manage:settings' as const
+  },
 ];
 
 export default function Sidebar() {
   const [location] = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
   const { user } = useAuth();
-  const { canManageUsers } = usePermissions();
+  const permissions = usePermissions();
 
   return (
-    <div className={cn(
-      "bg-white border-r border-gray-200 transition-all duration-300 flex flex-col h-full",
-      collapsed ? "w-16" : "w-64"
-    )}>
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        {!collapsed && (
-          <h2 className="text-lg font-semibold text-gray-900">CRM</h2>
-        )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-        >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
+    <div className="hidden md:flex md:flex-col md:w-64 apple-sidebar">
+      <div className="flex items-center justify-center h-20 px-6 border-b apple-divider">
+        <h1 className="apple-title text-xl text-gray-900">Fazendas S/A</h1>
       </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 p-2 space-y-1">
-        {sidebarItems.map((item) => {
-          const Icon = item.icon;
+      <nav className="flex-1 px-4 py-8 space-y-1">
+        {navigation.map((item) => {
           const isActive = location === item.href;
-
+          const Icon = item.icon;
+          
+          // Verificar permissões para mostrar o item do menu
+          const hasAccess = (item as any).fallbackPermission 
+            ? permissions.hasPermission((item as any).permission) || permissions.hasPermission((item as any).fallbackPermission)
+            : permissions.hasPermission((item as any).permission);
+          
+          if (!hasAccess) {
+            return null;
+          }
+          
           return (
-            <Link key={item.href} href={item.href}>
-              <a className={cn(
-                "flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                isActive 
-                  ? "bg-blue-50 text-blue-600 border border-blue-200" 
-                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-              )}>
-                <Icon size={18} className={cn(
-                  "flex-shrink-0",
-                  collapsed ? "mx-auto" : "mr-3"
-                )} />
-                {!collapsed && <span>{item.label}</span>}
-              </a>
+            <Link key={item.name} href={item.href}>
+              <div
+                className={cn(
+                  "flex items-center px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer apple-fade-in",
+                  isActive 
+                    ? "bg-blue-500 text-white shadow-sm" 
+                    : "text-gray-700 hover:bg-gray-100 active:bg-gray-200"
+                )}
+              >
+                <Icon className="mr-3 h-5 w-5" />
+                <span className="apple-body">{item.name}</span>
+              </div>
             </Link>
           );
         })}
-
-        {canManageUsers && (
-          <>
-            <div className="my-4 border-t border-gray-200"></div>
-            {adminItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location === item.href;
-
-              return (
-                <Link key={item.href} href={item.href}>
-                  <a className={cn(
-                    "flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    isActive 
-                      ? "bg-blue-50 text-blue-600 border border-blue-200" 
-                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                  )}>
-                    <Icon size={18} className={cn(
-                      "flex-shrink-0",
-                      collapsed ? "mx-auto" : "mr-3"
-                    )} />
-                    {!collapsed && <span>{item.label}</span>}
-                  </a>
-                </Link>
-              );
-            })}
-          </>
-        )}
       </nav>
-
-      {/* User Info */}
-      {user && (
-        <div className="p-4 border-t border-gray-200">
-          <div className={cn(
-            "flex items-center",
-            collapsed ? "justify-center" : "space-x-3"
-          )}>
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-              <span className="text-xs font-medium text-white">
-                {user.email?.charAt(0).toUpperCase()}
-              </span>
-            </div>
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {user.email}
-                </p>
-                <p className="text-xs text-gray-500">Online</p>
-              </div>
-            )}
+      <div className="px-4 py-6 border-t apple-divider">
+        <div className="flex items-center mb-4 p-3 rounded-xl bg-gray-50">
+          <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+            {(user as any)?.firstName?.[0] || (user as any)?.email?.[0]?.toUpperCase() || 'U'}
+          </div>
+          <div className="ml-3 flex-1">
+            <p className="apple-subheader text-sm">
+              {(user as any)?.firstName && (user as any)?.lastName 
+                ? `${(user as any).firstName} ${(user as any).lastName}`
+                : (user as any)?.email
+              }
+            </p>
+            <p className="apple-text-muted text-xs">
+              {(user as any)?.role === 'admin' ? 'Administrador' : 'Usuário'}
+            </p>
           </div>
         </div>
-      )}
+        <div 
+          className="flex items-center justify-center px-4 py-3 rounded-xl apple-button-secondary cursor-pointer transition-all duration-200 hover:scale-95"
+          onClick={() => window.location.href = '/api/logout'}
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          <span className="apple-body font-medium">Sair</span>
+        </div>
+      </div>
     </div>
   );
 }
