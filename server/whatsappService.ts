@@ -44,10 +44,10 @@ class WhatsappService {
         statusFind: (statusSession, session) => {
           console.log('Status Session: ', statusSession);
           console.log('Session name: ', session);
-          
+
           this.updateSessionStatus(sessionName, statusSession as any);
           this.io?.emit('session-status', { sessionName, status: statusSession });
-          
+
           if (statusSession === 'authenticated' || statusSession === 'isLogged') {
             this.updateSessionStatus(sessionName, 'connected');
             this.io?.emit('session-status', { sessionName, status: 'connected' });
@@ -107,7 +107,7 @@ class WhatsappService {
 
       await clientData.client.close();
       this.clients.delete(sessionName);
-      
+
       await this.updateSessionStatus(sessionName, 'disconnected');
       this.io?.emit('session-status', { sessionName, status: 'disconnected' });
 
@@ -127,7 +127,7 @@ class WhatsappService {
 
       // Format phone number for WhatsApp (remove spaces, add country code if needed)
       const formattedNumber = this.formatPhoneNumber(phoneNumber);
-      
+
       await clientData.client.sendText(`${formattedNumber}@c.us`, message);
 
       // Save message to database
@@ -160,7 +160,7 @@ class WhatsappService {
 
       // Extract phone number from message
       const fromNumber = message.from.replace('@c.us', '');
-      
+
       // Create or update WhatsApp contact
       let whatsappContact = await storage.getWhatsappContact(fromNumber);
       if (!whatsappContact) {
@@ -244,14 +244,14 @@ class WhatsappService {
   private formatPhoneNumber(phoneNumber: string): string {
     // Remove all non-digits
     let cleaned = phoneNumber.replace(/\D/g, '');
-    
+
     // Add country code if not present (assuming Brazil +55)
     if (cleaned.length === 11 && !cleaned.startsWith('55')) {
       cleaned = '55' + cleaned;
     } else if (cleaned.length === 10 && !cleaned.startsWith('55')) {
       cleaned = '55' + cleaned;
     }
-    
+
     return cleaned;
   }
 
