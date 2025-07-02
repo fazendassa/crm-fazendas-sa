@@ -806,12 +806,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-  
+
   // Setup Socket.IO for WhatsApp integration
   const { Server } = require("socket.io");
   const io = new Server(httpServer, {
     cors: {
       origin: "*",
+```
       methods: ["GET", "POST"]
     }
   });
@@ -854,7 +855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sessionId = parseInt(req.params.id);
       const session = await storage.getWhatsappSession(sessionId);
-      
+
       if (!session) {
         return res.status(404).json({ message: "Session not found" });
       }
@@ -875,7 +876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sessionId = parseInt(req.params.id);
       const session = await storage.getWhatsappSession(sessionId);
-      
+
       if (!session) {
         return res.status(404).json({ message: "Session not found" });
       }
@@ -895,7 +896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/whatsapp/send-message", isAuthenticated, async (req, res) => {
     try {
       const { sessionId, phoneNumber, message } = req.body;
-      
+
       if (!sessionId || !phoneNumber || !message) {
         return res.status(400).json({ message: "Session ID, phone number, and message are required" });
       }
@@ -1009,3 +1010,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   return httpServer;
+}
