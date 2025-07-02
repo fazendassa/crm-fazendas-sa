@@ -1370,44 +1370,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // WhatsApp Message operations
-  async getWhatsappMessages(sessionId?: number, phoneNumber?: string): Promise<WhatsappMessage[]> {
-    let query = db.select().from(whatsappMessages).orderBy(whatsappMessages.timestamp);
-    
-    if (sessionId) {
-      query = query.where(eq(whatsappMessages.sessionId, sessionId)) as any;
-    }
-    
-    if (phoneNumber) {
-      query = query.where(or(
-        eq(whatsappMessages.fromNumber, phoneNumber),
-        eq(whatsappMessages.toNumber, phoneNumber)
-      )) as any;
-    }
-    
-    return await query;
-  }
-
-  async createWhatsappMessage(message: InsertWhatsappMessage): Promise<WhatsappMessage> {
-    const [newMessage] = await db.insert(whatsappMessages).values(message).returning();
-    return newMessage;phoneNumber, phoneNumber));
-    return contact;
-  }
-
-  async createWhatsappContact(contact: InsertWhatsappContact): Promise<WhatsappContact> {
-    const [newContact] = await db.insert(whatsappContacts).values(contact).returning();
-    return newContact;
-  }
-
-  async updateWhatsappContact(id: number, contact: Partial<InsertWhatsappContact>): Promise<WhatsappContact> {
-    const [updatedContact] = await db
-      .update(whatsappContacts)
-      .set({ ...contact, updatedAt: new Date() })
-      .where(eq(whatsappContacts.id, id))
-      .returning();
-    return updatedContact;
-  }
-
-  // WhatsApp Message operations
   async getWhatsappMessages(phoneNumber?: string, sessionId?: number, limit = 100, offset = 0): Promise<WhatsappMessageWithRelations[]> {
     const baseQuery = db
       .select({
@@ -1440,7 +1402,7 @@ export class DatabaseStorage implements IStorage {
     const conditions = [];
     if (phoneNumber) {
       conditions.push(
-        and(
+        or(
           eq(whatsappMessages.fromNumber, phoneNumber),
           eq(whatsappMessages.toNumber, phoneNumber)
         )
