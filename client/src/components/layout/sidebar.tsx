@@ -88,11 +88,11 @@ export default function Sidebar() {
   const permissions = usePermissions();
 
   return (
-    <div className="hidden md:flex md:flex-col md:w-64 bg-white shadow-lg">
-      <div className="flex items-center justify-center h-16 bg-[#2b2b2b]">
-        <h1 className="text-white text-xl font-bold">Fazendas S/A crm</h1>
+    <div className="hidden md:flex md:flex-col md:w-64 apple-sidebar">
+      <div className="flex items-center justify-center h-20 px-6 border-b apple-divider">
+        <h1 className="apple-title text-xl text-gray-900">Fazendas S/A</h1>
       </div>
-      <nav className="flex-1 px-4 py-6 space-y-2">
+      <nav className="flex-1 px-4 py-8 space-y-1">
         {navigation.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;
@@ -108,48 +108,45 @@ export default function Sidebar() {
           
           return (
             <Link key={item.name} href={item.href}>
-              <Button
-                variant="ghost"
+              <div
                 className={cn(
-                  "w-full justify-start text-left font-medium",
+                  "flex items-center px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer apple-fade-in",
                   isActive 
-                    ? "bg-primary text-white hover:bg-primary/90" 
-                    : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-blue-500 text-white shadow-sm" 
+                    : "text-gray-700 hover:bg-gray-100 active:bg-gray-200"
                 )}
               >
-                <Icon className="mr-3 h-4 w-4" />
-                {item.name}
-              </Button>
+                <Icon className="mr-3 h-5 w-5" />
+                <span className="apple-body">{item.name}</span>
+              </div>
             </Link>
           );
         })}
       </nav>
-      <div className="px-4 py-4 border-t">
-        <div className="flex items-center mb-3">
-          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-medium">
-            {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+      <div className="px-4 py-6 border-t apple-divider">
+        <div className="flex items-center mb-4 p-3 rounded-xl bg-gray-50">
+          <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+            {(user as any)?.firstName?.[0] || (user as any)?.email?.[0]?.toUpperCase() || 'U'}
           </div>
-          <div className="ml-3">
-            <p className="text-sm font-medium text-gray-700">
-              {user?.firstName && user?.lastName 
-                ? `${user.firstName} ${user.lastName}`
-                : user?.email
+          <div className="ml-3 flex-1">
+            <p className="apple-subheader text-sm">
+              {(user as any)?.firstName && (user as any)?.lastName 
+                ? `${(user as any).firstName} ${(user as any).lastName}`
+                : (user as any)?.email
               }
             </p>
-            <p className="text-xs text-gray-500 capitalize">
-              {user?.role === 'admin' ? 'Administrador' : 'Usuário'}
+            <p className="apple-text-muted text-xs">
+              {(user as any)?.role === 'admin' ? 'Administrador' : 'Usuário'}
             </p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="w-full"
+        <div 
+          className="flex items-center justify-center px-4 py-3 rounded-xl apple-button-secondary cursor-pointer transition-all duration-200 hover:scale-95"
           onClick={() => window.location.href = '/api/logout'}
         >
           <LogOut className="w-4 h-4 mr-2" />
-          Sair
-        </Button>
+          <span className="apple-body font-medium">Sair</span>
+        </div>
       </div>
     </div>
   );
