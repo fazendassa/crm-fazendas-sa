@@ -287,31 +287,33 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Pipeline</h2>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="apple-title text-3xl text-gray-900 mb-1">Pipeline</h2>
+          <p className="apple-text-muted">Gerencie seus deals em cada estágio</p>
+        </div>
+        <div className="flex gap-3">
+          <div
+            className="apple-button-secondary flex items-center gap-2 cursor-pointer"
             onClick={openReorderModal}
-            className="flex items-center gap-2"
           >
             <Settings2 className="w-4 h-4" />
-            Reordenar Estágios
-          </Button>
+            <span>Reordenar Estágios</span>
+          </div>
         </div>
       </div>
 
       {/* Stage Reorder Modal */}
       <Dialog open={isReorderModalOpen} onOpenChange={setIsReorderModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="apple-dialog max-w-md">
           <DialogHeader>
-            <DialogTitle>Reordenar Estágios</DialogTitle>
+            <DialogTitle className="apple-title text-xl text-gray-900">Reordenar Estágios</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+          <div className="space-y-6">
+            <p className="apple-text-muted">
               Use as setas para reordenar os estágios:
             </p>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {reorderStages.map((stage, index) => {
                 const isProspecção = stage.title === "Prospecção";
                 const isFechamento = stage.title === "Fechamento";
@@ -326,63 +328,65 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                 return (
                   <div
                     key={stage.id}
-                    className={`flex items-center justify-between p-3 border rounded-lg ${
-                      isFixed ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                    className={`flex items-center justify-between p-4 rounded-xl transition-all duration-200 ${
+                      isFixed ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       <div 
-                        className="w-4 h-4 rounded-full flex-shrink-0" 
-                        style={{ backgroundColor: stage.color }}
+                        className="w-5 h-5 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: stage.color || "#3b82f6" }}
                       ></div>
-                      <span className="font-medium">{stage.title}</span>
+                      <span className="apple-subheader">{stage.title}</span>
                       {isFixed && (
-                        <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                        <span className="apple-badge-blue">
                           Fixo
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => moveStageUp(stage.id)}
-                        disabled={!canMoveUp}
+                    <div className="flex gap-2">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 cursor-pointer ${
+                          canMoveUp 
+                            ? 'bg-white border border-gray-200 hover:bg-gray-50 active:bg-gray-100' 
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                        onClick={() => canMoveUp && moveStageUp(stage.id)}
                         title={!canMoveUp ? "Não pode mover para cima" : "Mover para cima"}
                       >
                         <ChevronUp className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => moveStageDown(stage.id)}
-                        disabled={!canMoveDown}
+                      </div>
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 cursor-pointer ${
+                          canMoveDown 
+                            ? 'bg-white border border-gray-200 hover:bg-gray-50 active:bg-gray-100' 
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                        onClick={() => canMoveDown && moveStageDown(stage.id)}
                         title={!canMoveDown ? "Não pode mover para baixo" : "Mover para baixo"}
                       >
                         <ChevronDown className="w-4 h-4" />
-                      </Button>
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <div className="flex gap-2 pt-4">
-              <Button 
-                onClick={saveStageOrder}
-                disabled={updateStagePositionsMutation.isPending}
-                className="flex-1"
+            <div className="flex gap-3 pt-6">
+              <div 
+                className={`apple-button flex-1 text-center cursor-pointer ${
+                  updateStagePositionsMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                onClick={() => !updateStagePositionsMutation.isPending && saveStageOrder()}
               >
                 {updateStagePositionsMutation.isPending ? "Salvando..." : "Salvar Ordem"}
-              </Button>
-              <Button 
-                variant="outline" 
+              </div>
+              <div 
+                className="apple-button-secondary flex-1 text-center cursor-pointer"
                 onClick={() => setIsReorderModalOpen(false)}
-                className="flex-1"
               >
                 Cancelar
-              </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
@@ -409,27 +413,25 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
       {/* Kanban Board */}
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-6 overflow-x-auto pb-6">
+        <div className="flex gap-8 overflow-x-auto pb-8">
           {kanbanColumns.map((column) => (
             <div key={column.id} className="flex-shrink-0 w-80">
-              <div className="bg-gray-100 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
+              <div className="apple-card p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
                     <div
-                      className="w-3 h-3 rounded-full"
+                      className="w-4 h-4 rounded-full"
                       style={{ backgroundColor: column.color }}
                     />
-                    <h3 className="font-semibold text-gray-900">{column.title}</h3>
-                    <Badge variant="secondary">{column.deals.length}</Badge>
+                    <h3 className="apple-subheader text-gray-900">{column.title}</h3>
+                    <span className="apple-badge">{column.deals.length}</span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <div
+                    className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center cursor-pointer transition-all duration-200"
                     onClick={() => handleDeleteStage(column.id)}
-                    className="text-red-600 hover:text-red-700"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </div>
                 </div>
 
                 <Droppable droppableId={column.id}>
@@ -437,9 +439,9 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className={`min-h-[200px] space-y-3 ${
-                        snapshot.isDraggingOver ? "bg-blue-50" : ""
-                      } rounded-lg p-2`}
+                      className={`min-h-[300px] space-y-4 ${
+                        snapshot.isDraggingOver ? "bg-blue-50/50" : "bg-gray-50"
+                      } rounded-2xl p-4 transition-all duration-200`}
                     >
                       {column.deals.map((deal, index) => (
                         <Draggable
@@ -448,63 +450,60 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                           index={index}
                         >
                           {(provided, snapshot) => (
-                            <Card
+                            <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
-                              className={`cursor-pointer hover:shadow-md transition-shadow ${
-                                snapshot.isDragging ? "shadow-lg" : ""
+                              className={`apple-card p-5 cursor-pointer transition-all duration-200 apple-fade-in ${
+                                snapshot.isDragging ? "shadow-xl scale-105" : "hover:shadow-lg hover:scale-[1.02]"
                               }`}
                               onClick={() => handleEditDeal(deal)}
                             >
-                              <CardContent className="p-4">
-                                <div className="space-y-3">
-                                  {/* Contact Name (replacing title) */}
-                                  <h4 className="font-medium text-gray-900 truncate">
-                                    {deal.contact?.name || "Sem contato"}
-                                  </h4>
+                              <div className="space-y-3">
+                                {/* Contact Name */}
+                                <h4 className="apple-subheader text-gray-900 truncate">
+                                  {deal.contact?.name || "Sem contato"}
+                                </h4>
 
-                                  {/* Deal Value */}
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <DollarSign className="w-4 h-4 text-green-600" />
-                                    <span className="font-semibold text-green-600">
-                                      {formatCurrency(deal.value)}
-                                    </span>
-                                  </div>
+                                {/* Deal Value */}
+                                <div className="flex items-center gap-2">
+                                  <DollarSign className="w-4 h-4 text-green-500" />
+                                  <span className="apple-text font-semibold text-green-500">
+                                    {formatCurrency(deal.value)}
+                                  </span>
+                                </div>
 
-                                  {/* Owner Avatar */}
-                                  {deal.ownerId && (
-                                    <div className="flex items-center gap-2">
-                                      <Avatar className="w-6 h-6">
-                                        <AvatarFallback className="text-xs">
-                                          {getInitials("Responsável")}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <span className="text-xs text-gray-500">
-                                        Responsável
+                                {/* Owner Avatar */}
+                                {deal.ownerId && (
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                      <span className="text-xs font-medium text-blue-600">
+                                        {getInitials("Responsável")}
                                       </span>
                                     </div>
-                                  )}
-                                </div>
-                              </CardContent>
-                            </Card>
+                                    <span className="apple-text-muted text-xs">
+                                      Responsável
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </Draggable>
                       ))}
                       {provided.placeholder}
 
                       {/* Add Deal Button */}
-                      <Button
-                        variant="ghost"
-                        className="w-full h-20 border-2 border-dashed border-gray-300 hover:border-gray-400"
+                      <div
+                        className="w-full h-20 border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/30 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-200 apple-fade-in"
                         onClick={() => {
                           setSelectedDeal(null);
                           setIsDealDialogOpen(true);
                         }}
                       >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Adicionar Deal
-                      </Button>
+                        <Plus className="w-5 h-5 mr-2 text-gray-500" />
+                        <span className="apple-text text-gray-500">Adicionar Deal</span>
+                      </div>
                     </div>
                   )}
                 </Droppable>
@@ -514,10 +513,11 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
 
           {/* Add Stage Column */}
           <div className="flex-shrink-0 w-80">
-            <div className="bg-gray-50 rounded-lg p-4 border-2 border-dashed border-gray-300">
+            <div className="apple-card p-6 border-2 border-dashed border-gray-300">
               {isAddingStage ? (
-                <div className="space-y-3">
-                  <Input
+                <div className="space-y-4">
+                  <input
+                    type="text"
                     placeholder="Nome do estágio"
                     value={newStageTitle}
                     onChange={(e) => setNewStageTitle(e.target.value)}
@@ -526,37 +526,40 @@ export default function KanbanBoard({ pipelineId }: KanbanBoardProps) {
                         handleAddStage();
                       }
                     }}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all duration-200 apple-text"
+                    autoFocus
                   />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
+                  <div className="flex gap-3">
+                    <div
+                      className="apple-button-primary flex-1 text-center py-3"
                       onClick={handleAddStage}
-                      disabled={!newStageTitle.trim()}
+                      style={{ opacity: !newStageTitle.trim() ? 0.5 : 1, pointerEvents: !newStageTitle.trim() ? 'none' : 'auto' }}
                     >
                       Adicionar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    </div>
+                    <div
+                      className="apple-button-secondary w-12 h-12 flex items-center justify-center"
                       onClick={() => {
                         setIsAddingStage(false);
                         setNewStageTitle("");
                       }}
                     >
                       <X className="w-4 h-4" />
-                    </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <Button
+                <div
+                  className="w-full h-20 flex items-center justify-center cursor-pointer hover:bg-gray-50 rounded-xl transition-all duration-200"
                   onClick={() => setIsAddingStage(true)}
-                  className="flex-shrink-0 h-8 px-3 text-sm"
-                  disabled={stages.length >= 12}
+                  style={{ opacity: stages.length >= 12 ? 0.5 : 1, pointerEvents: stages.length >= 12 ? 'none' : 'auto' }}
                   title={stages.length >= 12 ? "Limite de 12 estágios atingido" : "Adicionar novo estágio"}
                 >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Adicionar Estágio {stages.length >= 12 && `(${stages.length}/12)`}
-                </Button>
+                  <Plus className="w-5 h-5 mr-2 text-gray-500" />
+                  <span className="apple-text text-gray-500">
+                    Adicionar Estágio {stages.length >= 12 && `(${stages.length}/12)`}
+                  </span>
+                </div>
               )}
             </div>
           </div>

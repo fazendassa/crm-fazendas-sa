@@ -1,125 +1,140 @@
+
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Users, TrendingUp, Activity } from "lucide-react";
 
 export default function Landing() {
+  const [showLogo, setShowLogo] = useState(false);
+
+  useEffect(() => {
+    // Trigger logo appearance after tractor animation
+    const timer = setTimeout(() => {
+      setShowLogo(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">
-            CRM Professional
-          </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Gerencie seus contatos, empresas e oportunidades de negócio de forma eficiente e profissional.
-          </p>
-          <Button 
-            size="lg" 
-            className="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-lg text-lg"
-            onClick={() => window.location.href = '/api/login'}
-          >
-            Entrar no Sistema
-          </Button>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex flex-col">
+      {/* Header */}
+      <header className="w-full px-8 py-6 flex justify-between items-center">
+        <div className="text-lg font-medium text-gray-800">
+          Fazendas S/A CRM
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          <Card className="text-center">
-            <CardHeader>
-              <Users className="w-12 h-12 text-primary mx-auto mb-2" />
-              <CardTitle>Gestão de Contatos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Organize e gerencie todos os seus contatos de forma centralizada com informações detalhadas.
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card className="text-center">
-            <CardHeader>
-              <Building2 className="w-12 h-12 text-primary mx-auto mb-2" />
-              <CardTitle>Empresas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Mantenha um cadastro completo de empresas e seus relacionamentos com contatos.
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card className="text-center">
-            <CardHeader>
-              <TrendingUp className="w-12 h-12 text-primary mx-auto mb-2" />
-              <CardTitle>Pipeline de Vendas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Acompanhe oportunidades através de um funil visual com estágios personalizáveis.
-              </CardDescription>
-            </CardContent>
-          </Card>
-
-          <Card className="text-center">
-            <CardHeader>
-              <Activity className="w-12 h-12 text-primary mx-auto mb-2" />
-              <CardTitle>Atividades</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>
-                Registre interações, notas e tarefas vinculadas aos seus contatos e deals.
-              </CardDescription>
-            </CardContent>
-          </Card>
+        <div className="flex items-center space-x-6 text-sm text-gray-600">
+          <button className="hover:text-gray-800 transition-colors">
+            Iniciar sessão
+          </button>
+          <button className="hover:text-gray-800 transition-colors">
+            Suporte
+          </button>
+          <button className="hover:text-gray-800 transition-colors">
+            Contato
+          </button>
         </div>
+      </header>
 
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Transforme seu relacionamento com clientes
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Nossa plataforma CRM oferece todas as ferramentas necessárias para gerenciar 
-                eficientemente seus contatos B2B e B2C, pipeline de vendas e atividades comerciais.
-              </p>
-              <ul className="space-y-3 text-gray-600">
-                <li className="flex items-center">
-                  <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                  Interface moderna e intuitiva
-                </li>
-                <li className="flex items-center">
-                  <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                  Relatórios e métricas em tempo real
-                </li>
-                <li className="flex items-center">
-                  <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                  Gestão completa de oportunidades
-                </li>
-                <li className="flex items-center">
-                  <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                  Histórico detalhado de interações
-                </li>
-              </ul>
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+        {/* Animated Circle with Logo */}
+        <div className="relative mb-16">
+          {/* Animated Dots Circle */}
+          <div className="relative w-80 h-80 mx-auto mb-8">
+            <div className="absolute inset-0 animate-spin-slow">
+              {[...Array(60)].map((_, i) => {
+                const angle = (i * 360) / 60;
+                const radius = 140;
+                const x = Math.cos((angle * Math.PI) / 180) * radius;
+                const y = Math.sin((angle * Math.PI) / 180) * radius;
+                const hue = (i * 360) / 60;
+                
+                return (
+                  <div
+                    key={i}
+                    className="absolute w-3 h-3 rounded-full opacity-70"
+                    style={{
+                      left: `calc(50% + ${x}px - 6px)`,
+                      top: `calc(50% + ${y}px - 6px)`,
+                      backgroundColor: `hsl(${hue}, 70%, 60%)`,
+                      animationDelay: `${i * 0.1}s`,
+                    }}
+                  />
+                );
+              })}
             </div>
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-primary to-blue-600 text-white p-8 rounded-lg">
-                <h3 className="text-2xl font-bold mb-4">Pronto para começar?</h3>
-                <p className="mb-6">
-                  Acesse agora e comece a gerenciar seus contatos de forma profissional.
-                </p>
-                <Button 
-                  variant="secondary" 
-                  size="lg"
-                  className="bg-white text-primary hover:bg-gray-100"
-                  onClick={() => window.location.href = '/api/login'}
-                >
-                  Fazer Login
-                </Button>
+          </div>
+
+          {/* Tractor Animation */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="tractor-container relative">
+              {/* Tractor moving across */}
+              <div className="tractor animate-tractor-move">
+                🚜
+              </div>
+              
+              {/* Logo appears after tractor */}
+              <div className={`logo-container absolute inset-0 flex items-center justify-center transition-all duration-1000 ${showLogo ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
+                <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                  F/A
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+
+        {/* Main Title */}
+        <h1 className="text-5xl font-bold text-gray-900 mb-4 leading-tight">
+          O CRM Exclusivo da Fazendas S/A
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-xl text-gray-600 mb-12 max-w-2xl leading-relaxed">
+          Uma única plataforma para gerenciar todos os seus contatos, empresas e oportunidades de negócio no agronegócio.
+          <br />
+          Inicie sessão para acessar sua conta.
+        </p>
+
+        {/* CTA Button */}
+        <Button 
+          size="lg" 
+          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+          onClick={() => window.location.href = '/api/login'}
+        >
+          Iniciar sessão
+        </Button>
+
+        {/* Features Grid */}
+        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl">
+          <div className="text-center p-6">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-green-600 text-xl">🌱</span>
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2">Gestão Completa</h3>
+            <p className="text-gray-600 text-sm">Controle total sobre contatos, empresas e oportunidades</p>
+          </div>
+          
+          <div className="text-center p-6">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-blue-600 text-xl">📊</span>
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2">Analytics Avançado</h3>
+            <p className="text-gray-600 text-sm">Relatórios detalhados e métricas em tempo real</p>
+          </div>
+          
+          <div className="text-center p-6">
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-purple-600 text-xl">🤝</span>
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2">Relacionamentos</h3>
+            <p className="text-gray-600 text-sm">Fortaleça conexões com clientes e parceiros</p>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="w-full px-8 py-6 text-center text-sm text-gray-500">
+        © 2024 Fazendas S/A. Todos os direitos reservados.
+      </footer>
     </div>
   );
 }
