@@ -139,6 +139,7 @@ Changelog:
 - June 28, 2025. Implemented complete drag-and-drop kanban functionality: using react-beautiful-dnd library with visual feedback (rotation and shadow effects), automatic stage updates via API, success/error notifications, and smooth user interaction for moving deals between pipeline stages
 - June 28, 2025. Implemented comprehensive Role-Based Access Control (RBAC) system with 5 distinct roles (Admin, Gestor, Vendedor, Financeiro, Externo), each with specific permissions for granular access control across all CRM resources
 - July 01, 2025. CRITICAL FIX: Resolved stage reordering bug caused by Express route conflicts. The endpoint `/api/pipeline-stages/positions` was being intercepted by `/api/pipeline-stages/:id` which interpreted "positions" as an ID. Fixed by reordering routes so specific paths come before parameterized ones. Also removed duplicate method implementations in storage layer that were causing additional conflicts.
+- July 02, 2025. Complete Apple-style UI/UX Redesign: Implemented comprehensive visual redesign with Apple's minimalist aesthetic using black, white, and Apple blue color scheme. Updated all components including sidebar, dashboard, kanban board, cards, buttons, and typography. Applied Apple-style spacing, rounded corners, shadows, and transitions throughout the entire application while maintaining all existing functionality.
 ```
 
 ## User Preferences
