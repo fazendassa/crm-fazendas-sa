@@ -812,7 +812,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const io = new Server(httpServer, {
     cors: {
       origin: "*",
-```
       methods: ["GET", "POST"]
     }
   });
