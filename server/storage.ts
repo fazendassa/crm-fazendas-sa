@@ -905,7 +905,7 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    return created;```text
+    return created;
   }
 
 async updatePipeline(id: number, pipeline: Partial<InsertPipeline>): Promise<Pipeline> {
