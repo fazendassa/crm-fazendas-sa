@@ -12,14 +12,16 @@ export async function apiRequest(
   method: string = 'GET',
   data?: any
 ): Promise<any> {
+  const safeMethod = method || 'GET';
   const config: RequestInit = {
-    method: method.toUpperCase(),
+    method: safeMethod.toUpperCase(),
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
   };
 
-  if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+  if (data && (safeMethod === 'POST' || safeMethod === 'PUT' || safeMethod === 'PATCH')) {
     config.body = JSON.stringify(data);
   }
 

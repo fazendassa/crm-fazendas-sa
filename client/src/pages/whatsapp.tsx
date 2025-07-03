@@ -203,13 +203,7 @@ export default function WhatsApp() {
       setIsLoading(true);
       setConnectionError(null);
       
-      const response = await apiRequest('/api/whatsapp/create-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sessionName: trimmedSessionName }),
-      });
+      const response = await apiRequest('/api/whatsapp/create-session', 'POST', { sessionName: trimmedSessionName });
 
       if (response?.success !== false) {
         toast({
