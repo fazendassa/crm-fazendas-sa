@@ -1,26 +1,26 @@
+
 import { create, Whatsapp, SocketState } from '@wppconnect-team/wppconnect';
 import { EventEmitter } from 'events';
 import { storage } from './storage';
 import { webSocketManager } from './websocket';
-
-interface SessionOptions {
-  session: string;
-  headless: boolean;
-  devtools: boolean;
-  useChrome: boolean;
-  debug: boolean;
-  logQR: boolean;
-  browserWS: string;
-  executablePath: string;
-  browserArgs: string[];
-  catchQR: (base64Qr: string, asciiQR?: string) => void;
-  statusFind: (statusSession: string, session?: any) => void;
-  onLoadingScreen?: (percent: number, message: string) => void;
-  onIncomingCall?: (callInfo: any) => void;
-}
+import path from 'path';
+import fs from 'fs';
 
 export class WhatsAppManager extends EventEmitter {
   private clients: Map<string, Whatsapp> = new Map();
+  private sessionPath: string;
+
+  constructor() {
+    super();
+    this.sessionPath = path.join(process.cwd(), 'whatsapp-sessions');
+    this.ensureSessionDir();
+  }
+
+  private ensureSessionDir() {
+    if (!fs.existsSync(this.sessionPath)) {
+      fs.mkdirSync(this.sessionPath, { recursive: true });
+    }
+  }
 
   async createSession(userId: string, sessionName: string): Promise<string> {
     try {
@@ -47,7 +47,7 @@ export class WhatsAppManager extends EventEmitter {
       }
 
       // Configuration for WPPConnect optimized for Replit
-      const sessionOptions: SessionOptions = {
+      const client = await create({
         session: sessionId,
         headless: true,
         devtools: false,
@@ -72,6 +72,8 @@ export class WhatsAppManager extends EventEmitter {
           '--disable-ipc-flooding-protection',
           '--disable-web-security'
         ],
+        folderNameToken: this.sessionPath,
+        mkdirFolderToken: this.sessionPath,
         catchQR: (base64Qr: string, asciiQR?: string) => {
           console.log('📱 WhatsApp QR Code generated for user:', userId);
           
@@ -83,7 +85,11 @@ export class WhatsAppManager extends EventEmitter {
           });
 
           // Emit QR code via WebSocket
-          this.emit('qr', { userId, sessionId: session.id, qrCode: base64Qr });
+          webSocketManager.broadcastToUser(userId, {
+            type: 'wa:qr',
+            qrCode: base64Qr,
+            sessionId: session.id
+          });
         },
         statusFind: (statusSession: string, sessionInfo?: any) => {
           console.log('📱 WhatsApp Status changed:', statusSession, 'for user:', userId);
@@ -122,12 +128,14 @@ export class WhatsAppManager extends EventEmitter {
           });
 
           // Emit status change via WebSocket
-          this.emit('status', { userId, sessionId: session.id, status, phoneNumber });
+          webSocketManager.broadcastToUser(userId, {
+            type: 'wa:status',
+            status,
+            phoneNumber,
+            sessionId: session.id
+          });
         }
-      };
-
-      // Create WPPConnect client
-      const client = await create(sessionOptions);
+      });
 
       // Store client reference
       this.clients.set(sessionId, client);
@@ -141,9 +149,42 @@ export class WhatsAppManager extends EventEmitter {
         }
       });
 
+      // Handle acknowledgment (message sent status)
+      client.onAck(async (ack: any) => {
+        try {
+          console.log('✅ Message acknowledgment:', ack.id, ack.ack);
+          
+          // Update message status based on ack
+          if (ack.ack >= 2) {
+            await storage.updateWhatsappMessageStatus(ack.id, true);
+          }
+
+          // Emit ack via WebSocket
+          webSocketManager.broadcastToUser(userId, {
+            type: 'wa:ack',
+            sessionId: session.id,
+            messageId: ack.id,
+            status: ack.ack
+          });
+
+        } catch (error) {
+          console.error('❌ Error processing message acknowledgment:', error);
+        }
+      });
+
       return 'Session created successfully';
     } catch (error) {
       console.error('Error creating WhatsApp session:', error);
+      
+      // Update session status to error
+      const existingSession = await storage.getWhatsappSession(userId, `session_crm-${userId}`);
+      if (existingSession) {
+        await storage.updateWhatsappSession(existingSession.id, {
+          status: 'error',
+          lastActivity: new Date(),
+        });
+      }
+      
       throw new Error(`Failed to create WhatsApp session: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -169,21 +210,39 @@ export class WhatsAppManager extends EventEmitter {
       // Store message in database
       const session = await storage.getWhatsappSession(userId, sessionId);
       if (session) {
-        await storage.createWhatsappMessage({
+        const messageData = {
           sessionId: session.id,
-          messageId: result.id || 'unknown',
+          messageId: result.id || `msg_${Date.now()}`,
           chatId: formattedNumber,
           fromNumber: sessionId,
           toNumber: formattedNumber,
           content: text,
           messageType: 'text',
-          direction: 'outgoing',
+          direction: 'outgoing' as const,
           isRead: true,
           timestamp: new Date(),
+        };
+
+        const savedMessage = await storage.createWhatsappMessage(messageData);
+
+        // Broadcast message via WebSocket
+        webSocketManager.broadcastToUser(userId, {
+          type: 'wa:message',
+          message: {
+            id: savedMessage.id,
+            chatId: formattedNumber,
+            from: sessionId,
+            to: formattedNumber,
+            content: text,
+            type: 'text',
+            direction: 'outgoing',
+            timestamp: new Date()
+          },
+          sessionId: session.id
         });
       }
 
-      return result;
+      return { success: true, messageId: result.id || `msg_${Date.now()}` };
     } catch (error) {
       console.error('Error sending WhatsApp message:', error);
       throw new Error(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -239,6 +298,13 @@ export class WhatsAppManager extends EventEmitter {
           isActive: false,
           lastActivity: new Date(),
         });
+
+        // Notify via WebSocket
+        webSocketManager.broadcastToUser(userId, {
+          type: 'wa:status',
+          status: 'disconnected',
+          sessionId: session.id
+        });
       }
     } catch (error) {
       console.error('Error closing WhatsApp session:', error);
@@ -248,7 +314,7 @@ export class WhatsAppManager extends EventEmitter {
 
   private async handleIncomingMessage(userId: string, sessionId: number, message: any): Promise<void> {
     try {
-      await storage.createWhatsappMessage({
+      const messageData = {
         sessionId,
         messageId: message.id,
         chatId: message.chatId,
@@ -256,43 +322,68 @@ export class WhatsAppManager extends EventEmitter {
         toNumber: message.to,
         content: message.body || message.content,
         messageType: message.type || 'text',
-        direction: 'incoming',
+        direction: 'incoming' as const,
         isRead: false,
         timestamp: new Date(message.timestamp * 1000),
-      });
+      };
+
+      const savedMessage = await storage.createWhatsappMessage(messageData);
 
       // Emit message via WebSocket
-      this.emit('message', { userId, sessionId, message });
+      webSocketManager.broadcastToUser(userId, {
+        type: 'wa:message',
+        message: savedMessage,
+        sessionId
+      });
     } catch (error) {
       console.error('Error storing incoming message:', error);
     }
   }
+
+  // Additional WhatsApp functions
+  async sendImage(userId: string, to: string, imagePath: string, caption?: string): Promise<any> {
+    const sessionId = `session_crm-${userId}`;
+    const client = this.clients.get(sessionId);
+
+    if (!client) {
+      throw new Error('WhatsApp session not found');
+    }
+
+    return await client.sendImage(to, imagePath, 'image.jpg', caption);
+  }
+
+  async sendFile(userId: string, to: string, filePath: string, fileName?: string): Promise<any> {
+    const sessionId = `session_crm-${userId}`;
+    const client = this.clients.get(sessionId);
+
+    if (!client) {
+      throw new Error('WhatsApp session not found');
+    }
+
+    return await client.sendFile(to, filePath, fileName);
+  }
+
+  async getContacts(userId: string): Promise<any[]> {
+    const sessionId = `session_crm-${userId}`;
+    const client = this.clients.get(sessionId);
+
+    if (!client) {
+      throw new Error('WhatsApp session not found');
+    }
+
+    return await client.getAllContacts();
+  }
+
+  async getChats(userId: string): Promise<any[]> {
+    const sessionId = `session_crm-${userId}`;
+    const client = this.clients.get(sessionId);
+
+    if (!client) {
+      throw new Error('WhatsApp session not found');
+    }
+
+    return await client.getAllChats();
+  }
 }
 
 export const whatsAppManager = new WhatsAppManager();
-
-// Set up WebSocket event listeners
-whatsAppManager.on('qr', (data) => {
-  webSocketManager.broadcastToUser(data.userId, {
-    type: 'wa:qr',
-    qrCode: data.qrCode,
-    sessionId: data.sessionId
-  });
-});
-
-whatsAppManager.on('status', (data) => {
-  webSocketManager.broadcastToUser(data.userId, {
-    type: 'wa:status',
-    status: data.status,
-    phoneNumber: data.phoneNumber,
-    sessionId: data.sessionId
-  });
-});
-
-whatsAppManager.on('message', (data) => {
-  webSocketManager.broadcastToUser(data.userId, {
-    type: 'wa:message',
-    message: data.message,
-    sessionId: data.sessionId
-  });
-});

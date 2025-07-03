@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { whatsAppManager } from "./whatsapp-simple";
+import { whatsAppManager } from "./whatsapp-service";
 import { webSocketManager } from "./websocket";
 import multer from "multer";
 import * as XLSX from "xlsx";
@@ -810,7 +810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WhatsApp Integration Routes
   app.get('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.claims.claims.sub;
       const sessions = await storage.getWhatsappSessions(userId);
       res.json(sessions);
     } catch (error) {
@@ -823,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { sessionName } = req.body;
-      
+
       if (!sessionName) {
         return res.status(400).json({ message: "Session name is required" });
       }
@@ -871,7 +871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { chatId, limit } = req.query;
-      
+
       const messages = await whatsAppManager.getMessages(
         userId, 
         chatId as string, 
