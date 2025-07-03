@@ -82,6 +82,12 @@ const navigation = [
     permission: 'manage:settings' as const
   },
   { 
+    name: 'WhatsApp Chat', 
+    href: '/whatsapp-new', 
+    icon: MessageCircle,
+    permission: 'view:contacts' as const
+  },
+  { 
     name: 'Administração', 
     href: '/admin', 
     icon: Settings,

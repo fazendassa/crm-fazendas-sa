@@ -298,7 +298,6 @@ export default function WhatsAppNew() {
         id: conversation.id,
         name: conversation.contactName,
         phone: conversation.contactPhone,
-        avatar: conversation.avatar,
         isOnline: true
       });
     }
