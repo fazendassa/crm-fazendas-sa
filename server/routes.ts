@@ -23,6 +23,8 @@ import {
   insertPipelineStageSchema,
 } from "@shared/schema";
 import { z } from "zod";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -810,24 +812,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WhatsApp Integration Routes
   app.get('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      console.log('🔍 WhatsApp Sessions - req.user:', req.user);
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      console.log('🔍 WhatsApp Sessions - userId:', userId);
+
       if (!userId) {
+        console.error('❌ WhatsApp Sessions - No user ID found');
+        console.error('❌ WhatsApp Sessions - req.user structure:', JSON.stringify(req.user, null, 2));
         return res.status(401).json({ message: "User ID not found" });
       }
+
       const sessions = await storage.getWhatsappSessions(userId);
+      console.log('✅ WhatsApp Sessions - Found sessions:', sessions.length);
       res.json(sessions);
     } catch (error) {
       console.error("Error fetching WhatsApp sessions:", error);
-      res.status(500).json({ message: "Failed to fetch WhatsApp sessions" });
+      res.status(500).json({ message: "Failed to fetch WhatsApp sessions", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
   app.post('/api/whatsapp/create-session', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      console.log('🔍 Create Session - req.user:', req.user);
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      console.log('🔍 Create Session - userId:', userId);
+
       if (!userId) {
+        console.error('❌ Create Session - No user ID found');
+        console.error('❌ Create Session - req.user structure:', JSON.stringify(req.user, null, 2));
         return res.status(401).json({ message: "User ID not found" });
       }
+
       const { sessionName } = req.body;
 
       if (!sessionName) {
@@ -838,13 +853,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: result });
     } catch (error) {
       console.error("Error creating WhatsApp session:", error);
-      res.status(500).json({ message: "Failed to create WhatsApp session" });
+      res.status(500).json({ message: "Failed to create WhatsApp session", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
   app.post('/api/whatsapp/send', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
@@ -867,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/whatsapp/status', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
@@ -881,7 +896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/whatsapp/messages', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
@@ -901,7 +916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/whatsapp/session', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
@@ -1300,5 +1315,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const pgSession = connectPg(session);
+  const sessionStore = new pgSession({
+    pool: pool,
+    tableName: 'user_sessions',
+    createTableIfMissing: true,
+    errorLog: (err) => {
+      console.error('Session store error:', err);
+    }
+  });
+
+  app.use(session({
+    store: sessionStore,
+    secret: process.env.SESSION_SECRET || 'your-fallback-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }));
   return httpServer;
 }

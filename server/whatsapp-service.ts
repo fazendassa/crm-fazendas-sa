@@ -1,4 +1,3 @@
-
 import { create, Whatsapp, SocketState } from '@wppconnect-team/wppconnect';
 import { EventEmitter } from 'events';
 import { storage } from './storage';
@@ -23,28 +22,23 @@ export class WhatsAppManager extends EventEmitter {
   }
 
   async createSession(userId: string, sessionName: string): Promise<string> {
+    const sessionId = `session_crm-${userId}`;
+
     try {
-      const sessionId = `session_crm-${userId}`;
-      
-      // Close existing client if any
-      const existingClient = this.clients.get(sessionId);
-      if (existingClient) {
-        try {
-          await existingClient.close();
-          this.clients.delete(sessionId);
-          console.log('📱 Closed existing WhatsApp client for user:', userId);
-        } catch (error) {
-          console.log('⚠️ Error closing existing client:', error);
-        }
+      console.log('📱 Creating WhatsApp session for user:', userId, 'with name:', sessionName);
+
+      // Check if session already exists in database
+      const existingSession = await storage.getWhatsappSession(userId, sessionName);
+      if (existingSession && existingSession.status === 'connected') {
+        console.log('📱 Session already connected');
+        return 'Session already connected';
       }
-      
-      // Check if session already exists
-      const existingSession = await storage.getWhatsappSession(userId, sessionId);
-      
-      const sessionData = {
+
+      // Create or update session in database
+      const sessionData: InsertWhatsappSession = {
         userId,
-        sessionName: sessionId,
-        status: 'connecting' as const,
+        sessionName,
+        status: 'connecting',
         phoneNumber: null,
         qrCode: null,
         isActive: true,
@@ -53,8 +47,10 @@ export class WhatsAppManager extends EventEmitter {
 
       let session;
       if (existingSession) {
+        console.log('📱 Updating existing session');
         session = await storage.updateWhatsappSession(existingSession.id, sessionData);
       } else {
+        console.log('📱 Creating new session');
         session = await storage.createWhatsappSession(sessionData);
       }
 
@@ -107,7 +103,7 @@ export class WhatsAppManager extends EventEmitter {
         catchQR: (base64Qr: string, asciiQR?: string) => {
           console.log('📱 WhatsApp QR Code generated for user:', userId);
           console.log('📱 QR Code length:', base64Qr?.length);
-          
+
           // Update session with QR code
           storage.updateWhatsappSession(session.id, {
             qrCode: base64Qr,
@@ -127,7 +123,7 @@ export class WhatsAppManager extends EventEmitter {
         statusFind: (statusSession: string, sessionInfo?: any) => {
           console.log('📱 WhatsApp Status changed:', statusSession, 'for user:', userId);
           console.log('📱 Session info:', sessionInfo);
-          
+
           let status = 'disconnected';
           let phoneNumber = null;
 
@@ -197,7 +193,7 @@ export class WhatsAppManager extends EventEmitter {
       client.onAck(async (ack: any) => {
         try {
           console.log('✅ Message acknowledgment:', ack.id, ack.ack);
-          
+
           // Update message status based on ack
           if (ack.ack >= 2) {
             await storage.updateWhatsappMessageStatus(ack.id, true);
@@ -219,7 +215,7 @@ export class WhatsAppManager extends EventEmitter {
       return 'Session created successfully';
     } catch (error) {
       console.error('Error creating WhatsApp session:', error);
-      
+
       // Update session status to error
       const existingSession = await storage.getWhatsappSession(userId, `session_crm-${userId}`);
       if (existingSession) {
@@ -228,7 +224,7 @@ export class WhatsAppManager extends EventEmitter {
           lastActivity: new Date(),
         });
       }
-      
+
       throw new Error(`Failed to create WhatsApp session: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -237,7 +233,7 @@ export class WhatsAppManager extends EventEmitter {
     try {
       const sessionId = `session_crm-${userId}`;
       const client = this.clients.get(sessionId);
-      
+
       if (!client) {
         throw new Error('WhatsApp session not found. Please create a session first.');
       }
@@ -250,7 +246,7 @@ export class WhatsAppManager extends EventEmitter {
 
       // Send message
       const result = await client.sendText(formattedNumber, text);
-      
+
       // Store message in database
       const session = await storage.getWhatsappSession(userId, sessionId);
       if (session) {
@@ -297,7 +293,7 @@ export class WhatsAppManager extends EventEmitter {
     try {
       const sessionId = `session_crm-${userId}`;
       const client = this.clients.get(sessionId);
-      
+
       if (!client) {
         return 'disconnected';
       }
@@ -328,7 +324,7 @@ export class WhatsAppManager extends EventEmitter {
     try {
       const sessionId = `session_crm-${userId}`;
       const client = this.clients.get(sessionId);
-      
+
       if (client) {
         await client.close();
         this.clients.delete(sessionId);

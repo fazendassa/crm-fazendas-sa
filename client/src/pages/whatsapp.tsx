@@ -151,31 +151,30 @@ export default function WhatsApp() {
     }
   };
 
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
   const loadSessions = async () => {
     try {
+      setIsLoading(true);
       const response = await apiRequest('/api/whatsapp/sessions');
       console.log('sessionsData:', response);
-      
-      // Ensure response is an array
+
+      // Ensure response is always treated as an array
       const sessionsArray = Array.isArray(response) ? response : [];
       setSessions(sessionsArray);
       console.log('sessions:', sessionsArray);
-
-      if (sessionsArray.length > 0) {
-        setCurrentSession(sessionsArray[0]);
-        await loadMessages(sessionsArray[0].id);
-      }
-      
-      setConnectionError(null);
     } catch (error) {
       console.error('Error loading sessions:', error);
-      setConnectionError('Falha ao carregar sessões do WhatsApp');
       setSessions([]);
       toast({
         title: "Erro",
         description: "Falha ao carregar sessões do WhatsApp",
-        variant: "destructive"
+        variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -198,35 +197,32 @@ export default function WhatsApp() {
       return;
     }
 
-    setIsLoading(true);
     try {
-      const response = await fetch('/api/whatsapp/create-session', {
+      setIsLoading(true);
+      const response = await apiRequest('/api/whatsapp/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
-        body: JSON.stringify({ sessionName })
+        body: JSON.stringify({ sessionName: sessionName.trim() }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Erro ao criar sessão');
-      }
+      toast({
+        title: "Sucesso",
+        description: response.message || "Sessão criada com sucesso",
+      });
 
       setSessionName('');
-      await loadSessions();
-
-      toast({
-        title: "Sessão Criada",
-        description: "Aguarde o QR Code para conectar ao WhatsApp",
-      });
-    } catch (error: any) {
-      console.error('Erro ao criar sessão:', error);
+      // Wait a bit before reloading sessions to allow backend processing
+      setTimeout(() => {
+        loadSessions();
+      }, 1000);
+    } catch (error) {
+      console.error('Error creating session:', error);
+      const errorMessage = error instanceof Error ? error.message : "Falha ao criar sessão do WhatsApp";
       toast({
         title: "Erro",
-        description: error.message || "Falha ao criar sessão",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -357,7 +353,7 @@ export default function WhatsApp() {
 
             {/* Sessions List */}
             <div className="space-y-2">
-              {sessions && sessions.length > 0 ? (
+              {Array.isArray(sessions) && sessions.length > 0 ? (
                 sessions.map((session) => (
                   <Card 
                     key={session.id} 
