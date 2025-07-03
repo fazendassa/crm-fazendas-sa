@@ -77,6 +77,7 @@ interface Message {
 }
 
 export default function WhatsAppNew() {
+  const { user } = useAuth();
   const [selectedSession, setSelectedSession] = useState<WhatsAppSession | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -85,15 +86,18 @@ export default function WhatsAppNew() {
   const [isTyping, setIsTyping] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  
-  // WebSocket connection
   const { isConnected: wsConnected } = useWebSocket({
     userId: user?.id,
     onMessage: (data) => {
       console.log('📡 WebSocket message in WhatsApp page:', data);
     }
   });
+  const { isLoading: authLoading } = useAuth();
+
+  if (authLoading || !user) {
+    return <div>Carregando...</div>;
+  }
+
 
   // Buscar sessões WhatsApp
   const { data: sessionsData, isLoading: loadingSessions } = useQuery<WhatsAppSession[]>({
@@ -120,13 +124,13 @@ export default function WhatsAppNew() {
   // Garantir que messages seja sempre um array
   const messages = Array.isArray(messagesData) ? messagesData : [];
 
-  
+
 
   // Mutation para enviar mensagem
   const sendMessageMutation = useMutation({
     mutationFn: async ({ content, type, contactPhone }: { content: string; type: string; contactPhone: string }) => {
       if (!selectedSession) throw new Error('Nenhuma sessão selecionada');
-      
+
       return apiRequest(`/api/whatsapp/sessions/${selectedSession.id}/send-message`, 'POST', { content, type, contactPhone });
     },
     onSuccess: () => {
@@ -195,7 +199,7 @@ export default function WhatsAppNew() {
 
     messages.forEach(message => {
       const key = message.contactNumber;
-      
+
       if (!conversationMap.has(key)) {
         conversationMap.set(key, {
           id: key,
@@ -215,7 +219,7 @@ export default function WhatsAppNew() {
       } else {
         const conversation = conversationMap.get(key)!;
         const messageTime = new Date(message.timestamp);
-        
+
         if (messageTime > conversation.lastMessage.timestamp) {
           conversation.lastMessage = {
             id: message.id,
@@ -225,7 +229,7 @@ export default function WhatsAppNew() {
             isFromMe: message.isFromMe
           };
         }
-        
+
         if (!message.isFromMe && message.status !== 'read') {
           conversation.unreadCount++;
         }
@@ -252,7 +256,7 @@ export default function WhatsAppNew() {
 
   const handleSendMessage = (content: string, type: string) => {
     if (!selectedContact || !selectedSession) return;
-    
+
     sendMessageMutation.mutate({
       content,
       type,
