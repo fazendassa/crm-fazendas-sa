@@ -926,18 +926,30 @@ export class WhatsAppManager extends EventEmitter {
       return contacts
         .filter(contact => contact && !contact.isGroup && contact.isMyContact) // Apenas contatos pessoais válidos
         .map(contact => {
-          // Verificar se contact.id existe e é uma string
-          const contactId = contact.id || '';
-          if (typeof contactId !== 'string') {
-            console.warn('Invalid contact.id:', contactId, 'for contact:', contact);
+          // Verificar se contact.id existe e processar corretamente
+          let contactId = '';
+          let cleanPhone = '';
+          
+          if (contact.id) {
+            if (typeof contact.id === 'string') {
+              contactId = contact.id;
+              cleanPhone = contactId.replace('@c.us', '').replace('@lid', '');
+            } else if (typeof contact.id === 'object' && contact.id._serialized) {
+              contactId = contact.id._serialized;
+              cleanPhone = contactId.replace('@c.us', '').replace('@lid', '');
+            } else {
+              console.warn('Invalid contact.id format:', contact.id, 'for contact:', contact);
+              return null;
+            }
+          } else {
+            console.warn('Missing contact.id for contact:', contact);
             return null;
           }
 
           const chatInfo = chatMap.get(contactId);
-          const cleanPhone = contactId.replace('@c.us', '');
           
           // Priorizar nome do chat, depois pushname, depois nome do contato
-          let name = chatInfo?.name || contact.pushname || contact.name || contact.shortName;
+          let name = chatInfo?.name || contact.pushname || contact.name || contact.shortName || contact.formattedName;
           
           // Se ainda não tem nome, criar um nome formatado do número
           if (!name || name === cleanPhone) {
@@ -947,7 +959,7 @@ export class WhatsAppManager extends EventEmitter {
               const number = cleanPhone.slice(4);
               name = `+${countryCode} ${areaCode} ${number}`;
             } else {
-              name = cleanPhone;
+              name = cleanPhone || 'Contato';
             }
           }
 
