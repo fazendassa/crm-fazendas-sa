@@ -1,2 +1,3 @@
-2025/07/03-17:38:59.396 20b5 Creating DB /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Extension Rules since it was missing.
-2025/07/03-17:38:59.566 20b5 Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Extension Rules/MANIFEST-000001
+2025/07/03-17:50:22.661 2ab2 Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Extension Rules/MANIFEST-000001
+2025/07/03-17:50:22.661 2ab2 Recovering log #3
+2025/07/03-17:50:22.661 2ab2 Reusing old log /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Extension Rules/000003.log 
