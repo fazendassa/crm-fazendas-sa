@@ -132,7 +132,9 @@ export function ChatWindow({
 
   const getInitials = (name: string | undefined) => {
     if (!name || typeof name !== 'string') return 'U';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    const cleanName = name.trim();
+    if (!cleanName) return 'U';
+    return cleanName.split(' ').map(n => n && n[0] ? n[0].toUpperCase() : '').filter(Boolean).join('').slice(0, 2) || 'U';
   };
 
   const groupMessagesByDate = (messages: Message[]) => {

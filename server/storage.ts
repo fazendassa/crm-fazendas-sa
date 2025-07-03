@@ -908,13 +908,13 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updatePipeline(id: number, pipeline: Partial<InsertPipeline>): Promise<Pipeline> {
+async updatePipeline(id: number, pipeline: Partial<InsertPipeline>): Promise<Pipeline> {
     const [updated] = await db
       .update(pipelines)
       .set({ ...pipeline, updatedAt: new Date() })
       .where(eq(pipelines.id, id))
       .returning();
-    
+
     return updated;
   }
 
@@ -1291,11 +1291,11 @@ export class DatabaseStorage implements IStorage {
   // WhatsApp Integration Methods
   async getWhatsappSessions(userId?: string): Promise<WhatsappSession[]> {
     const query = db.select().from(whatsappSessions).orderBy(desc(whatsappSessions.lastActivity));
-    
+
     if (userId) {
       return await query.where(eq(whatsappSessions.userId, userId));
     }
-    
+
     return await query;
   }
 
@@ -1330,17 +1330,26 @@ export class DatabaseStorage implements IStorage {
     return newSession;
   }
 
-  async updateWhatsappSession(id: number, session: Partial<InsertWhatsappSession>): Promise<WhatsappSession> {
-    const [updatedSession] = await db
+  // Update WhatsApp session
+  async updateWhatsappSession(sessionId: number, updates: Partial<InsertWhatsappSession>) {
+    const updated = await db
       .update(whatsappSessions)
-      .set({ ...session, updatedAt: new Date() })
-      .where(eq(whatsappSessions.id, id))
-      .returning();
-    return updatedSession;
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(whatsappSessions.id, sessionId))
+      .returning()
+      .then(rows => rows[0]);
+
+    return updated;
   }
 
-  async deleteWhatsappSession(id: number): Promise<void> {
-    await db.delete(whatsappSessions).where(eq(whatsappSessions.id, id));
+  // Delete WhatsApp session
+  async deleteWhatsappSession(sessionId: number) {
+    await db
+      .delete(whatsappSessions)
+      .where(eq(whatsappSessions.id, sessionId));
   }
 
   async getWhatsappMessages(sessionId: number, chatId?: string, limit = 50): Promise<WhatsappMessage[]> {
