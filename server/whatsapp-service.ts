@@ -1,6 +1,7 @@
 import { create, Whatsapp, SocketState } from '@wppconnect-team/wppconnect';
 import { EventEmitter } from 'events';
-import { storage } from './storage-minimal';
+import { storage } from './storage';
+import { webSocketManager } from './websocket';
 import { type InsertWhatsappSession, type InsertWhatsappMessage } from '../shared/schema';
 import path from 'path';
 import fs from 'fs';
