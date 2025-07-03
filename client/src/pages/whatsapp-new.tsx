@@ -138,11 +138,7 @@ export default function WhatsAppNew() {
     mutationFn: async ({ content, type, contactPhone }: { content: string; type: string; contactPhone: string }) => {
       if (!selectedSession) throw new Error('Nenhuma sessão selecionada');
       
-      return apiRequest(`/api/whatsapp/sessions/${selectedSession.id}/send-message`, {
-        method: 'POST',
-        body: JSON.stringify({ content, type, contactPhone }),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return apiRequest(`/api/whatsapp/sessions/${selectedSession.id}/send-message`, 'POST', { content, type, contactPhone });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/messages', selectedSession?.id] });
@@ -163,11 +159,7 @@ export default function WhatsAppNew() {
   // Mutation para criar nova sessão
   const createSessionMutation = useMutation({
     mutationFn: async (sessionName: string) => {
-      return apiRequest('/api/whatsapp/sessions', {
-        method: 'POST',
-        body: JSON.stringify({ sessionName }),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return apiRequest('/api/whatsapp/sessions', 'POST', { sessionName });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
@@ -188,9 +180,7 @@ export default function WhatsAppNew() {
   // Mutation para deletar sessão
   const deleteSessionMutation = useMutation({
     mutationFn: async (sessionId: number) => {
-      return apiRequest(`/api/whatsapp/sessions/${sessionId}`, {
-        method: 'DELETE'
-      });
+      return apiRequest(`/api/whatsapp/sessions/${sessionId}`, 'DELETE');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
@@ -444,16 +434,18 @@ export default function WhatsAppNew() {
         {/* Painel Direito - Oportunidades e Tags */}
         <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
           <div className="flex-1 overflow-auto">
-            <OpportunityPanel
-              onCreateDeal={(deal) => console.log('Create deal:', deal)}
-              onUpdateDeal={(id, deal) => console.log('Update deal:', id, deal)}
-            />
+            <OpportunityPanel />
           </div>
           <div className="border-t border-gray-200">
             <TagsPanel
               selectedTags={selectedTags}
-              onTagsChange={setSelectedTags}
-              availableTags={['Qualificação', 'VIP', 'Site Client', 'Oportunidade', 'Follow-up']}
+              availableTags={[
+                { id: '1', name: 'Qualificação', color: '#3B82F6', count: 5 },
+                { id: '2', name: 'VIP', color: '#F59E0B', count: 2 },
+                { id: '3', name: 'Site Client', color: '#10B981', count: 8 },
+                { id: '4', name: 'Oportunidade', color: '#EF4444', count: 3 },
+                { id: '5', name: 'Follow-up', color: '#8B5CF6', count: 12 }
+              ]}
             />
           </div>
         </div>

@@ -26,12 +26,12 @@ interface Tag {
 }
 
 interface TagsPanelProps {
-  availableTags: Tag[];
-  selectedTags: string[];
-  onTagToggle: (tagId: string) => void;
-  onCreateTag: (name: string) => void;
-  onDeleteTag: (tagId: string) => void;
-  onSearchTags: (query: string) => void;
+  availableTags?: Tag[];
+  selectedTags?: string[];
+  onTagToggle?: (tagId: string) => void;
+  onCreateTag?: (name: string) => void;
+  onDeleteTag?: (tagId: string) => void;
+  onSearchTags?: (query: string) => void;
 }
 
 export function TagsPanel({

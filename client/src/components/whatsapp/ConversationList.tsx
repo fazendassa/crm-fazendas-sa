@@ -36,23 +36,20 @@ interface ConversationListProps {
   conversations: Conversation[];
   selectedConversation: string | null;
   onSelectConversation: (conversationId: string) => void;
-  onSearchChange: (query: string) => void;
-  onFilterChange: (filters: any) => void;
+  isLoading?: boolean;
 }
 
 export function ConversationList({ 
   conversations, 
   selectedConversation, 
   onSelectConversation,
-  onSearchChange,
-  onFilterChange 
+  isLoading = false 
 }: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState(0);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    onSearchChange(query);
   };
 
   const getStatusIcon = (status: string) => {

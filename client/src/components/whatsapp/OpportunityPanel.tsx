@@ -86,15 +86,15 @@ interface HistoryEntry {
 }
 
 interface OpportunityPanelProps {
-  deal: Deal | null;
-  pipelines: Pipeline[];
-  notes: Note[];
-  history: HistoryEntry[];
-  onUpdateDeal: (dealId: string, updates: Partial<Deal>) => void;
-  onUpdateStatus: (dealId: string, status: 'won' | 'lost' | 'open') => void;
-  onAddNote: (dealId: string, content: string) => void;
-  onUpdateNote: (noteId: string, content: string) => void;
-  onDeleteNote: (noteId: string) => void;
+  deal?: Deal | null;
+  pipelines?: Pipeline[];
+  notes?: Note[];
+  history?: HistoryEntry[];
+  onUpdateDeal?: (dealId: string, updates: Partial<Deal>) => void;
+  onUpdateStatus?: (dealId: string, status: 'won' | 'lost' | 'open') => void;
+  onAddNote?: (dealId: string, content: string) => void;
+  onUpdateNote?: (noteId: string, content: string) => void;
+  onDeleteNote?: (noteId: string) => void;
 }
 
 export function OpportunityPanel({
