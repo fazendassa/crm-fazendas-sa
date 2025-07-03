@@ -104,9 +104,12 @@ export class WhatsAppManager extends EventEmitter {
           console.log('📱 WhatsApp QR Code generated for user:', userId);
           console.log('📱 QR Code length:', base64Qr?.length);
 
+          // Ensure QR code has proper data URL format
+          const qrCodeData = base64Qr.startsWith('data:') ? base64Qr : `data:image/png;base64,${base64Qr}`;
+
           // Update session with QR code
           storage.updateWhatsappSession(session.id, {
-            qrCode: base64Qr,
+            qrCode: qrCodeData,
             status: 'connecting',
             lastActivity: new Date(),
           }).catch(err => console.error('Error updating session with QR:', err));
@@ -114,7 +117,7 @@ export class WhatsAppManager extends EventEmitter {
           // Emit QR code via WebSocket
           webSocketManager.broadcastToUser(userId, {
             type: 'wa:qr',
-            qrCode: base64Qr,
+            qrCode: qrCodeData,
             sessionId: session.id
           });
 
@@ -138,6 +141,20 @@ export class WhatsAppManager extends EventEmitter {
                              sessionInfo.wid?.user ||
                              sessionInfo.wid?._serialized;
               }
+              
+              // If still no phone number, try to get from client
+              if (!phoneNumber && sessionId) {
+                const client = this.clients.get(sessionId);
+                if (client) {
+                  try {
+                    const hostDevice = await client.getHostDevice();
+                    phoneNumber = hostDevice?.id?.user || hostDevice?.id?._serialized;
+                  } catch (err) {
+                    console.log('Could not get host device info:', err);
+                  }
+                }
+              }
+              
               console.log('📱 Connected with phone:', phoneNumber);
               break;
             case 'notLogged':
@@ -249,17 +266,22 @@ export class WhatsAppManager extends EventEmitter {
         formattedNumber = `${formattedNumber}@c.us`;
       }
 
+      console.log('📤 Sending message to:', formattedNumber, 'content:', text);
+
       // Send message
       const result = await client.sendText(formattedNumber, text);
+      console.log('✅ Message sent result:', result);
 
-      // Store message in database
-      const session = await storage.getWhatsappSession(userId, sessionId);
+      // Get session from database
+      const sessions = await storage.getWhatsappSessions(userId);
+      const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
+      
       if (session) {
         const messageData = {
           sessionId: session.id,
           messageId: result.id || `msg_${Date.now()}`,
           chatId: formattedNumber,
-          fromNumber: sessionId,
+          fromNumber: result.from || sessionId,
           toNumber: formattedNumber,
           content: text,
           messageType: 'text',
@@ -269,20 +291,12 @@ export class WhatsAppManager extends EventEmitter {
         };
 
         const savedMessage = await storage.createWhatsappMessage(messageData);
+        console.log('💾 Message saved to database:', savedMessage.id);
 
         // Broadcast message via WebSocket
         webSocketManager.broadcastToUser(userId, {
           type: 'wa:message',
-          message: {
-            id: savedMessage.id,
-            chatId: formattedNumber,
-            from: sessionId,
-            to: formattedNumber,
-            content: text,
-            type: 'text',
-            direction: 'outgoing',
-            timestamp: new Date()
-          },
+          message: savedMessage,
           sessionId: session.id
         });
       }

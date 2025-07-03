@@ -10,6 +10,8 @@ import { ChatWindow } from '@/components/whatsapp/ChatWindow';
 import { OpportunityPanel } from '@/components/whatsapp/OpportunityPanel';
 import { TagsPanel } from '@/components/whatsapp/TagsPanel';
 import { useToast } from '@/hooks/use-toast';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { useAuth } from '@/hooks/useAuth';
 
 // Interfaces
 interface WhatsAppSession {
@@ -83,11 +85,23 @@ export default function WhatsAppNew() {
   const [isTyping, setIsTyping] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  // WebSocket connection
+  const { isConnected: wsConnected } = useWebSocket({
+    userId: user?.id,
+    onMessage: (data) => {
+      console.log('📡 WebSocket message in WhatsApp page:', data);
+    }
+  });
 
   // Buscar sessões WhatsApp
   const { data: sessionsData, isLoading: loadingSessions } = useQuery<WhatsAppSession[]>({
     queryKey: ['/api/whatsapp/sessions'],
     refetchInterval: 5000,
+    onError: (error) => {
+      console.error('Error loading sessions:', error);
+    },
   });
 
   // Garantir que sessions seja sempre um array
@@ -98,46 +112,15 @@ export default function WhatsAppNew() {
     queryKey: ['/api/whatsapp/messages', selectedSession?.id],
     enabled: !!selectedSession?.id,
     refetchInterval: 2000,
+    onError: (error) => {
+      console.error('Error loading messages:', error);
+    },
   });
 
   // Garantir que messages seja sempre um array
   const messages = Array.isArray(messagesData) ? messagesData : [];
 
-  // WebSocket para atualizações em tempo real
-  useEffect(() => {
-    if (!selectedSession) return;
-
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    const socket = new WebSocket(wsUrl);
-    
-    socket.onopen = () => {
-      console.log('📡 WebSocket connected');
-    };
-    
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'new_message' && data.sessionId === selectedSession.id) {
-          queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/messages', selectedSession.id] });
-        } else if (data.type === 'session_status_update') {
-          queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
-        }
-      } catch (error) {
-        console.log('Unknown WebSocket message:', event.data);
-      }
-    };
-    
-    socket.onclose = () => {
-      console.log('📡 WebSocket disconnected');
-    };
-
-    return () => {
-      socket.close();
-    };
-  }, [selectedSession, queryClient]);
+  
 
   // Mutation para enviar mensagem
   const sendMessageMutation = useMutation({
@@ -253,11 +236,7 @@ export default function WhatsAppNew() {
       .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
   }, [messages]);
 
-  // Verificar se há sessões conectadas
-  const connectedSessions = sessions.filter(s => s.status === 'connected');
-  const hasConnectedSession = connectedSessions.length > 0;
-
-  // Handlers (mover antes dos returns condicionais)
+  // Handlers (definir antes dos returns condicionais)
   const handleSelectConversation = (conversationId: string) => {
     setSelectedConversation(conversationId);
     const conversation = conversations.find(c => c.id === conversationId);
@@ -289,6 +268,10 @@ export default function WhatsAppNew() {
   const handleDeleteSession = (sessionId: number) => {
     deleteSessionMutation.mutate(sessionId);
   };
+
+  // Verificar se há sessões conectadas
+  const connectedSessions = sessions.filter(s => s.status === 'connected');
+  const hasConnectedSession = connectedSessions.length > 0;
 
   // Selecionar automaticamente a primeira sessão conectada
   useEffect(() => {

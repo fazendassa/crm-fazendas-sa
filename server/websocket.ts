@@ -15,12 +15,12 @@ class WebSocketManager {
     this.wss = new WebSocketServer({ server, path: '/ws' });
 
     this.wss.on('connection', (ws: AuthenticatedWebSocket, req) => {
-      console.log('📡 New WebSocket connection');
-      
+      console.log('📡 New WebSocket connection attempt');
+
       // Extract user ID from query parameters or headers
       const url = new URL(req.url!, `http://${req.headers.host}`);
       const userId = url.searchParams.get('userId');
-      
+
       if (!userId) {
         console.log('❌ WebSocket connection rejected: No user ID');
         ws.close(4001, 'User ID required');
@@ -38,13 +38,21 @@ class WebSocketManager {
 
       console.log(`✅ WebSocket connected for user: ${userId}`);
 
+      // Send initial connection confirmation
+      ws.send(JSON.stringify({
+        type: 'connection',
+        status: 'connected',
+        message: 'WebSocket connected successfully'
+      }));
+
       // Handle incoming messages
       ws.on('message', async (data) => {
         try {
           const message = JSON.parse(data.toString());
+          console.log('📡 WebSocket message received:', message);
           await this.handleMessage(ws, message);
         } catch (error) {
-          console.error('❌ Error handling WebSocket message:', error);
+          console.error('📡 Error parsing WebSocket message:', error);
           ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
         }
       });
@@ -57,6 +65,11 @@ class WebSocketManager {
       // Handle client disconnect
       ws.on('close', () => {
         console.log(`📡 WebSocket disconnected for user: ${userId}`);
+        this.removeClient(userId, ws);
+      });
+
+      ws.on('error', (error) => {
+        console.log('📡 WebSocket error for user:', userId, error);
         this.removeClient(userId, ws);
       });
 
