@@ -122,15 +122,8 @@ export default function WhatsAppNew() {
     }
   });
 
-  // Early return if loading or no user
+  // Check auth loading first
   const { isLoading: authLoading } = useAuth();
-  if (authLoading || !user) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
-      </div>
-    );
-  }
 
   // Buscar sessões WhatsApp
   const { data: sessionsData, isLoading: loadingSessions } = useQuery<WhatsAppSession[]>({
@@ -259,13 +252,21 @@ export default function WhatsAppNew() {
 
   // Converter contatos em conversas
   const conversations: Conversation[] = React.useMemo(() => {
+    console.log('🔄 Processing conversations with contactsData:', contactsData?.length, 'messages:', messages?.length);
+    
     if (!contactsData || contactsData.length === 0) {
       // Se não temos contatos, criar conversas a partir das mensagens
-      if (!messages || messages.length === 0) return [];
+      if (!messages || messages.length === 0) {
+        console.log('📭 No contacts or messages available');
+        return [];
+      }
 
+      console.log('📨 Creating conversations from messages');
       const conversationMap = new Map<string, Conversation>();
 
       messages.forEach(message => {
+        if (!message || !message.contactNumber) return;
+        
         const key = message.contactNumber;
         
         // Extrair nome do contato de forma mais inteligente
@@ -288,7 +289,7 @@ export default function WhatsAppNew() {
             avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contactName)}&backgroundColor=random`,
             lastMessage: {
               id: message.id,
-              content: message.messageContent,
+              content: message.messageContent || 'Mensagem',
               timestamp: new Date(message.timestamp),
               status: message.status,
               isFromMe: message.isFromMe
@@ -310,7 +311,7 @@ export default function WhatsAppNew() {
           if (messageTime > conversation.lastMessage.timestamp) {
             conversation.lastMessage = {
               id: message.id,
-              content: message.messageContent,
+              content: message.messageContent || 'Mensagem',
               timestamp: messageTime,
               status: message.status,
               isFromMe: message.isFromMe
@@ -323,16 +324,20 @@ export default function WhatsAppNew() {
         }
       });
 
-      return Array.from(conversationMap.values())
+      const result = Array.from(conversationMap.values())
         .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
+      
+      console.log('📋 Created conversations from messages:', result.length);
+      return result;
     }
 
     // Usar dados dos contatos para criar conversas
-    return contactsData
-      .filter(contact => !contact.isGroup) // Filtrar apenas contatos individuais
+    console.log('👥 Creating conversations from contacts');
+    const result = contactsData
+      .filter(contact => contact && !contact.isGroup && contact.phone) // Filtrar apenas contatos individuais válidos
       .map(contact => {
         const cleanPhone = contact.phone.replace(/\D/g, '');
-        const lastMessage = messages?.find(m => m.contactNumber.includes(cleanPhone));
+        const lastMessage = messages?.find(m => m.contactNumber && m.contactNumber.includes(cleanPhone));
         
         return {
           id: contact.phone,
@@ -341,7 +346,7 @@ export default function WhatsAppNew() {
           avatar: contact.profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contact.name || contact.phone)}&backgroundColor=random`,
           lastMessage: lastMessage ? {
             id: lastMessage.id,
-            content: lastMessage.messageContent,
+            content: lastMessage.messageContent || 'Mensagem',
             timestamp: new Date(lastMessage.timestamp),
             status: lastMessage.status,
             isFromMe: lastMessage.isFromMe
@@ -358,6 +363,9 @@ export default function WhatsAppNew() {
         };
       })
       .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
+    
+    console.log('📋 Created conversations from contacts:', result.length);
+    return result;
   }, [contactsData, messages]);
 
   // Handlers
@@ -410,6 +418,15 @@ export default function WhatsAppNew() {
   // Verificar se há sessões conectadas
   const connectedSessions = sessions.filter(s => s.status === 'connected');
   const hasConnectedSession = connectedSessions.length > 0;
+
+  // Early return if loading or no user (after all hooks are defined)
+  if (authLoading || !user) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+      </div>
+    );
+  }
 
   // Selecionar automaticamente a primeira sessão conectada
   useEffect(() => {
