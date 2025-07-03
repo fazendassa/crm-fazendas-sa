@@ -17,6 +17,7 @@ import ContactImport from "@/pages/contact-import";
 import ActiveCampaignConfig from "@/pages/ActiveCampaignConfig";
 import WhatsApp from "@/pages/whatsapp";
 import WhatsAppNew from "@/pages/whatsapp-new";
+import WhatsAppSimple from "@/pages/whatsapp-simple";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { lazy, Suspense } from 'react';
@@ -60,13 +61,10 @@ function Router() {
             <Route path="/pipeline" component={Pipeline} />
             <Route path="/activities" component={Activities} />
             <Route path="/integrations/activecampaign" component={ActiveCampaignConfig} />
-            <Route path="/integrations/whatsapp" component={WhatsApp} />
-            <Route path="/whatsapp" component={WhatsApp} />
-            <Route path="/whatsapp-new">
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
-                <WhatsAppNew />
-              </Suspense>
-            </Route>
+            <Route path="/integrations/whatsapp" component={WhatsAppSimple} />
+            <Route path="/whatsapp" component={WhatsAppSimple} />
+            <Route path="/whatsapp-new" component={WhatsAppSimple} />
+            <Route path="/whatsapp-simple" component={WhatsAppSimple} />
             <Route path="/admin" component={Admin} />
             <Route path="/users" component={UserManagement} />
             <Route component={NotFound} />
