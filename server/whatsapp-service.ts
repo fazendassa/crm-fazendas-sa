@@ -28,7 +28,7 @@ export class WhatsAppManager extends EventEmitter {
       console.log('📱 Creating WhatsApp session for user:', userId, 'with name:', sessionName);
 
       // Check if session already exists in database
-      const existingSession = await storage.getWhatsappSession(userId, sessionName);
+      const existingSession = await storage.getWhatsappSession(userId, sessionId);
       if (existingSession && existingSession.status === 'connected') {
         console.log('📱 Session already connected');
         return 'Session already connected';
@@ -217,12 +217,16 @@ export class WhatsAppManager extends EventEmitter {
       console.error('Error creating WhatsApp session:', error);
 
       // Update session status to error
-      const existingSession = await storage.getWhatsappSession(userId, `session_crm-${userId}`);
-      if (existingSession) {
-        await storage.updateWhatsappSession(existingSession.id, {
-          status: 'error',
-          lastActivity: new Date(),
-        });
+      try {
+        const existingSession = await storage.getWhatsappSession(userId, sessionId);
+        if (existingSession) {
+          await storage.updateWhatsappSession(existingSession.id, {
+            status: 'error',
+            lastActivity: new Date(),
+          });
+        }
+      } catch (updateError) {
+        console.error('Error updating session status to error:', updateError);
       }
 
       throw new Error(`Failed to create WhatsApp session: ${error instanceof Error ? error.message : 'Unknown error'}`);
