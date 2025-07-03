@@ -8,6 +8,9 @@ import {
   pipelineStages,
   activeCampaignConfigs,
   activeCampaignWebhookLogs,
+  whatsappSessions,
+  whatsappMessages,
+  whatsappContacts,
   type User,
   type UpsertUser,
   type Company,
@@ -28,6 +31,12 @@ import {
   type ActiveCampaignConfig,
   type ActiveCampaignWebhookLog,
   type InsertActiveCampaignConfig,
+  type WhatsappSession,
+  type InsertWhatsappSession,
+  type WhatsappMessage,
+  type InsertWhatsappMessage,
+  type WhatsappContact,
+  type InsertWhatsappContact,
   type InsertActiveCampaignWebhookLog,
 } from "@shared/schema";
 import { db } from "./db";

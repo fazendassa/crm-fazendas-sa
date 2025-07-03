@@ -81,7 +81,7 @@ export default function WhatsApp() {
   }, [toast, queryClient]);
 
   // Fetch WhatsApp sessions
-  const { data: sessions = [], error: sessionsError } = useQuery({
+  const { data: sessionsData = [], error: sessionsError, isLoading: sessionsLoading } = useQuery({
     queryKey: ['/api/whatsapp/sessions'],
     queryFn: async () => {
       try {
@@ -97,6 +97,9 @@ export default function WhatsApp() {
       }
     }
   });
+
+  // Ensure sessions is always an array
+  const sessions = Array.isArray(sessionsData) ? sessionsData : [];
 
   // Fetch messages for selected session
   const { data: messages = [] } = useQuery({
@@ -119,18 +122,32 @@ export default function WhatsApp() {
         credentials: 'include',
         body: JSON.stringify({ sessionName })
       });
-      if (!response.ok) throw new Error('Failed to create session');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create session');
+      }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Session created successfully:', data);
       queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
       setNewSessionName("");
-      toast({
-        title: "Sessão criada",
-        description: "Nova sessão WhatsApp criada com sucesso"
-      });
+      
+      if (data.qrCode) {
+        setQrCode(data.qrCode);
+        toast({
+          title: "Sessão criada",
+          description: "Escaneie o QR Code para conectar"
+        });
+      } else {
+        toast({
+          title: "Sessão criada",
+          description: "Nova sessão WhatsApp criada com sucesso"
+        });
+      }
     },
     onError: (error: any) => {
+      console.error('Error creating session:', error);
       toast({
         title: "Erro",
         description: error.message || "Falha ao criar sessão",
@@ -282,7 +299,9 @@ export default function WhatsApp() {
                 Erro ao carregar sessões: {sessionsError.message}
               </div>
             )}
-            {Array.isArray(sessions) && sessions.length > 0 ? (
+            {sessionsLoading ? (
+              <div className="text-sm text-gray-500">Carregando sessões...</div>
+            ) : sessions.length > 0 ? (
               sessions.map((session) => (
                 <Card key={session.id} className="apple-card-nested">
                   <CardHeader className="pb-2">
