@@ -337,3 +337,75 @@ export type ActiveCampaignWebhookLog = typeof activeCampaignWebhookLogs.$inferSe
 export type ActiveCampaignConfigWithRelations = ActiveCampaignConfig & {
   pipeline?: Pipeline | null;
 };
+
+// WhatsApp Integration Tables
+export const whatsappSessions = pgTable("whatsapp_sessions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  sessionName: varchar("session_name").notNull(),
+  status: varchar("status").notNull().default("disconnected"), // 'disconnected', 'connecting', 'connected', 'error'
+  phoneNumber: varchar("phone_number"),
+  qrCode: text("qr_code"),
+  isActive: boolean("is_active").default(true),
+  lastActivity: timestamp("last_activity").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const whatsappMessages = pgTable("whatsapp_messages", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").references(() => whatsappSessions.id, { onDelete: "cascade" }).notNull(),
+  messageId: varchar("message_id").notNull(), // WhatsApp message ID
+  chatId: varchar("chat_id").notNull(), // WhatsApp chat ID
+  fromNumber: varchar("from_number").notNull(),
+  toNumber: varchar("to_number").notNull(),
+  content: text("content"),
+  messageType: varchar("message_type").notNull().default("text"), // 'text', 'image', 'video', 'audio', 'file', 'location', 'contact'
+  mediaUrl: text("media_url"),
+  direction: varchar("direction").notNull(), // 'incoming', 'outgoing'
+  isRead: boolean("is_read").default(false),
+  timestamp: timestamp("timestamp").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// WhatsApp Relations
+export const whatsappSessionsRelations = relations(whatsappSessions, ({ one, many }) => ({
+  user: one(users, {
+    fields: [whatsappSessions.userId],
+    references: [users.id],
+  }),
+  messages: many(whatsappMessages),
+}));
+
+export const whatsappMessagesRelations = relations(whatsappMessages, ({ one }) => ({
+  session: one(whatsappSessions, {
+    fields: [whatsappMessages.sessionId],
+    references: [whatsappSessions.id],
+  }),
+}));
+
+// WhatsApp Insert Schemas
+export const insertWhatsappSessionSchema = createInsertSchema(whatsappSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+// WhatsApp Types
+export type WhatsappSession = typeof whatsappSessions.$inferSelect;
+export type InsertWhatsappSession = z.infer<typeof insertWhatsappSessionSchema>;
+export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
+export type InsertWhatsappMessage = z.infer<typeof insertWhatsappMessageSchema>;
+
+export type WhatsappSessionWithMessages = WhatsappSession & {
+  messages?: WhatsappMessage[];
+};
+
+export type WhatsappMessageWithSession = WhatsappMessage & {
+  session?: WhatsappSession;
+};

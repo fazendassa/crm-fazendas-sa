@@ -12,7 +12,8 @@ import {
   DollarSign,
   BarChart3,
   LogOut,
-  Zap
+  Zap,
+  MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,12 @@ const navigation = [
     name: 'ActiveCampaign', 
     href: '/integrations/activecampaign', 
     icon: Zap,
+    permission: 'manage:settings' as const
+  },
+  { 
+    name: 'WhatsApp', 
+    href: '/integrations/whatsapp', 
+    icon: MessageCircle,
     permission: 'manage:settings' as const
   },
   { 

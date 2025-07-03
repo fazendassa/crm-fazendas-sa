@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { whatsAppManager } from "./whatsapp";
+import { webSocketManager } from "./websocket";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import csv from "csv-parser";
@@ -805,7 +807,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(buffer);
   });
 
+  // WhatsApp Integration Routes
+  app.get('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessions = await storage.getWhatsappSessions(userId);
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching WhatsApp sessions:", error);
+      res.status(500).json({ message: "Failed to fetch WhatsApp sessions" });
+    }
+  });
+
+  app.post('/api/whatsapp/create-session', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionName } = req.body;
+      
+      if (!sessionName) {
+        return res.status(400).json({ message: "Session name is required" });
+      }
+
+      const result = await whatsAppManager.createSession(userId, sessionName);
+      res.json({ message: result });
+    } catch (error) {
+      console.error("Error creating WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to create WhatsApp session" });
+    }
+  });
+
+  app.post('/api/whatsapp/send', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { to, text } = req.body;
+
+      if (!to || !text) {
+        return res.status(400).json({ message: "Phone number and message text are required" });
+      }
+
+      const result = await whatsAppManager.sendMessage(userId, to, text);
+      res.json({ message: "Message sent successfully", result });
+    } catch (error) {
+      console.error("Error sending WhatsApp message:", error);
+      res.status(500).json({ 
+        message: "Failed to send message",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.get('/api/whatsapp/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const status = await whatsAppManager.getSessionStatus(userId);
+      res.json({ status });
+    } catch (error) {
+      console.error("Error getting WhatsApp status:", error);
+      res.status(500).json({ message: "Failed to get WhatsApp status" });
+    }
+  });
+
+  app.get('/api/whatsapp/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { chatId, limit } = req.query;
+      
+      const messages = await whatsAppManager.getMessages(
+        userId, 
+        chatId as string, 
+        limit ? parseInt(limit as string) : 50
+      );
+      res.json({ messages });
+    } catch (error) {
+      console.error("Error getting WhatsApp messages:", error);
+      res.status(500).json({ message: "Failed to get WhatsApp messages" });
+    }
+  });
+
+  app.delete('/api/whatsapp/session', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await whatsAppManager.closeSession(userId);
+      res.json({ message: "Session closed successfully" });
+    } catch (error) {
+      console.error("Error closing WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to close WhatsApp session" });
+    }
+  });
+
   const httpServer = createServer(app);
+
+  // Set up WebSocket server for real-time communication
+  webSocketManager.setup(httpServer);
+
   // ActiveCampaign Integration Routes
 
   // Get user's ActiveCampaign configurations
