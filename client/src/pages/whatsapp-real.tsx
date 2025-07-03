@@ -43,7 +43,7 @@ export default function WhatsApp() {
   const [newSessionName, setNewSessionName] = useState("");
   const [messageInput, setMessageInput] = useState("");
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -64,7 +64,7 @@ export default function WhatsApp() {
     socketInstance.on('session-status', (data: { sessionName: string; status: string }) => {
       console.log('Session status:', data);
       setSessionStatus(data.status);
-      
+
       if (data.status === 'isLogged') {
         setQrCode(null);
         toast({
@@ -240,7 +240,7 @@ export default function WhatsApp() {
         <div className="p-6 border-b apple-divider">
           <h1 className="text-2xl font-semibold text-gray-900">WhatsApp</h1>
         </div>
-        
+
         {/* Create New Session */}
         <div className="p-4 border-b apple-divider">
           <div className="flex gap-2">
@@ -265,7 +265,7 @@ export default function WhatsApp() {
         <div className="flex-1 p-4 overflow-y-auto">
           <h3 className="font-medium text-gray-900 mb-3">Sessões WhatsApp</h3>
           <div className="space-y-2">
-            {sessions.map((session) => (
+            {Array.isArray(sessions) && sessions.map((session) => (
               <Card key={session.id} className="apple-card-nested">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
