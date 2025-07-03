@@ -50,9 +50,33 @@ class WhatsAppManager extends EventEmitter {
         session = await storage.createWhatsappSession(sessionData);
       }
 
-      // Create WPPConnect client
+      // Create WPPConnect client with enhanced Replit compatibility
       const client = await create({
         session: sessionId,
+        headless: true,
+        devtools: false,
+        useChrome: true,
+        debug: false,
+        logQR: false,
+        browserWS: '',
+        chromiumPath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+        browserArgs: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--single-process',
+          '--disable-gpu',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-features=TranslateUI',
+          '--disable-ipc-flooding-protection',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor'
+        ],
         catchQR: (base64Qr, asciiQR) => {
           console.log('📱 WhatsApp QR Code generated for user:', userId);
           
