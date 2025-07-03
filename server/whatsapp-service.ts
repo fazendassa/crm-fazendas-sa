@@ -924,10 +924,17 @@ export class WhatsAppManager extends EventEmitter {
       });
 
       return contacts
-        .filter(contact => !contact.isGroup && contact.isMyContact) // Apenas contatos pessoais
+        .filter(contact => contact && !contact.isGroup && contact.isMyContact) // Apenas contatos pessoais válidos
         .map(contact => {
-          const chatInfo = chatMap.get(contact.id);
-          const cleanPhone = contact.id.replace('@c.us', '');
+          // Verificar se contact.id existe e é uma string
+          const contactId = contact.id || '';
+          if (typeof contactId !== 'string') {
+            console.warn('Invalid contact.id:', contactId, 'for contact:', contact);
+            return null;
+          }
+
+          const chatInfo = chatMap.get(contactId);
+          const cleanPhone = contactId.replace('@c.us', '');
           
           // Priorizar nome do chat, depois pushname, depois nome do contato
           let name = chatInfo?.name || contact.pushname || contact.name || contact.shortName;
@@ -945,7 +952,7 @@ export class WhatsAppManager extends EventEmitter {
           }
 
           return {
-            id: contact.id,
+            id: contactId,
             name: name,
             phone: cleanPhone,
             isMyContact: contact.isMyContact,
@@ -954,6 +961,7 @@ export class WhatsAppManager extends EventEmitter {
             lastActivity: chatInfo?.lastMessageTime || null
           };
         })
+        .filter(contact => contact !== null)
         .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0)); // Ordenar por última atividade
     } catch (error) {
       console.error('Error getting contacts:', error);
