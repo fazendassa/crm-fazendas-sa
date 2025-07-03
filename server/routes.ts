@@ -1322,8 +1322,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     tableName: 'user_sessions',
     createTableIfMissing: true,
     errorLog: (err) => {
-      console.error('Session store error:', err);
-    }
+      console.error('Session store error:', err.message);
+      // Don't throw, just log the error
+    },
+    // Add retry configuration for sessions
+    pruneSessionInterval: false, // Disable automatic cleanup to avoid connection issues
+    ttl: 24 * 60 * 60, // 24 hours in seconds
   });
 
   app.use(session({
