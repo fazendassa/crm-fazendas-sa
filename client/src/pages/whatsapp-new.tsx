@@ -138,11 +138,28 @@ export default function WhatsAppNew() {
   const sessions = Array.isArray(sessionsData) ? sessionsData : [];
   console.log('sessionsData:', sessionsData);
   console.log('sessions:', sessions);
-  
-  // Log para debug
-  if (sessionsError) {
-    console.error('Sessions query error:', sessionsError);
-  }
+
+  // Buscar contatos únicos para criar conversas (sem carregar mensagens ainda)
+  const { data: contactsData, error: contactsError } = useQuery<any[]>({
+    queryKey: [`/api/whatsapp/sessions/${selectedSession?.id}/contacts`],
+    enabled: !!selectedSession?.id,
+    refetchInterval: 30000, // Atualizar contatos a cada 30 segundos
+    onError: (error) => {
+      console.error('Error loading contacts:', error);
+    },
+  });
+
+  // Buscar todas as mensagens sem filtrar por conversa específica
+  const { data: allMessagesData, isLoading: loadingAllMessages } = useQuery<WhatsAppMessage[]>({
+    queryKey: [`/api/whatsapp/messages/${selectedSession?.id}`],
+    enabled: !!selectedSession?.id,
+    refetchInterval: 2000,
+    onError: (error) => {
+      console.error('Error loading all messages:', error);
+    },
+  });
+
+  const allMessages = Array.isArray(allMessagesData) ? allMessagesData : [];
 
   // Filtrar mensagens para o contato selecionado
   const filteredMessages = React.useMemo(() => {
@@ -243,32 +260,14 @@ export default function WhatsAppNew() {
     }
   });
 
-  // Buscar contatos únicos para criar conversas (sem carregar mensagens ainda)
-  const { data: contactsData, error: contactsError } = useQuery<any[]>({
-    queryKey: [`/api/whatsapp/sessions/${selectedSession?.id}/contacts`],
-    enabled: !!selectedSession?.id,
-    refetchInterval: 30000, // Atualizar contatos a cada 30 segundos
-    onError: (error) => {
-      console.error('Error loading contacts:', error);
-    },
-  });
-
   // Log para debug
+  if (sessionsError) {
+    console.error('Sessions query error:', sessionsError);
+  }
+
   if (contactsError) {
     console.error('Contacts query error:', contactsError);
   }
-
-  // Buscar todas as mensagens sem filtrar por conversa específica
-  const { data: allMessagesData, isLoading: loadingAllMessages } = useQuery<WhatsAppMessage[]>({
-    queryKey: [`/api/whatsapp/messages/${selectedSession?.id}`],
-    enabled: !!selectedSession?.id,
-    refetchInterval: 2000,
-    onError: (error) => {
-      console.error('Error loading all messages:', error);
-    },
-  });
-
-  const allMessages = Array.isArray(allMessagesData) ? allMessagesData : [];
 
   // Converter contatos em conversas
   const conversations: Conversation[] = React.useMemo(() => {
@@ -435,6 +434,13 @@ export default function WhatsAppNew() {
   const connectedSessions = sessions.filter(s => s.status === 'connected');
   const hasConnectedSession = connectedSessions.length > 0;
 
+  // Selecionar automaticamente a primeira sessão conectada
+  useEffect(() => {
+    if (connectedSessions.length > 0 && !selectedSession) {
+      setSelectedSession(connectedSessions[0]);
+    }
+  }, [connectedSessions, selectedSession]);
+
   // Early return if loading or no user (after all hooks are defined)
   if (authLoading || !user) {
     return (
@@ -443,13 +449,6 @@ export default function WhatsAppNew() {
       </div>
     );
   }
-
-  // Selecionar automaticamente a primeira sessão conectada
-  useEffect(() => {
-    if (connectedSessions.length > 0 && !selectedSession) {
-      setSelectedSession(connectedSessions[0]);
-    }
-  }, [connectedSessions, selectedSession]);
 
   // Se não há sessões, mostrar tela de criação
   if (!loadingSessions && (!sessions || sessions.length === 0)) {
