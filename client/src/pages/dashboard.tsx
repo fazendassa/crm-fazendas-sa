@@ -87,7 +87,7 @@ export default function Dashboard() {
     }
   };
 
-  const totalDeals = metricsData.stageMetrics.reduce((acc: number, stage: any) => acc + stage.count, 0);
+  const totalDeals = (metricsData.stageMetrics || []).reduce((acc: number, stage: any) => acc + stage.count, 0);
 
   return (
     <div className="p-8 bg-gray-50/50 min-h-screen">
