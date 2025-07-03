@@ -29,45 +29,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Getting WhatsApp sessions for user:', userId);
       
       const sessions = await storage.getWhatsappSessions(userId);
-      res.json(sessions);
+      
+      // Ensure we always return an array
+      const sessionsArray = Array.isArray(sessions) ? sessions : [];
+      console.log('Returning sessions:', sessionsArray.length);
+      
+      res.json(sessionsArray);
     } catch (error) {
       console.error("Error getting WhatsApp sessions:", error);
       res.status(500).json({ message: "Failed to get WhatsApp sessions" });
     }
   });
 
-  app.post("/api/whatsapp/sessions", isAuthenticated, async (req, res) => {
+  app.post("/api/whatsapp/create-session", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      const sessionName = 'session_crm-' + userId;
+      const { sessionName } = req.body;
       
-      console.log('Creating WhatsApp session for user:', userId);
+      if (!sessionName || !sessionName.trim()) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Nome da sessão é obrigatório" 
+        });
+      }
+      
+      console.log('Creating WhatsApp session for user:', userId, 'with name:', sessionName);
 
-      const qrCode = await whatsAppManager.createSession(userId, sessionName);
+      const result = await whatsAppManager.createSession(userId, sessionName.trim());
       
       res.json({ 
-        message: "Session creation initiated",
-        qrCode: qrCode,
-        sessionName: sessionName
+        success: true,
+        message: "Sessão criada com sucesso. Aguarde o QR Code aparecer.",
+        sessionName: sessionName.trim()
       });
     } catch (error) {
       console.error("Error creating WhatsApp session:", error);
-      res.status(500).json({ message: "Failed to create WhatsApp session" });
+      res.status(500).json({ 
+        success: false,
+        message: error instanceof Error ? error.message : "Falha ao criar sessão do WhatsApp" 
+      });
     }
   });
 
-  app.delete("/api/whatsapp/sessions/:sessionId", isAuthenticated, async (req, res) => {
+  app.get("/api/whatsapp/messages", isAuthenticated, async (req, res) => {
     try {
-      const sessionId = parseInt(req.params.sessionId);
+      const userId = (req.user as any).claims.sub;
+      const sessionId = req.query.sessionId ? parseInt(req.query.sessionId as string) : undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      if (!sessionId) {
+        return res.json({ messages: [] });
+      }
+
+      console.log('Getting messages for session', sessionId, 'user', userId);
+
+      const messages = await storage.getWhatsappMessages(sessionId, undefined, limit);
+      
+      res.json({ messages: messages || [] });
+    } catch (error) {
+      console.error("Error getting WhatsApp messages:", error);
+      res.json({ messages: [] });
+    }
+  });
+
+  app.delete("/api/whatsapp/session", isAuthenticated, async (req, res) => {
+    try {
       const userId = (req.user as any).claims.sub;
       
-      console.log('Deleting WhatsApp session:', sessionId, 'for user:', userId);
+      console.log('Deleting WhatsApp session for user:', userId);
       
-      // Delete from WhatsApp service
-      await whatsAppManager.deleteSession(userId);
+      // Get user sessions first
+      const sessions = await storage.getWhatsappSessions(userId);
       
-      // Delete from database
-      await storage.deleteWhatsappSession(sessionId);
+      if (sessions && sessions.length > 0) {
+        // Delete from WhatsApp service
+        await whatsAppManager.closeSession(userId);
+        
+        // Delete from database
+        for (const session of sessions) {
+          await storage.deleteWhatsappSession(session.id);
+        }
+      }
       
       res.json({ message: "Session deleted successfully" });
     } catch (error) {
