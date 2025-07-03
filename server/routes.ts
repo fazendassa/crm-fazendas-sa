@@ -811,11 +811,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
     try {
       console.log('🔍 WhatsApp Sessions - req.user:', req.user);
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       console.log('🔍 WhatsApp Sessions - userId:', userId);
       
       if (!userId) {
         console.error('❌ WhatsApp Sessions - No user ID found');
+        console.error('❌ WhatsApp Sessions - req.user structure:', JSON.stringify(req.user, null, 2));
         return res.status(401).json({ message: "User ID not found" });
       }
       
@@ -831,11 +832,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/whatsapp/create-session', isAuthenticated, async (req: any, res) => {
     try {
       console.log('🔍 Create Session - req.user:', req.user);
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       console.log('🔍 Create Session - userId:', userId);
       
       if (!userId) {
         console.error('❌ Create Session - No user ID found');
+        console.error('❌ Create Session - req.user structure:', JSON.stringify(req.user, null, 2));
         return res.status(401).json({ message: "User ID not found" });
       }
       
@@ -855,7 +857,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/whatsapp/send', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
@@ -878,7 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/whatsapp/status', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
@@ -892,7 +894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/whatsapp/messages', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
@@ -912,7 +914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/whatsapp/session', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || req.user?.id;
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }

@@ -354,7 +354,7 @@ export default function WhatsApp() {
 
             {/* Sessions List */}
             <div className="space-y-2">
-              {sessions && sessions.length > 0 ? (
+              {Array.isArray(sessions) && sessions.length > 0 ? (
                 sessions.map((session) => (
                   <Card 
                     key={session.id} 
