@@ -1,2 +1,3 @@
-2025/07/03-17:38:59.501 20c2 Creating DB /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Session Storage since it was missing.
-2025/07/03-17:38:59.566 20c2 Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Session Storage/MANIFEST-000001
+2025/07/03-17:50:22.740 2ab2 Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Session Storage/MANIFEST-000001
+2025/07/03-17:50:22.740 2ab2 Recovering log #3
+2025/07/03-17:50:22.740 2ab2 Reusing old log /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Session Storage/000003.log 

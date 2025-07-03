@@ -1,3 +1,3 @@
-2025/07/03-17:50:22.744 2abc Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/shared_proto_db/metadata/MANIFEST-000001
-2025/07/03-17:50:22.745 2abc Recovering log #3
-2025/07/03-17:50:22.745 2abc Reusing old log /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/shared_proto_db/metadata/000003.log 
+2025/07/03-17:54:09.000 2db9 Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/shared_proto_db/metadata/MANIFEST-000001
+2025/07/03-17:54:09.000 2db9 Recovering log #3
+2025/07/03-17:54:09.000 2db9 Reusing old log /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/shared_proto_db/metadata/000003.log 
