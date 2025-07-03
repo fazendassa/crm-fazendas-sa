@@ -233,6 +233,23 @@ export default function WhatsApp() {
     }
   };
 
+  const deleteSession = async (sessionId: number) => {
+    try {
+      await apiRequest('/api/whatsapp/session', 'DELETE');
+      toast({
+        title: "Sucesso",
+        description: "Sessão excluída com sucesso",
+      });
+      loadSessions();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao excluir sessão",
+        variant: "destructive"
+      });
+    }
+  };
+
   const sendMessage = async () => {
     if (!messageText.trim() || !recipientNumber.trim()) {
       toast({
@@ -366,17 +383,16 @@ export default function WhatsApp() {
                 sessions.map((session) => (
                   <Card 
                     key={session.id} 
-                    className={`cursor-pointer transition-colors ${
+                    className={`transition-colors ${
                       currentSession?.id === session.id ? 'ring-2 ring-blue-500' : ''
                     }`}
-                    onClick={() => {
-                      setCurrentSession(session);
-                      loadMessages(session.id);
-                    }}
                   >
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div onClick={() => {
+                          setCurrentSession(session);
+                          loadMessages(session.id);
+                        }} className="flex-1 cursor-pointer">
                           <p className="font-medium">{session.sessionName}</p>
                           {session.phoneNumber && (
                             <p className="text-sm text-gray-600">
@@ -384,7 +400,20 @@ export default function WhatsApp() {
                             </p>
                           )}
                         </div>
-                        {getStatusBadge(session.status)}
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(session.status)}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteSession(session.id);
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            Excluir
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
