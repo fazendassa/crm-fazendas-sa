@@ -197,9 +197,13 @@ export default function WhatsAppNew() {
   // Mutation para criar nova sessão
   const createSessionMutation = useMutation({
     mutationFn: async (sessionName: string) => {
-      return apiRequest('/api/whatsapp/sessions', 'POST', { sessionName });
+      console.log('🚀 Creating WhatsApp session:', sessionName);
+      const result = await apiRequest('/api/whatsapp/create-session', 'POST', { sessionName });
+      console.log('✅ Session creation result:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('✅ Session created successfully:', data);
       queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
       setNewSessionName('');
       toast({
