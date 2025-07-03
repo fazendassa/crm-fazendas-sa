@@ -336,7 +336,7 @@ export function ChatWindow({
                             <Play className="w-4 h-4" />
                           </Button>
                           <div className="flex-1 h-1 bg-gray-300 rounded">
-                            <div className="w-1/3 h-full bg-current rounded"></div>
+                            <div className="w-1/3 h-full bg-currentrounded"></div>
                           </div>
                           <span className="text-xs">0:15</span>
                         </div>
@@ -554,7 +554,7 @@ export function ChatWindow({
         {/* Device info */}
         <div className="mt-2 text-xs text-gray-500 text-center">
           {deviceInfo && typeof deviceInfo === 'string' && deviceInfo.trim() ? (
-            deviceInfo.split(' – ').map((part, index) => (
+            deviceInfo?.split(' – ').map((part, index) => (
               <span key={index}>
                 {index > 0 && ' – '}
                 {part}
