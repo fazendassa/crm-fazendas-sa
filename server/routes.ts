@@ -835,6 +835,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/whatsapp/create-session', isAuthenticated, async (req: any, res) => {
     try {
       console.log('🔍 Create Session - req.user:', req.user);
+      console.log('🔍 Create Session - req.body:', req.body);
+      
       const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       console.log('🔍 Create Session - userId:', userId);
 
@@ -845,16 +847,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { sessionName } = req.body;
+      console.log('🔍 Create Session - sessionName:', sessionName);
 
-      if (!sessionName) {
+      if (!sessionName || !sessionName.trim()) {
+        console.error('❌ Create Session - Invalid session name:', sessionName);
         return res.status(400).json({ message: "Session name is required" });
       }
 
-      const result = await whatsAppManager.createSession(userId, sessionName);
-      res.json({ message: result });
+      console.log('📱 Starting session creation process...');
+      const result = await whatsAppManager.createSession(userId, sessionName.trim());
+      console.log('✅ Session creation result:', result);
+      
+      res.json({ message: result, success: true });
     } catch (error) {
-      console.error("Error creating WhatsApp session:", error);
-      res.status(500).json({ message: "Failed to create WhatsApp session", error: error instanceof Error ? error.message : "Unknown error" });
+      console.error("❌ Error creating WhatsApp session:", error);
+      console.error("❌ Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+      
+      res.status(500).json({ 
+        message: "Failed to create WhatsApp session", 
+        error: error instanceof Error ? error.message : "Unknown error",
+        success: false
+      });
     }
   });
 
