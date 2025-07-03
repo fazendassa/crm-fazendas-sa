@@ -162,7 +162,7 @@ export default function WhatsApp() {
       console.log('sessionsData:', response);
 
       // Ensure response is always treated as an array
-      const sessionsArray = Array.isArray(response) ? response : [];
+      const sessionsArray = Array.isArray(response) ? response : (response?.sessions || []);
       setSessions(sessionsArray);
       console.log('sessions:', sessionsArray);
     } catch (error) {
@@ -188,7 +188,9 @@ export default function WhatsApp() {
   };
 
   const createSession = async () => {
-    if (!sessionName.trim()) {
+    const trimmedSessionName = sessionName?.trim();
+    
+    if (!trimmedSessionName) {
       toast({
         title: "Erro",
         description: "Nome da sessão é obrigatório",
@@ -199,27 +201,34 @@ export default function WhatsApp() {
 
     try {
       setIsLoading(true);
+      setConnectionError(null);
+      
       const response = await apiRequest('/api/whatsapp/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ sessionName: sessionName.trim() }),
+        body: JSON.stringify({ sessionName: trimmedSessionName }),
       });
 
-      toast({
-        title: "Sucesso",
-        description: response.message || "Sessão criada com sucesso",
-      });
+      if (response?.success !== false) {
+        toast({
+          title: "Sucesso",
+          description: response?.message || "Sessão criada com sucesso",
+        });
 
-      setSessionName('');
-      // Wait a bit before reloading sessions to allow backend processing
-      setTimeout(() => {
-        loadSessions();
-      }, 1000);
+        setSessionName('');
+        // Wait a bit before reloading sessions to allow backend processing
+        setTimeout(() => {
+          loadSessions();
+        }, 1000);
+      } else {
+        throw new Error(response?.message || "Falha ao criar sessão");
+      }
     } catch (error) {
       console.error('Error creating session:', error);
       const errorMessage = error instanceof Error ? error.message : "Falha ao criar sessão do WhatsApp";
+      setConnectionError(errorMessage);
       toast({
         title: "Erro",
         description: errorMessage,
@@ -268,7 +277,9 @@ export default function WhatsApp() {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
+    const safeStatus = status ? status.toString().toLowerCase() : 'unknown';
+    
+    switch (safeStatus) {
       case 'connected':
         return <Badge className="bg-green-500"><Wifi className="w-3 h-3 mr-1" />Conectado</Badge>;
       case 'connecting':
@@ -278,7 +289,7 @@ export default function WhatsApp() {
       case 'error':
         return <Badge variant="destructive"><WifiOff className="w-3 h-3 mr-1" />Erro</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{safeStatus}</Badge>;
     }
   };
 
@@ -290,6 +301,10 @@ export default function WhatsApp() {
   };
 
   const formatPhoneNumber = (phone: string) => {
+    // Add safety check for phone parameter
+    if (!phone || typeof phone !== 'string') {
+      return '';
+    }
     // Remove WhatsApp suffix if present
     const cleanPhone = phone.replace('@c.us', '');
     return cleanPhone;

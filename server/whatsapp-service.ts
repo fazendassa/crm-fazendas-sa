@@ -121,13 +121,14 @@ export class WhatsAppManager extends EventEmitter {
           console.log('📡 QR Code sent via WebSocket to user:', userId);
         },
         statusFind: (statusSession: string, sessionInfo?: any) => {
-          console.log('📱 WhatsApp Status changed:', statusSession, 'for user:', userId);
+          const safeStatusSession = statusSession ? statusSession.toString() : 'unknown';
+          console.log('📱 WhatsApp Status changed:', safeStatusSession, 'for user:', userId);
           console.log('📱 Session info:', sessionInfo);
 
           let status = 'disconnected';
           let phoneNumber = null;
 
-          switch (statusSession) {
+          switch (safeStatusSession) {
             case 'isLogged':
               status = 'connected';
               // Try to get phone number from session info

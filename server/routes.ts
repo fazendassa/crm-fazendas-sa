@@ -820,15 +820,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         console.error('❌ WhatsApp Sessions - No user ID found');
         console.error('❌ WhatsApp Sessions - req.user structure:', JSON.stringify(req.user, null, 2));
-        return res.status(401).json({ message: "User ID not found" });
+        return res.status(401).json({ message: "User ID not found", sessions: [] });
       }
 
       const sessions = await storage.getWhatsappSessions(userId);
-      console.log('✅ WhatsApp Sessions - Found sessions:', sessions.length);
-      res.json(sessions);
+      console.log('✅ WhatsApp Sessions - Found sessions:', sessions?.length || 0);
+      
+      // Ensure we always return an array
+      const safeSessions = Array.isArray(sessions) ? sessions : [];
+      res.json(safeSessions);
     } catch (error) {
       console.error("Error fetching WhatsApp sessions:", error);
-      res.status(500).json({ message: "Failed to fetch WhatsApp sessions", error: error instanceof Error ? error.message : "Unknown error" });
+      res.status(500).json({ 
+        message: "Failed to fetch WhatsApp sessions", 
+        error: error instanceof Error ? error.message : "Unknown error",
+        sessions: []
+      });
     }
   });
 
