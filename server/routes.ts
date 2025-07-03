@@ -807,6 +807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     res.setHeader('Content-Disposition', 'attachment; filename=template-contatos.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+```text
     res.send(buffer);
   });
 
@@ -825,7 +826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const sessions = await storage.getWhatsappSessions(userId);
       console.log('✅ WhatsApp Sessions - Found sessions:', sessions?.length || 0);
-      
+
       // Ensure we always return an array
       const safeSessions = Array.isArray(sessions) ? sessions : [];
       res.json(safeSessions);
@@ -843,7 +844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('🔍 Create Session - req.user:', req.user);
       console.log('🔍 Create Session - req.body:', req.body);
-      
+
       const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       console.log('🔍 Create Session - userId:', userId);
 
@@ -864,12 +865,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('📱 Starting session creation process...');
       const result = await whatsAppManager.createSession(userId, sessionName.trim());
       console.log('✅ Session creation result:', result);
-      
+
       res.json({ message: result, success: true });
     } catch (error) {
       console.error("❌ Error creating WhatsApp session:", error);
       console.error("❌ Error stack:", error instanceof Error ? error.stack : 'No stack trace');
-      
+
       res.status(500).json({ 
         message: "Failed to create WhatsApp session", 
         error: error instanceof Error ? error.message : "Unknown error",
@@ -942,24 +943,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const sessionId = parseInt(req.params.sessionId);
       const limit = parseInt(req.query.limit as string) || 100;
-      
+
       console.log(`📱 Getting messages for session ${sessionId}, user ${userId}`);
-      
+
       const messages = await storage.getWhatsappMessages(sessionId, undefined, limit);
-      
+
       // Transform messages to match expected format
       const formattedMessages = messages.map(msg => {
         // Clean phone numbers
         const cleanFromNumber = (msg.fromNumber || '').replace('@c.us', '').replace('session_crm-', '');
         const cleanToNumber = (msg.toNumber || '').replace('@c.us', '').replace('session_crm-', '');
-        
+
         const isFromMe = msg.direction === 'outgoing';
         const contactNumber = isFromMe ? cleanToNumber : cleanFromNumber;
         const contactName = contactNumber.length > 5 ? contactNumber : (msg.fromNumber || msg.toNumber || 'Desconhecido');
-        
+
         return {
           id: msg.messageId || msg.id,
           sessionId: msg.sessionId,
@@ -974,7 +975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdAt: msg.createdAt || msg.timestamp
         };
       });
-      
+
       console.log(`📱 Returning ${formattedMessages.length} messages`);
       res.json(formattedMessages);
     } catch (error) {
@@ -990,20 +991,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const sessionId = parseInt(req.params.sessionId);
       const { content, type, contactPhone } = req.body;
-      
+
       console.log('📤 Send message request:', { sessionId, content, contactPhone, type });
-      
+
       // Get session info
       const sessions = await storage.getWhatsappSessions(userId);
       const session = sessions.find(s => s.id === sessionId);
-      
+
       if (!session || session.status !== 'connected') {
         return res.status(400).json({ message: "Session not connected" });
       }
-      
+
       const result = await whatsAppManager.sendMessage(userId, contactPhone, content, type);
       res.json(result);
     } catch (error) {
@@ -1019,9 +1020,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const { contactPhone, media, mediaType, caption, fileName } = req.body;
-      
+
       const result = await whatsAppManager.sendMedia(userId, contactPhone, media, mediaType, caption, fileName);
       res.json(result);
     } catch (error) {
@@ -1037,9 +1038,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const { contactPhone, stickerPath } = req.body;
-      
+
       const result = await whatsAppManager.sendSticker(userId, contactPhone, stickerPath);
       res.json(result);
     } catch (error) {
@@ -1055,9 +1056,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const { contactPhone, gifPath } = req.body;
-      
+
       const result = await whatsAppManager.sendStickerGif(userId, contactPhone, gifPath);
       res.json(result);
     } catch (error) {
@@ -1073,9 +1074,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const { contactPhone, contactId, name } = req.body;
-      
+
       const result = await whatsAppManager.sendContact(userId, contactPhone, contactId, name);
       res.json(result);
     } catch (error) {
@@ -1091,9 +1092,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const { contactPhone, messageId } = req.body;
-      
+
       const result = await whatsAppManager.forwardMessage(userId, contactPhone, messageId);
       res.json(result);
     } catch (error) {
@@ -1102,21 +1103,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get contacts
+  // Get contacts for a specific session (for the new interface)
   app.get('/api/whatsapp/sessions/:sessionId/contacts', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
-      console.log('📇 Getting contacts for user:', userId);
+
+      const sessionId = parseInt(req.params.sessionId);
+      console.log(`📇 Getting contacts for user: ${userId}`);
+
+      // Check if session exists and is connected
+      const session = await storage.getWhatsappSession(userId, `session_crm-${userId}`);
+      if (!session || session.status !== 'connected') {
+        console.log(`📇 Session not connected, returning empty contacts`);
+        return res.json([]);
+      }
+
       const contacts = await whatsAppManager.getContactsForSync(userId);
-      console.log('📇 Contacts found:', contacts.length);
+      console.log(`📇 Contacts found: ${contacts.length}`);
+
       res.json(contacts);
     } catch (error) {
-      console.error("Error getting contacts:", error);
-      res.status(500).json({ message: "Failed to get contacts" });
+      console.error("Error getting WhatsApp contacts:", error);
+      res.json([]); // Return empty array instead of error
     }
   });
 
@@ -1127,7 +1138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       console.log('💬 Getting chats for user:', userId);
       const chats = await whatsAppManager.getChatsForSync(userId);
       console.log('💬 Chats found:', chats.length);
@@ -1145,7 +1156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const groups = await whatsAppManager.getGroups(userId);
       res.json(groups);
     } catch (error) {
@@ -1161,7 +1172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const groupId = req.params.groupId;
       const members = await whatsAppManager.getGroupMembers(userId, groupId);
       res.json(members);
@@ -1178,7 +1189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const blockList = await whatsAppManager.getBlockList(userId);
       res.json(blockList);
     } catch (error) {
@@ -1194,9 +1205,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const { contactId } = req.body;
-      
+
       const result = await whatsAppManager.blockContact(userId, contactId);
       res.json(result);
     } catch (error) {
@@ -1212,9 +1223,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const { contactId } = req.body;
-      
+
       const result = await whatsAppManager.unblockContact(userId, contactId);
       res.json(result);
     } catch (error) {
@@ -1230,13 +1241,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const { sessionName } = req.body;
-      
+
       if (!sessionName) {
         return res.status(400).json({ message: "Session name is required" });
       }
-      
+
       const result = await whatsAppManager.createSession(userId, sessionName);
       res.json(result);
     } catch (error) {
@@ -1252,9 +1263,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) {
         return res.status(401).json({ message: "User ID not found" });
       }
-      
+
       const sessionId = parseInt(req.params.sessionId);
-      
+
       const result = await whatsAppManager.deleteSession(userId, sessionId);
       res.json(result);
     } catch (error) {

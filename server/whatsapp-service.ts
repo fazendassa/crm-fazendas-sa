@@ -155,7 +155,7 @@ export class WhatsAppManager extends EventEmitter {
                              sessionInfo.wid?.user ||
                              sessionInfo.wid?._serialized;
               }
-              
+
               // If still no phone number, try to get from client
               if (!phoneNumber && sessionId) {
                 const client = this.clients.get(sessionId);
@@ -168,7 +168,7 @@ export class WhatsAppManager extends EventEmitter {
                   }
                 }
               }
-              
+
               console.log('📱 Connected with phone:', phoneNumber);
               break;
             case 'notLogged':
@@ -293,7 +293,7 @@ export class WhatsAppManager extends EventEmitter {
       // Get session from database
       const sessions = await storage.getWhatsappSessions(userId);
       const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
-      
+
       if (session) {
         const messageData = {
           sessionId: session.id,
@@ -364,7 +364,7 @@ export class WhatsAppManager extends EventEmitter {
       // Save to database
       const sessions = await storage.getWhatsappSessions(userId);
       const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
-      
+
       if (session) {
         const messageData = {
           sessionId: session.id,
@@ -412,11 +412,11 @@ export class WhatsAppManager extends EventEmitter {
       }
 
       const result = await client.sendImageAsSticker(formattedNumber, stickerPath);
-      
+
       // Save to database
       const sessions = await storage.getWhatsappSessions(userId);
       const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
-      
+
       if (session) {
         const messageData = {
           sessionId: session.id,
@@ -463,11 +463,11 @@ export class WhatsAppManager extends EventEmitter {
       }
 
       const result = await client.sendVideoAsGif(formattedNumber, gifPath, 'sticker.gif', '');
-      
+
       // Save to database similar to sendSticker
       const sessions = await storage.getWhatsappSessions(userId);
       const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
-      
+
       if (session) {
         const messageData = {
           sessionId: session.id,
@@ -514,11 +514,11 @@ export class WhatsAppManager extends EventEmitter {
       }
 
       const result = await client.sendContactVcard(formattedNumber, contactId, name);
-      
+
       // Save to database
       const sessions = await storage.getWhatsappSessions(userId);
       const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
-      
+
       if (session) {
         const messageData = {
           sessionId: session.id,
@@ -564,11 +564,11 @@ export class WhatsAppManager extends EventEmitter {
       }
 
       const result = await client.forwardMessages(formattedNumber, [messageId], false);
-      
+
       // Save to database
       const sessions = await storage.getWhatsappSessions(userId);
       const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
-      
+
       if (session) {
         const messageData = {
           sessionId: session.id,
@@ -632,7 +632,7 @@ export class WhatsAppManager extends EventEmitter {
         throw new Error('WhatsApp session not found');
       }
 
-      const chats = await client.getAllChats();
+      const chats = await client.listChats();
       return chats.map(chat => ({
         id: chat.id,
         name: chat.name || chat.formattedTitle,
@@ -912,7 +912,7 @@ export class WhatsAppManager extends EventEmitter {
       // Buscar também os chats para ter informações mais atualizadas
       const chats = await client.listChats();
       const chatMap = new Map();
-      
+
       chats.forEach(chat => {
         if (!chat.isGroup) {
           // Handle different ID formats safely
@@ -924,7 +924,7 @@ export class WhatsAppManager extends EventEmitter {
           } else if (chat.id && chat.id.user) {
             chatId = `${chat.id.user}@${chat.id.server}`;
           }
-          
+
           if (chatId) {
             chatMap.set(chatId, {
               name: chat.name || chat.formattedTitle,
@@ -941,7 +941,7 @@ export class WhatsAppManager extends EventEmitter {
           // Verificar se contact.id existe e processar corretamente
           let contactId = '';
           let cleanPhone = '';
-          
+
           if (contact.id) {
             if (typeof contact.id === 'string') {
               contactId = contact.id;
@@ -959,10 +959,10 @@ export class WhatsAppManager extends EventEmitter {
           }
 
           const chatInfo = chatMap.get(contactId);
-          
+
           // Priorizar nome do chat, depois pushname, depois nome do contato
           let name = chatInfo?.name || contact.pushname || contact.name || contact.shortName || contact.formattedName;
-          
+
           // Se ainda não tem nome, criar um nome formatado do número
           if (!name || name === cleanPhone) {
             if (cleanPhone.length >= 10) {
@@ -1009,7 +1009,7 @@ export class WhatsAppManager extends EventEmitter {
         // Handle different ID formats safely
         let chatId = '';
         let displayName = '';
-        
+
         if (typeof chat.id === 'string') {
           chatId = chat.id;
         } else if (chat.id && chat.id._serialized) {
@@ -1017,10 +1017,10 @@ export class WhatsAppManager extends EventEmitter {
         } else if (chat.id && chat.id.user) {
           chatId = `${chat.id.user}@${chat.id.server}`;
         }
-        
+
         // Get display name safely
         displayName = chat.name || chat.formattedTitle || chatId.replace('@c.us', '').replace('@g.us', '');
-        
+
         return {
           id: chatId,
           name: displayName,

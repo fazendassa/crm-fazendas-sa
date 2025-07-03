@@ -128,7 +128,7 @@ export default function WhatsAppNew() {
   // Buscar sessões WhatsApp
   const { data: sessionsData, isLoading: loadingSessions, error: sessionsError } = useQuery<WhatsAppSession[]>({
     queryKey: ['/api/whatsapp/sessions'],
-    refetchInterval: 5000,
+    refetchInterval: 10000,
     onError: (error) => {
       console.error('Error loading sessions:', error);
     },
@@ -142,8 +142,8 @@ export default function WhatsAppNew() {
   // Buscar contatos únicos para criar conversas (sem carregar mensagens ainda)
   const { data: contactsData, error: contactsError } = useQuery<any[]>({
     queryKey: [`/api/whatsapp/sessions/${selectedSession?.id}/contacts`],
-    enabled: !!selectedSession?.id,
-    refetchInterval: 30000, // Atualizar contatos a cada 30 segundos
+    enabled: !!selectedSession?.id && selectedSession.status === 'connected',
+    refetchInterval: 60000, // Atualizar contatos a cada 60 segundos
     onError: (error) => {
       console.error('Error loading contacts:', error);
     },
@@ -153,7 +153,7 @@ export default function WhatsAppNew() {
   const { data: allMessagesData, isLoading: loadingAllMessages } = useQuery<WhatsAppMessage[]>({
     queryKey: [`/api/whatsapp/messages/${selectedSession?.id}`],
     enabled: !!selectedSession?.id,
-    refetchInterval: 2000,
+    refetchInterval: 5000,
     onError: (error) => {
       console.error('Error loading all messages:', error);
     },
