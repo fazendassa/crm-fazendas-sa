@@ -553,7 +553,7 @@ export function ChatWindow({
 
         {/* Device info */}
         <div className="mt-2 text-xs text-gray-500 text-center">
-          {deviceInfo ? (
+          {deviceInfo && typeof deviceInfo === 'string' ? (
             deviceInfo.split(' – ').map((part, index) => (
               <span key={index}>
                 {index > 0 && ' – '}
