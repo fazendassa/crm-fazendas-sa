@@ -1,3 +1,2 @@
-2025/07/03-19:50:08.044 6cb0 Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Site Characteristics Database/MANIFEST-000001
-2025/07/03-19:50:08.045 6cb0 Recovering log #3
-2025/07/03-19:50:08.045 6cb0 Reusing old log /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Site Characteristics Database/000003.log 
+2025/07/03-19:53:54.388 6ed8 Creating DB /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Site Characteristics Database since it was missing.
+2025/07/03-19:53:54.421 6ed8 Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Site Characteristics Database/MANIFEST-000001

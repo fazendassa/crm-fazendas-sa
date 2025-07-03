@@ -1,3 +1,2 @@
-2025/07/03-19:50:08.039 6caf Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Sync Data/LevelDB/MANIFEST-000001
-2025/07/03-19:50:08.041 6caf Recovering log #3
-2025/07/03-19:50:08.041 6caf Reusing old log /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Sync Data/LevelDB/000003.log 
+2025/07/03-19:53:54.381 6ecd Creating DB /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Sync Data/LevelDB since it was missing.
+2025/07/03-19:53:54.422 6ecd Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Sync Data/LevelDB/MANIFEST-000001
