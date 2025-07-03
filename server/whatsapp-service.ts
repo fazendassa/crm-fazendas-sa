@@ -123,7 +123,7 @@ export class WhatsAppManager extends EventEmitter {
 
           console.log('📡 QR Code sent via WebSocket to user:', userId);
         },
-        statusFind: (statusSession: string, sessionInfo?: any) => {
+        statusFind: async (statusSession: string, sessionInfo?: any) => {
           const safeStatusSession = statusSession ? statusSession.toString() : 'unknown';
           console.log('📱 WhatsApp Status changed:', safeStatusSession, 'for user:', userId);
           console.log('📱 Session info:', sessionInfo);
@@ -177,11 +177,15 @@ export class WhatsAppManager extends EventEmitter {
           }
 
           // Update session status
-          storage.updateWhatsappSession(session.id, {
-            status,
-            phoneNumber,
-            lastActivity: new Date(),
-          }).catch(err => console.error('Error updating session status:', err));
+          try {
+            await storage.updateWhatsappSession(session.id, {
+              status,
+              phoneNumber,
+              lastActivity: new Date(),
+            });
+          } catch (err) {
+            console.error('Error updating session status:', err);
+          }
 
           // Emit status change via WebSocket
           webSocketManager.broadcastToUser(userId, {
