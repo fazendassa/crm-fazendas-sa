@@ -1375,6 +1375,13 @@ export class DatabaseStorage implements IStorage {
       .set({ isRead })
       .where(eq(whatsappMessages.messageId, messageId));
   }
+
+  async updateWhatsappMessageStatus(messageId: string, isRead: boolean): Promise<void> {
+    await db
+      .update(whatsappMessages)
+      .set({ isRead })
+      .where(eq(whatsappMessages.messageId, messageId));
+  }
 }
 
 export const storage = new DatabaseStorage();
