@@ -1,0 +1,117 @@
+1. Lista de Conversas (coluna esquerda)
+Campo de Busca
+
+Input com placeholder “Pesquisar”
+
+Filtragem em tempo real por nome de contato e texto de mensagens
+
+Indicador de Filtros
+
+Badge “X filtros aplicados”
+
+Dropdown que abre painel lateral de filtros avançados (data, status de mensagem, tags, dispositivo)
+
+Itens de Conversa
+
+Foto/redonda + nome + última mensagem (preview)
+
+Marcadores de status:
+
+✔︎✔︎ (entregue)
+
+✔︎ (enviado)
+
+⏳ (pendente)
+
+🔴 (não lida)
+
+Hover: mostrar botão rápido de “Marcar como lida” e “Arquivar”
+
+Scroll Infinito / Paginação
+
+Carregar mais itens ao chegar no fim da lista
+
+2. Janela de Chat (painel central)
+Cabeçalho do Chat
+
+Nome do contato + foto pequena
+
+Status do dispositivo (ex.: “WhatsApp – Dispositivo: XYZ”)
+
+Ícones de ação: “Iniciar nova conversa”, “Configurações de chat”, “Fechar”
+
+Histórico de Mensagens
+
+Balões de conversa alinhados (usuário à direita, contato à esquerda)
+
+Timestamp discreto abaixo de cada mensagem
+
+Notificações de sistema (ex.: “Cartão recusado – Mentoria XYZ – 23/03/23 – 10:43”) com estilo diferenciado
+
+Área de Composição de Mensagem
+
+Input multiline com placeholder “Responda aqui”
+
+Botões de anexo:
+
+📎 Arquivo
+
+🖼️ Imagem
+
+😃 Emoji
+
+🎥 Vídeo/GIF
+
+🎙️ Gravação de áudio (press-and-hold)
+
+Botão “Enviar” com ícone de avião de papel (desabilitado se vazio)
+
+Feedback de Envio
+
+Indicador de “digitando…” quando o contato está respondendo
+
+Status de envio (enviado, entregue, lido) animado no balão do usuário
+
+3. Painel de Oportunidade / Negócio (coluna direita)
+Seletor de Negócio Atual
+
+Combobox com hierarquia (ex.: “Comercial > Eventos”)
+
+Exibição de valor (R$) e data de criação
+
+Ações de Status
+
+Botões principais:
+
+🟢 Ganho
+
+🔴 Perdido
+
+🔵 Aberto
+
+Confirm dialog (“Tem certeza?”) ao marcar Ganho/Perdido
+
+Pipeline / Fase
+
+Dropdown com etapas do funil (ex.: “Base”, “Qualificação”, “Proposta”)
+
+Drag-and-drop entre fases (opcional para mobilidade rápida)
+
+Seções Expansíveis (Accordion)
+
+Negócio: detalhes (cliente, valor, probabilidade)
+
+Notas: textarea para anotações internas
+
+Histórico: tabela simples mostrando data, ação, usuário responsável
+
+4. Tags e Filtros Rápidos (topo, acima da coluna direita)
+Tags Predefinidas
+
+Botões de toggle com rótulos (ex.: “Qualificação”, “Site Client”, “Evento Concl”)
+
+Multi-select para aplicar a filtros da lista de conversas e pipeline
+
+Campo de Busca de Tags
+
+Autocomplete para criar ou buscar tags existentes
