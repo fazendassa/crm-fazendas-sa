@@ -24,6 +24,28 @@ class WhatsappService {
         return { success: false, error: 'Session already exists in memory' };
       }
 
+      // Check if Chrome/Chromium is available
+      const fs = require('fs');
+      const chromePaths = [
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/opt/google/chrome/google-chrome',
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable'
+      ];
+      
+      let chromePath = null;
+      for (const path of chromePaths) {
+        if (fs.existsSync(path)) {
+          chromePath = path;
+          break;
+        }
+      }
+
+      if (!chromePath) {
+        return { success: false, error: 'Chrome/Chromium not found. Please install Chromium: apt-get install chromium-browser' };
+      }
+
       let qrCode: string | undefined;
 
       const client = await wppconnect.create({
@@ -63,8 +85,12 @@ class WhatsappService {
           '--no-zygote',
           '--disable-gpu',
           '--disable-web-security',
-          '--disable-features=VizDisplayCompositor'
+          '--disable-features=VizDisplayCompositor',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-images'
         ],
+        executablePath: chromePath,
       });
 
       // Set up message listener
@@ -95,10 +121,18 @@ class WhatsappService {
     try {
       const clientData = this.clients.get(sessionName);
       if (!clientData) {
-        return { success: false, error: 'Session not found' };
+        // Even if not in memory, try to update database status
+        await this.updateSessionStatus(sessionName, 'disconnected');
+        this.io?.emit('session-status', { sessionName, status: 'disconnected' });
+        return { success: true };
       }
 
-      await clientData.client.close();
+      try {
+        await clientData.client.close();
+      } catch (closeError) {
+        console.warn('Error closing client:', closeError);
+      }
+      
       this.clients.delete(sessionName);
 
       await this.updateSessionStatus(sessionName, 'disconnected');

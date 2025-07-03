@@ -90,16 +90,23 @@ export default function WhatsApp() {
           throw new Error('Failed to fetch sessions');
         }
         const data = await response.json();
+        console.log('Raw sessions data:', data);
         return Array.isArray(data) ? data : [];
       } catch (error) {
         console.error('Error fetching sessions:', error);
         return [];
       }
-    }
+    },
+    retry: 3,
+    retryDelay: 1000
   });
 
   // Ensure sessions is always an array
   const sessions = Array.isArray(sessionsData) ? sessionsData : [];
+
+  // Debug logging
+  console.log('sessionsData:', sessionsData);
+  console.log('sessions:', sessions);
 
   // Fetch messages for selected session
   const { data: messages = [] } = useQuery({
