@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
-import { whatsAppManager } from './whatsapp-service';ervice';
+import { whatsAppManager } from './whatsapp-service';
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId?: string;
