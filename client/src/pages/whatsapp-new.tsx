@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Loader2, Trash2, Plus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { MessageSquare, Loader2, Trash2, Plus, QrCode, Wifi, WifiOff } from 'lucide-react';
 import { ConversationList } from '@/components/whatsapp/ConversationList';
 import { ChatWindow } from '@/components/whatsapp/ChatWindow';
 import { OpportunityPanel } from '@/components/whatsapp/OpportunityPanel';
@@ -12,6 +14,7 @@ import { TagsPanel } from '@/components/whatsapp/TagsPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAuth } from '@/hooks/useAuth';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // Interfaces
 interface WhatsAppSession {
@@ -84,20 +87,51 @@ export default function WhatsAppNew() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [newSessionName, setNewSessionName] = useState('');
+  const [showQrDialog, setShowQrDialog] = useState(false);
+  const [currentQrCode, setCurrentQrCode] = useState<string | null>(null);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // WebSocket connection
   const { isConnected: wsConnected } = useWebSocket({
     userId: user?.id,
     onMessage: (data) => {
       console.log('📡 WebSocket message in WhatsApp page:', data);
+      
+      if (data.type === 'wa:qr') {
+        console.log('📱 QR Code received via WebSocket');
+        setCurrentQrCode(data.qrCode);
+        setShowQrDialog(true);
+      }
+      
+      if (data.type === 'wa:status') {
+        console.log('📱 Status update received:', data.status);
+        // Invalidate sessions query to refresh the list
+        queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
+        
+        if (data.status === 'connected') {
+          setShowQrDialog(false);
+          setCurrentQrCode(null);
+          toast({
+            title: "WhatsApp Conectado",
+            description: "Sua sessão WhatsApp foi conectada com sucesso!"
+          });
+        }
+      }
     }
   });
+
+  // Early return if loading or no user
   const { isLoading: authLoading } = useAuth();
-
   if (authLoading || !user) {
-    return <div>Carregando...</div>;
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+      </div>
+    );
   }
-
 
   // Buscar sessões WhatsApp
   const { data: sessionsData, isLoading: loadingSessions } = useQuery<WhatsAppSession[]>({
@@ -110,6 +144,8 @@ export default function WhatsAppNew() {
 
   // Garantir que sessions seja sempre um array
   const sessions = Array.isArray(sessionsData) ? sessionsData : [];
+  console.log('sessionsData:', sessionsData);
+  console.log('sessions:', sessions);
 
   // Buscar mensagens da sessão selecionada
   const { data: messagesData, isLoading: loadingMessages } = useQuery<WhatsAppMessage[]>({
@@ -124,13 +160,10 @@ export default function WhatsAppNew() {
   // Garantir que messages seja sempre um array
   const messages = Array.isArray(messagesData) ? messagesData : [];
 
-
-
   // Mutation para enviar mensagem
   const sendMessageMutation = useMutation({
     mutationFn: async ({ content, type, contactPhone }: { content: string; type: string; contactPhone: string }) => {
       if (!selectedSession) throw new Error('Nenhuma sessão selecionada');
-
       return apiRequest(`/api/whatsapp/sessions/${selectedSession.id}/send-message`, 'POST', { content, type, contactPhone });
     },
     onSuccess: () => {
@@ -156,12 +189,14 @@ export default function WhatsAppNew() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
+      setNewSessionName('');
       toast({
         title: "Sessão criada",
         description: "Nova sessão WhatsApp criada com sucesso!"
       });
     },
     onError: (error: any) => {
+      console.error('Error creating session:', error);
       toast({
         title: "Erro ao criar sessão",
         description: error.message || "Erro ao criar sessão",
@@ -186,6 +221,28 @@ export default function WhatsAppNew() {
       toast({
         title: "Erro ao remover sessão",
         description: error.message || "Erro ao remover sessão",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Mutation para desconectar sessão
+  const disconnectSessionMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('/api/whatsapp/session', 'DELETE');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
+      setSelectedSession(null);
+      toast({
+        title: "Sessão desconectada",
+        description: "Sessão WhatsApp desconectada com sucesso!"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao desconectar",
+        description: error.message || "Erro ao desconectar sessão",
         variant: "destructive"
       });
     }
@@ -240,7 +297,7 @@ export default function WhatsAppNew() {
       .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
   }, [messages]);
 
-  // Handlers (definir antes dos returns condicionais)
+  // Handlers
   const handleSelectConversation = (conversationId: string) => {
     setSelectedConversation(conversationId);
     const conversation = conversations.find(c => c.id === conversationId);
@@ -265,12 +322,23 @@ export default function WhatsAppNew() {
   };
 
   const handleCreateSession = () => {
-    const sessionName = `WhatsApp-${Date.now()}`;
-    createSessionMutation.mutate(sessionName);
+    if (!newSessionName.trim()) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Digite um nome para a sessão",
+        variant: "destructive"
+      });
+      return;
+    }
+    createSessionMutation.mutate(newSessionName.trim());
   };
 
   const handleDeleteSession = (sessionId: number) => {
     deleteSessionMutation.mutate(sessionId);
+  };
+
+  const handleDisconnectSession = () => {
+    disconnectSessionMutation.mutate();
   };
 
   // Verificar se há sessões conectadas
@@ -284,8 +352,8 @@ export default function WhatsAppNew() {
     }
   }, [connectedSessions, selectedSession]);
 
-  // Se não há sessões conectadas, mostrar tela de conexão
-  if (!hasConnectedSession && !loadingSessions && sessions?.length === 0) {
+  // Se não há sessões, mostrar tela de criação
+  if (!loadingSessions && (!sessions || sessions.length === 0)) {
     return (
       <div className="flex-1 flex flex-col">
         <div className="flex-1 flex items-center justify-center p-8">
@@ -297,61 +365,62 @@ export default function WhatsAppNew() {
                 </div>
                 <CardTitle className="text-xl text-gray-900">Conectar WhatsApp</CardTitle>
                 <CardDescription className="text-gray-600">
-                  Para usar o chat do WhatsApp, você precisa ter pelo menos uma sessão conectada.
+                  Para usar o chat do WhatsApp, você precisa criar uma sessão e conectar seu dispositivo.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button 
-                  onClick={handleCreateSession}
-                  disabled={createSessionMutation.isPending}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  {createSessionMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Criando sessão...
-                    </>
-                  ) : (
-                    'Criar Nova Sessão'
-                  )}
-                </Button>
-
-                {sessions && sessions.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-gray-700">Sessões Existentes:</h4>
-                    <div className="space-y-2">
-                      {sessions.map(session => (
-                        <div key={session.id} className="flex items-center justify-between p-2 border rounded">
-                          <div>
-                            <p className="font-medium">{session.sessionName}</p>
-                            <p className="text-sm text-gray-500">Status: {session.status}</p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteSession(session.id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Nome da sessão"
+                    value={newSessionName}
+                    onChange={(e) => setNewSessionName(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleCreateSession()}
+                  />
+                  <Button 
+                    onClick={handleCreateSession}
+                    disabled={createSessionMutation.isPending || !newSessionName.trim()}
+                    className="shrink-0 bg-green-600 hover:bg-green-700"
+                  >
+                    {createSessionMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
         </div>
-      </div>
-    );
-  }
 
-  // Carregamento
-  if (loadingSessions) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+        {/* QR Code Dialog */}
+        <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <QrCode className="w-5 h-5" />
+                Escaneie o QR Code
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Abra o WhatsApp no seu celular e escaneie este código para conectar:
+              </p>
+              {currentQrCode && (
+                <div className="flex justify-center">
+                  <img 
+                    src={currentQrCode} 
+                    alt="QR Code WhatsApp" 
+                    className="w-64 h-64 border rounded-lg"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-gray-500 text-center">
+                O código será atualizado automaticamente se expirar
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -376,9 +445,19 @@ export default function WhatsAppNew() {
                 <div className="space-y-2">
                   {sessions.map((session) => (
                     <div key={session.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">{session.sessionName}</p>
-                        <p className="text-sm text-gray-500">Status: {session.status}</p>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          session.status === 'connected' ? 'bg-green-500' :
+                          session.status === 'connecting' ? 'bg-yellow-500' :
+                          session.status === 'error' ? 'bg-red-500' : 'bg-gray-500'
+                        }`} />
+                        <div>
+                          <p className="font-medium text-gray-900">{session.sessionName}</p>
+                          <p className="text-sm text-gray-500">
+                            Status: {session.status}
+                            {session.phoneNumber && ` • ${session.phoneNumber}`}
+                          </p>
+                        </div>
                       </div>
                       <Button
                         variant="outline"
@@ -391,24 +470,73 @@ export default function WhatsAppNew() {
                     </div>
                   ))}
                 </div>
-                <Button 
-                  onClick={handleCreateSession}
-                  disabled={createSessionMutation.isPending}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  {createSessionMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Nova Sessão
-                    </>
-                  )}
-                </Button>
+                
+                <div className="border-t pt-4">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Nome da nova sessão"
+                      value={newSessionName}
+                      onChange={(e) => setNewSessionName(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleCreateSession()}
+                    />
+                    <Button 
+                      onClick={handleCreateSession}
+                      disabled={createSessionMutation.isPending || !newSessionName.trim()}
+                      className="shrink-0 bg-green-600 hover:bg-green-700"
+                    >
+                      {createSessionMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Nova Sessão
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
         </div>
+
+        {/* QR Code Dialog */}
+        <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <QrCode className="w-5 h-5" />
+                Escaneie o QR Code
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Abra o WhatsApp no seu celular e escaneie este código para conectar:
+              </p>
+              {currentQrCode && (
+                <div className="flex justify-center">
+                  <img 
+                    src={currentQrCode} 
+                    alt="QR Code WhatsApp" 
+                    className="w-64 h-64 border rounded-lg"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-gray-500 text-center">
+                O código será atualizado automaticamente se expirar
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // Carregamento
+  if (loadingSessions) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
       </div>
     );
   }
@@ -438,11 +566,40 @@ export default function WhatsAppNew() {
               </select>
             )}
           </div>
-          <div className="flex items-center">
-            <Badge variant="secondary" className="text-green-700 bg-green-100">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-              Conectado
-            </Badge>
+          <div className="flex items-center gap-3">
+            {selectedSession && (
+              <>
+                <Badge variant="secondary" className={`${
+                  selectedSession.status === 'connected' ? 'text-green-700 bg-green-100' :
+                  selectedSession.status === 'connecting' ? 'text-yellow-700 bg-yellow-100' :
+                  'text-red-700 bg-red-100'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full mr-2 ${
+                    selectedSession.status === 'connected' ? 'bg-green-500' :
+                    selectedSession.status === 'connecting' ? 'bg-yellow-500' :
+                    'bg-red-500'
+                  }`} />
+                  {selectedSession.status === 'connected' ? 'Conectado' :
+                   selectedSession.status === 'connecting' ? 'Conectando' : 'Erro'}
+                </Badge>
+                
+                {selectedSession.status === 'connected' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDisconnectSession}
+                    disabled={disconnectSessionMutation.isPending}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    {disconnectSessionMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <WifiOff className="w-4 h-4" />
+                    )}
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -500,6 +657,35 @@ export default function WhatsAppNew() {
           </div>
         </div>
       </div>
+
+      {/* QR Code Dialog */}
+      <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              Escaneie o QR Code
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Abra o WhatsApp no seu celular e escaneie este código para conectar:
+            </p>
+            {currentQrCode && (
+              <div className="flex justify-center">
+                <img 
+                  src={currentQrCode} 
+                  alt="QR Code WhatsApp" 
+                  className="w-64 h-64 border rounded-lg"
+                />
+              </div>
+            )}
+            <p className="text-xs text-gray-500 text-center">
+              O código será atualizado automaticamente se expirar
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

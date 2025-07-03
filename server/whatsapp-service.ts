@@ -375,6 +375,31 @@ export class WhatsAppManager extends EventEmitter {
     }
   }
 
+  async deleteSession(userId: string, sessionId: number): Promise<void> {
+    try {
+      const sessionKey = `session_crm-${userId}`;
+      const client = this.clients.get(sessionKey);
+
+      if (client) {
+        await client.close();
+        this.clients.delete(sessionKey);
+      }
+
+      // Delete session from database
+      await storage.deleteWhatsappSession(sessionId);
+
+      // Notify via WebSocket
+      webSocketManager.broadcastToUser(userId, {
+        type: 'wa:status',
+        status: 'disconnected',
+        sessionId: sessionId
+      });
+    } catch (error) {
+      console.error('Error deleting WhatsApp session:', error);
+      throw new Error(`Failed to delete session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   private async handleIncomingMessage(userId: string, sessionId: number, message: any): Promise<void> {
     try {
       const messageData = {
