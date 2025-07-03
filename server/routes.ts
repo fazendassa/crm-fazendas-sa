@@ -824,10 +824,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/whatsapp/sessions", isAuthenticated, async (req, res) => {
     try {
       const sessions = await storage.getWhatsappSessions();
-      res.json(sessions);
+      console.log('WhatsApp sessions fetched:', sessions);
+      res.json(Array.isArray(sessions) ? sessions : []);
     } catch (error) {
       console.error("Error fetching WhatsApp sessions:", error);
-      res.status(500).json({ message: "Failed to fetch WhatsApp sessions" });
+      res.status(500).json({ message: "Failed to fetch WhatsApp sessions", error: error.message });
     }
   });
 
