@@ -810,7 +810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WhatsApp Integration Routes
   app.get('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.claims.sub;
+      const userId = req.user.claims.sub;
       const sessions = await storage.getWhatsappSessions(userId);
       res.json(sessions);
     } catch (error) {

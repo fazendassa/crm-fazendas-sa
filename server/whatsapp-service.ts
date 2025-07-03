@@ -55,7 +55,7 @@ export class WhatsAppManager extends EventEmitter {
         debug: false,
         logQR: false,
         browserWS: '',
-        executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+        executablePath: process.env.CHROME_BIN || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
         browserArgs: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
