@@ -144,23 +144,16 @@ export default function WhatsAppNew() {
     console.error('Sessions query error:', sessionsError);
   }
 
-  // Buscar mensagens da sessão selecionada apenas quando uma conversa estiver selecionada
-  const { data: messagesData, isLoading: loadingMessages, error: messagesError } = useQuery<WhatsAppMessage[]>({
-    queryKey: [`/api/whatsapp/messages/${selectedSession?.id}`],
-    enabled: !!selectedSession?.id && !!selectedConversation,
-    refetchInterval: selectedConversation ? 2000 : false,
-    onError: (error) => {
-      console.error('Error loading messages:', error);
-    },
-  });
-
-  // Garantir que messages seja sempre um array
-  const messages = Array.isArray(messagesData) ? messagesData : [];
-  
-  // Log para debug
-  if (messagesError) {
-    console.error('Messages query error:', messagesError);
-  }
+  // Filtrar mensagens para o contato selecionado
+  const filteredMessages = React.useMemo(() => {
+    if (!selectedContact || !allMessages) return [];
+    
+    return allMessages.filter(message => {
+      const messagePhone = (message.contactNumber || '').replace(/\D/g, '');
+      const contactPhone = (selectedContact.phone || '').replace(/\D/g, '');
+      return messagePhone === contactPhone;
+    });
+  }, [selectedContact, allMessages]);
 
   // Mutation para enviar mensagem
   const sendMessageMutation = useMutation({
@@ -265,127 +258,129 @@ export default function WhatsAppNew() {
     console.error('Contacts query error:', contactsError);
   }
 
+  // Buscar todas as mensagens sem filtrar por conversa específica
+  const { data: allMessagesData, isLoading: loadingAllMessages } = useQuery<WhatsAppMessage[]>({
+    queryKey: [`/api/whatsapp/messages/${selectedSession?.id}`],
+    enabled: !!selectedSession?.id,
+    refetchInterval: 2000,
+    onError: (error) => {
+      console.error('Error loading all messages:', error);
+    },
+  });
+
+  const allMessages = Array.isArray(allMessagesData) ? allMessagesData : [];
+
   // Converter contatos em conversas
   const conversations: Conversation[] = React.useMemo(() => {
-    console.log('🔄 Processing conversations with contactsData:', contactsData?.length || 0, 'messages:', messages?.length || 0);
+    console.log('🔄 Processing conversations with contactsData:', contactsData?.length || 0, 'allMessages:', allMessages?.length || 0);
     
     // Garantir que temos arrays válidos
     const safeContactsData = Array.isArray(contactsData) ? contactsData : [];
-    const safeMessages = Array.isArray(messages) ? messages : [];
+    const safeMessages = Array.isArray(allMessages) ? allMessages : [];
     
-    if (safeContactsData.length === 0) {
-      // Se não temos contatos, criar conversas a partir das mensagens
-      if (safeMessages.length === 0) {
-        console.log('📭 No contacts or messages available');
-        return [];
+    // Criar um mapa de conversas a partir das mensagens
+    const conversationMap = new Map<string, Conversation>();
+
+    // Primeiro, processar todas as mensagens para criar conversas
+    safeMessages.forEach(message => {
+      if (!message || !message.contactNumber) return;
+      
+      const key = message.contactNumber;
+      
+      // Extrair nome do contato de forma mais inteligente
+      let contactName = message.contactName || '';
+      if (!contactName || contactName === message.contactNumber) {
+        // Se não tem nome, usar o número formatado
+        const cleanNumber = (message.contactNumber || '').replace(/\D/g, '');
+        if (cleanNumber.length >= 10) {
+          contactName = `+${cleanNumber.slice(0, 2)} ${cleanNumber.slice(2, 4)} ${cleanNumber.slice(4)}`;
+        } else {
+          contactName = message.contactNumber || 'Contato';
+        }
       }
 
-      console.log('📨 Creating conversations from messages');
-      const conversationMap = new Map<string, Conversation>();
+      if (!conversationMap.has(key)) {
+        conversationMap.set(key, {
+          id: key,
+          contactName: contactName,
+          contactPhone: message.contactNumber,
+          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contactName)}&backgroundColor=random`,
+          lastMessage: {
+            id: message.id || 'unknown',
+            content: message.messageContent || 'Mensagem',
+            timestamp: new Date(message.timestamp || Date.now()),
+            status: message.status || 'sent',
+            isFromMe: message.isFromMe || false
+          },
+          unreadCount: 0,
+          isPinned: false,
+          tags: []
+        });
+      } else {
+        const conversation = conversationMap.get(key)!;
+        const messageTime = new Date(message.timestamp || Date.now());
 
-      safeMessages.forEach(message => {
-        if (!message || !message.contactNumber) return;
-        
-        const key = message.contactNumber;
-        
-        // Extrair nome do contato de forma mais inteligente
-        let contactName = message.contactName || '';
-        if (!contactName || contactName === message.contactNumber) {
-          // Se não tem nome, usar o número formatado
-          const cleanNumber = (message.contactNumber || '').replace(/\D/g, '');
-          if (cleanNumber.length >= 10) {
-            contactName = `+${cleanNumber.slice(0, 2)} ${cleanNumber.slice(2, 4)} ${cleanNumber.slice(4)}`;
-          } else {
-            contactName = message.contactNumber || 'Contato';
-          }
+        // Atualizar nome se este for melhor
+        if (contactName && contactName !== message.contactNumber && conversation.contactName === message.contactNumber) {
+          conversation.contactName = contactName;
+          conversation.avatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contactName)}&backgroundColor=random`;
         }
 
-        if (!conversationMap.has(key)) {
-          conversationMap.set(key, {
-            id: key,
-            contactName: contactName,
-            contactPhone: message.contactNumber,
-            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contactName)}&backgroundColor=random`,
-            lastMessage: {
-              id: message.id || 'unknown',
-              content: message.messageContent || 'Mensagem',
-              timestamp: new Date(message.timestamp || Date.now()),
-              status: message.status || 'sent',
-              isFromMe: message.isFromMe || false
-            },
-            unreadCount: 0,
-            isPinned: false,
-            tags: []
-          });
-        } else {
-          const conversation = conversationMap.get(key)!;
-          const messageTime = new Date(message.timestamp || Date.now());
-
-          // Atualizar nome se este for melhor
-          if (contactName && contactName !== message.contactNumber && conversation.contactName === message.contactNumber) {
-            conversation.contactName = contactName;
-            conversation.avatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contactName)}&backgroundColor=random`;
-          }
-
-          if (messageTime > conversation.lastMessage.timestamp) {
-            conversation.lastMessage = {
-              id: message.id || 'unknown',
-              content: message.messageContent || 'Mensagem',
-              timestamp: messageTime,
-              status: message.status || 'sent',
-              isFromMe: message.isFromMe || false
-            };
-          }
-
-          if (!message.isFromMe && message.status !== 'read') {
-            conversation.unreadCount++;
-          }
+        if (messageTime > conversation.lastMessage.timestamp) {
+          conversation.lastMessage = {
+            id: message.id || 'unknown',
+            content: message.messageContent || 'Mensagem',
+            timestamp: messageTime,
+            status: message.status || 'sent',
+            isFromMe: message.isFromMe || false
+          };
         }
-      });
 
-      const result = Array.from(conversationMap.values())
-        .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
+        if (!message.isFromMe && message.status !== 'read') {
+          conversation.unreadCount++;
+        }
+      }
+    });
+
+    // Agora, adicionar contatos que não tem mensagens ainda
+    safeContactsData.forEach(contact => {
+      if (!contact || contact.isGroup || !contact.phone) return;
       
-      console.log('📋 Created conversations from messages:', result.length);
-      return result;
-    }
-
-    // Usar dados dos contatos para criar conversas
-    console.log('👥 Creating conversations from contacts');
-    const result = safeContactsData
-      .filter(contact => contact && !contact.isGroup && contact.phone) // Filtrar apenas contatos individuais válidos
-      .map(contact => {
-        const cleanPhone = (contact.phone || '').replace(/\D/g, '');
-        const lastMessage = safeMessages.find(m => m.contactNumber && m.contactNumber.includes(cleanPhone));
-        
-        return {
-          id: contact.phone || `contact_${Date.now()}`,
+      const key = contact.phone;
+      
+      if (!conversationMap.has(key)) {
+        conversationMap.set(key, {
+          id: contact.phone,
           contactName: contact.name || contact.phone || 'Contato',
-          contactPhone: contact.phone || '',
+          contactPhone: contact.phone,
           avatar: contact.profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contact.name || contact.phone || 'Contato')}&backgroundColor=random`,
-          lastMessage: lastMessage ? {
-            id: lastMessage.id || 'unknown',
-            content: lastMessage.messageContent || 'Mensagem',
-            timestamp: new Date(lastMessage.timestamp || Date.now()),
-            status: lastMessage.status || 'sent',
-            isFromMe: lastMessage.isFromMe || false
-          } : {
+          lastMessage: {
             id: 'no-message',
             content: 'Clique para iniciar conversa',
-            timestamp: new Date(),
+            timestamp: new Date(0), // Data muito antiga para ficar no final
             status: 'sent' as const,
             isFromMe: false
           },
           unreadCount: 0,
           isPinned: false,
           tags: []
-        };
-      })
+        });
+      } else {
+        // Atualizar informações do contato se disponível
+        const conversation = conversationMap.get(key)!;
+        if (contact.name && contact.name !== contact.phone) {
+          conversation.contactName = contact.name;
+          conversation.avatar = contact.profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contact.name)}&backgroundColor=random`;
+        }
+      }
+    });
+
+    const result = Array.from(conversationMap.values())
       .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
     
-    console.log('📋 Created conversations from contacts:', result.length);
+    console.log('📋 Created conversations:', result.length);
     return result;
-  }, [contactsData, messages]);
+  }, [contactsData, allMessages]);
 
   // Handlers
   const handleSelectConversation = (conversationId: string) => {
@@ -400,7 +395,9 @@ export default function WhatsAppNew() {
       });
       
       // Forçar reload das mensagens ao selecionar conversa
-      queryClient.invalidateQueries({ queryKey: [`/api/whatsapp/messages/${selectedSession?.id}`] });
+      if (selectedSession?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/whatsapp/messages/${selectedSession.id}`] });
+      }
     }
   };
 
@@ -746,7 +743,7 @@ export default function WhatsAppNew() {
             conversations={conversations}
             selectedConversation={selectedConversation}
             onSelectConversation={handleSelectConversation}
-            isLoading={loadingMessages}
+            isLoading={loadingAllMessages}
             sessionId={selectedSession?.id}
           />
         </div>
@@ -755,16 +752,15 @@ export default function WhatsAppNew() {
         <div className="flex-1 flex flex-col">
           <ChatWindow
             contact={selectedContact}
-            messages={selectedContact ? messages.filter(m => m.contactNumber === selectedContact.phone)
-              .map(m => ({
-                id: m.id,
-                content: m.messageContent,
-                timestamp: new Date(m.timestamp),
-                status: m.status,
-                isFromMe: m.isFromMe,
-                type: m.messageType,
-                mediaUrl: m.mediaUrl || undefined
-              })) : []}
+            messages={filteredMessages.map(m => ({
+              id: m.id,
+              content: m.messageContent,
+              timestamp: new Date(m.timestamp),
+              status: m.status,
+              isFromMe: m.isFromMe,
+              type: m.messageType,
+              mediaUrl: m.mediaUrl || undefined
+            }))}
             onSendMessage={handleSendMessage}
             onStartNewChat={() => console.log('Start new chat')}
             onCloseChat={() => setSelectedConversation(null)}

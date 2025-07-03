@@ -553,16 +553,16 @@ export function ChatWindow({
 
         {/* Device info */}
         <div className="mt-2 text-xs text-gray-500 text-center">
-          {/* Extract device info parts safely */}
-          const deviceParts = (deviceInfo || '').split(' – ');
-          const deviceName = deviceParts[0] || 'WhatsApp Web';
-          const sessionInfo = deviceParts[1] || '';
-          {deviceInfo && deviceInfo.split(' – ').map((part, index) => (
-            <span key={index}>
-              {index > 0 && ' – '}
-              {part}
-            </span>
-          ))}
+          {deviceInfo ? (
+            deviceInfo.split(' – ').map((part, index) => (
+              <span key={index}>
+                {index > 0 && ' – '}
+                {part}
+              </span>
+            ))
+          ) : (
+            <span>WhatsApp Web</span>
+          )}
         </div>
       </div>
 
