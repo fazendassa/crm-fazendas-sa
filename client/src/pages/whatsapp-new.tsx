@@ -4,7 +4,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Loader2, Trash2 } from 'lucide-react';
+import { MessageSquare, Loader2, Trash2, Plus } from 'lucide-react';
 import { ConversationList } from '@/components/whatsapp/ConversationList';
 import { ChatWindow } from '@/components/whatsapp/ChatWindow';
 import { OpportunityPanel } from '@/components/whatsapp/OpportunityPanel';
@@ -85,17 +85,23 @@ export default function WhatsAppNew() {
   const queryClient = useQueryClient();
 
   // Buscar sessões WhatsApp
-  const { data: sessions, isLoading: loadingSessions } = useQuery<WhatsAppSession[]>({
+  const { data: sessionsData, isLoading: loadingSessions } = useQuery<WhatsAppSession[]>({
     queryKey: ['/api/whatsapp/sessions'],
     refetchInterval: 5000,
   });
 
+  // Garantir que sessions seja sempre um array
+  const sessions = Array.isArray(sessionsData) ? sessionsData : [];
+
   // Buscar mensagens da sessão selecionada
-  const { data: messages, isLoading: loadingMessages } = useQuery<WhatsAppMessage[]>({
+  const { data: messagesData, isLoading: loadingMessages } = useQuery<WhatsAppMessage[]>({
     queryKey: ['/api/whatsapp/messages', selectedSession?.id],
     enabled: !!selectedSession?.id,
     refetchInterval: 2000,
   });
+
+  // Garantir que messages seja sempre um array
+  const messages = Array.isArray(messagesData) ? messagesData : [];
 
   // WebSocket para atualizações em tempo real
   useEffect(() => {
@@ -120,7 +126,7 @@ export default function WhatsAppNew() {
           queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
         }
       } catch (error) {
-        console.log('Unknown WebSocket message:', data);
+        console.log('Unknown WebSocket message:', event.data);
       }
     };
     
@@ -200,7 +206,7 @@ export default function WhatsAppNew() {
 
   // Converter mensagens para conversas
   const conversations: Conversation[] = React.useMemo(() => {
-    if (!messages) return [];
+    if (!messages || messages.length === 0) return [];
 
     const conversationMap = new Map<string, Conversation>();
 
@@ -248,17 +254,10 @@ export default function WhatsAppNew() {
   }, [messages]);
 
   // Verificar se há sessões conectadas
-  const connectedSessions = sessions?.filter(s => s.status === 'connected') || [];
+  const connectedSessions = sessions.filter(s => s.status === 'connected');
   const hasConnectedSession = connectedSessions.length > 0;
 
-  // Selecionar automaticamente a primeira sessão conectada
-  useEffect(() => {
-    if (connectedSessions.length > 0 && !selectedSession) {
-      setSelectedSession(connectedSessions[0]);
-    }
-  }, [connectedSessions, selectedSession]);
-
-  // Handlers
+  // Handlers (mover antes dos returns condicionais)
   const handleSelectConversation = (conversationId: string) => {
     setSelectedConversation(conversationId);
     const conversation = conversations.find(c => c.id === conversationId);
@@ -291,8 +290,15 @@ export default function WhatsAppNew() {
     deleteSessionMutation.mutate(sessionId);
   };
 
+  // Selecionar automaticamente a primeira sessão conectada
+  useEffect(() => {
+    if (connectedSessions.length > 0 && !selectedSession) {
+      setSelectedSession(connectedSessions[0]);
+    }
+  }, [connectedSessions, selectedSession]);
+
   // Se não há sessões conectadas, mostrar tela de conexão
-  if (!hasConnectedSession && !loadingSessions) {
+  if (!hasConnectedSession && !loadingSessions && sessions?.length === 0) {
     return (
       <div className="flex-1 flex flex-col">
         <div className="flex-1 flex items-center justify-center p-8">
@@ -363,6 +369,63 @@ export default function WhatsAppNew() {
     );
   }
 
+  // Se há sessões mas não há conectadas, mostrar interface com sessões disponíveis
+  if (sessions && sessions.length > 0 && !hasConnectedSession) {
+    return (
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-md w-full">
+            <Card className="border-gray-200">
+              <CardHeader className="text-center">
+                <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                  <MessageSquare className="w-8 h-8 text-yellow-600" />
+                </div>
+                <CardTitle className="text-xl text-gray-900">Sessões Disponíveis</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Há sessões criadas mas nenhuma conectada. Conecte uma sessão ou crie uma nova.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  {sessions.map((session) => (
+                    <div key={session.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-900">{session.sessionName}</p>
+                        <p className="text-sm text-gray-500">Status: {session.status}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteSession(session.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button 
+                  onClick={handleCreateSession}
+                  disabled={createSessionMutation.isPending}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  {createSessionMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nova Sessão
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Interface principal do chat (3 painéis)
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50">
@@ -413,7 +476,7 @@ export default function WhatsAppNew() {
         <div className="flex-1 flex flex-col">
           <ChatWindow
             contact={selectedContact}
-            messages={messages?.filter(m => m.contactNumber === selectedContact?.phone)
+            messages={selectedContact ? messages.filter(m => m.contactNumber === selectedContact.phone)
               .map(m => ({
                 id: m.id,
                 content: m.messageContent,
@@ -422,12 +485,12 @@ export default function WhatsAppNew() {
                 isFromMe: m.isFromMe,
                 type: m.messageType,
                 mediaUrl: m.mediaUrl || undefined
-              })) || []}
+              })) : []}
             onSendMessage={handleSendMessage}
             onStartNewChat={() => console.log('Start new chat')}
             onCloseChat={() => setSelectedConversation(null)}
             isTyping={isTyping}
-            deviceInfo={`WhatsApp Web – ${selectedSession?.sessionName} (${selectedSession?.phoneNumber})`}
+            deviceInfo={`WhatsApp Web – ${selectedSession?.sessionName} (${selectedSession?.phoneNumber || 'Conectando...'})`}
           />
         </div>
 

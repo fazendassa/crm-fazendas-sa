@@ -946,7 +946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionId = parseInt(req.params.sessionId);
       const limit = parseInt(req.query.limit as string) || 100;
       
-      const messages = await storage.getWhatsappMessages(sessionId, limit);
+      const messages = await storage.getWhatsappMessages(sessionId, undefined, limit);
       res.json(messages);
     } catch (error) {
       console.error("Error getting WhatsApp messages for session:", error);
