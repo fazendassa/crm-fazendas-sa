@@ -75,7 +75,7 @@ export class WhatsAppManager extends EventEmitter {
         devtools: false,
         useChrome: true,
         debug: false,
-        logQR: false,
+        logQR: true,
         browserWS: '',
         executablePath: process.env.CHROME_BIN || '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
         browserArgs: [
