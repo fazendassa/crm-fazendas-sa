@@ -1,3 +1,3 @@
-2025/07/03-19:39:49.166 6943 Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Local Storage/leveldb/MANIFEST-000001
-2025/07/03-19:39:49.167 6943 Recovering log #4
-2025/07/03-19:39:49.168 6943 Reusing old log /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Local Storage/leveldb/000004.log 
+2025/07/03-19:50:08.039 6cb3 Reusing MANIFEST /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Local Storage/leveldb/MANIFEST-000001
+2025/07/03-19:50:08.041 6cb3 Recovering log #4
+2025/07/03-19:50:08.042 6cb3 Reusing old log /home/runner/workspace/whatsapp-sessions/session_crm-44360643/Default/Local Storage/leveldb/000004.log 
