@@ -910,16 +910,28 @@ export class WhatsAppManager extends EventEmitter {
       console.log('📇 Raw contacts from WhatsApp:', contacts.length);
 
       // Buscar também os chats para ter informações mais atualizadas
-      const chats = await client.getAllChats();
+      const chats = await client.listChats();
       const chatMap = new Map();
       
       chats.forEach(chat => {
         if (!chat.isGroup) {
-          chatMap.set(chat.id, {
-            name: chat.name || chat.formattedTitle,
-            lastMessageTime: chat.t,
-            profilePic: chat.contact?.profilePicThumb
-          });
+          // Handle different ID formats safely
+          let chatId = '';
+          if (typeof chat.id === 'string') {
+            chatId = chat.id;
+          } else if (chat.id && chat.id._serialized) {
+            chatId = chat.id._serialized;
+          } else if (chat.id && chat.id.user) {
+            chatId = `${chat.id.user}@${chat.id.server}`;
+          }
+          
+          if (chatId) {
+            chatMap.set(chatId, {
+              name: chat.name || chat.formattedTitle,
+              lastMessageTime: chat.t,
+              profilePic: chat.contact?.profilePicThumb
+            });
+          }
         }
       });
 
@@ -990,22 +1002,39 @@ export class WhatsAppManager extends EventEmitter {
         throw new Error('WhatsApp session not found');
       }
 
-      const chats = await client.getAllChats();
+      const chats = await client.listChats();
       console.log('💬 Raw chats from WhatsApp:', chats.length);
 
-      return chats.map(chat => ({
-        id: chat.id,
-        name: chat.name || chat.formattedTitle || chat.id.replace('@c.us', ''),
-        isGroup: chat.isGroup,
-        lastMessage: chat.lastMessage ? {
-          content: chat.lastMessage.body || '',
-          timestamp: new Date(chat.lastMessage.t * 1000),
-          fromMe: chat.lastMessage.fromMe
-        } : null,
-        unreadCount: chat.unreadCount || 0,
-        timestamp: chat.t ? new Date(chat.t * 1000) : new Date(),
-        profilePic: chat.contact?.profilePicThumb || null
-      }));
+      return chats.map(chat => {
+        // Handle different ID formats safely
+        let chatId = '';
+        let displayName = '';
+        
+        if (typeof chat.id === 'string') {
+          chatId = chat.id;
+        } else if (chat.id && chat.id._serialized) {
+          chatId = chat.id._serialized;
+        } else if (chat.id && chat.id.user) {
+          chatId = `${chat.id.user}@${chat.id.server}`;
+        }
+        
+        // Get display name safely
+        displayName = chat.name || chat.formattedTitle || chatId.replace('@c.us', '').replace('@g.us', '');
+        
+        return {
+          id: chatId,
+          name: displayName,
+          isGroup: chat.isGroup,
+          lastMessage: chat.lastMessage ? {
+            content: chat.lastMessage.body || '',
+            timestamp: new Date(chat.lastMessage.t * 1000),
+            fromMe: chat.lastMessage.fromMe
+          } : null,
+          unreadCount: chat.unreadCount || 0,
+          timestamp: chat.t ? new Date(chat.t * 1000) : new Date(),
+          profilePic: chat.contact?.profilePicThumb || null
+        };
+      });
     } catch (error) {
       console.error('Error getting chats:', error);
       return [];
