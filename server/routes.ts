@@ -14,13 +14,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup WebSocket server
   webSocketManager.setup(httpServer);
   
+  // Setup authentication first
+  await setupAuth(app);
+  
   // Basic routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
-  });
-
-  app.get("/api/user", isAuthenticated, (req, res) => {
-    res.json(req.user);
   });
 
   // WhatsApp routes
