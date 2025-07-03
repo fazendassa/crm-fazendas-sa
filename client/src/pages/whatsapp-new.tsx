@@ -206,9 +206,35 @@ export default function WhatsAppNew() {
       console.log('✅ Session created successfully:', data);
       queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
       setNewSessionName('');
+      
+      // Start polling for QR code after session creation
+      const pollForQR = async () => {
+        console.log('🔄 Polling for QR code...');
+        try {
+          const response = await fetch('/api/whatsapp/sessions');
+          const sessions = await response.json();
+          const latestSession = sessions.find((s: any) => s.status === 'connecting' && s.qrCode);
+          
+          if (latestSession?.qrCode) {
+            console.log('📱 QR Code found via polling!');
+            setCurrentQrCode(latestSession.qrCode);
+            setShowQrDialog(true);
+            return; // Stop polling
+          }
+          
+          // Continue polling for 30 seconds
+          setTimeout(pollForQR, 2000);
+        } catch (error) {
+          console.error('❌ Error polling for QR:', error);
+        }
+      };
+      
+      // Start polling after a short delay
+      setTimeout(pollForQR, 1000);
+      
       toast({
         title: "Sessão criada",
-        description: "Nova sessão WhatsApp criada com sucesso!"
+        description: "Nova sessão WhatsApp criada! Aguardando QR code..."
       });
     },
     onError: (error: any) => {
