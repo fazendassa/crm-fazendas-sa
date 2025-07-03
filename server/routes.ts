@@ -23,6 +23,8 @@ import {
   insertPipelineStageSchema,
 } from "@shared/schema";
 import { z } from "zod";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -1313,6 +1315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const pgSession = connectPg(session);
   const sessionStore = new pgSession({
     pool: pool,
     tableName: 'user_sessions',

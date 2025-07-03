@@ -151,31 +151,30 @@ export default function WhatsApp() {
     }
   };
 
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
   const loadSessions = async () => {
     try {
+      setIsLoading(true);
       const response = await apiRequest('/api/whatsapp/sessions');
       console.log('sessionsData:', response);
 
-      // Ensure response is an array
+      // Ensure response is always treated as an array
       const sessionsArray = Array.isArray(response) ? response : [];
       setSessions(sessionsArray);
       console.log('sessions:', sessionsArray);
-
-      if (sessionsArray.length > 0) {
-        setCurrentSession(sessionsArray[0]);
-        await loadMessages(sessionsArray[0].id);
-      }
-
-      setConnectionError(null);
     } catch (error) {
       console.error('Error loading sessions:', error);
-      setConnectionError('Falha ao carregar sessões do WhatsApp');
       setSessions([]);
       toast({
         title: "Erro",
         description: "Falha ao carregar sessões do WhatsApp",
-        variant: "destructive"
+        variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
