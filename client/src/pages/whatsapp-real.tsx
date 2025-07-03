@@ -81,9 +81,21 @@ export default function WhatsApp() {
   }, [toast, queryClient]);
 
   // Fetch WhatsApp sessions
-  const { data: sessions = [] } = useQuery({
+  const { data: sessions = [], error: sessionsError } = useQuery({
     queryKey: ['/api/whatsapp/sessions'],
-    queryFn: () => fetch('/api/whatsapp/sessions', { credentials: 'include' }).then(res => res.json()) as Promise<WhatsappSession[]>
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/whatsapp/sessions', { credentials: 'include' });
+        if (!response.ok) {
+          throw new Error('Failed to fetch sessions');
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Error fetching sessions:', error);
+        return [];
+      }
+    }
   });
 
   // Fetch messages for selected session
@@ -265,47 +277,58 @@ export default function WhatsApp() {
         <div className="flex-1 p-4 overflow-y-auto">
           <h3 className="font-medium text-gray-900 mb-3">Sessões WhatsApp</h3>
           <div className="space-y-2">
-            {Array.isArray(sessions) && sessions.map((session) => (
-              <Card key={session.id} className="apple-card-nested">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">{session.sessionName}</CardTitle>
-                    <Badge variant={session.status === 'connected' ? "default" : "secondary"}>
-                      {session.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {session.phoneNumber && (
-                    <p className="text-xs text-gray-500 mb-2">{session.phoneNumber}</p>
-                  )}
-                  <div className="flex gap-1">
-                    {session.status === 'disconnected' ? (
-                      <Button 
-                        onClick={() => handleConnectSession(session)}
-                        disabled={connectSessionMutation.isPending}
-                        className="apple-button-primary"
-                        size="sm"
-                      >
-                        <Power className="h-3 w-3 mr-1" />
-                        Conectar
-                      </Button>
-                    ) : (
-                      <Button 
-                        onClick={() => handleDisconnectSession(session)}
-                        disabled={disconnectSessionMutation.isPending}
-                        variant="outline"
-                        className="apple-button-secondary"
-                        size="sm"
-                      >
-                        <PowerOff className="h-3 w-3 mr-1" />
-                        Desconectar
-                      </Button>
+            {sessionsError && (
+              <div className="text-sm text-red-600 mb-2">
+                Erro ao carregar sessões: {sessionsError.message}
+              </div>
+            )}
+            {Array.isArray(sessions) && sessions.length > 0 ? (
+              sessions.map((session) => (
+                <Card key={session.id} className="apple-card-nested">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm">{session.sessionName}</CardTitle>
+                      <Badge variant={session.status === 'connected' ? "default" : "secondary"}>
+                        {session.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {session.phoneNumber && (
+                      <p className="text-xs text-gray-500 mb-2">{session.phoneNumber}</p>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex gap-1">
+                      {session.status === 'disconnected' ? (
+                        <Button 
+                          onClick={() => handleConnectSession(session)}
+                          disabled={connectSessionMutation.isPending}
+                          className="apple-button-primary"
+                          size="sm"
+                        >
+                          <Power className="h-3 w-3 mr-1" />
+                          Conectar
+                        </Button>
+                      ) : (
+                        <Button 
+                          onClick={() => handleDisconnectSession(session)}
+                          disabled={disconnectSessionMutation.isPending}
+                          variant="outline"
+                          className="apple-button-secondary"
+                          size="sm"
+                        >
+                          <PowerOff className="h-3 w-3 mr-1" />
+                          Desconectar
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="text-sm text-gray-500 text-center py-4">
+                Nenhuma sessão encontrada
+              </div>
+            )}
           </div>
         </div>
       </div>
