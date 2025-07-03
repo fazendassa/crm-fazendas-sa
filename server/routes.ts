@@ -25,6 +25,7 @@ import {
 import { z } from "zod";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
