@@ -27,6 +27,7 @@ export class WhatsAppManager extends EventEmitter {
 
     try {
       console.log('📱 Creating WhatsApp session for user:', userId, 'with name:', sessionName);
+      console.log('🔑 Session ID:', sessionId);
 
       // Close existing client if any
       const existingClient = this.clients.get(sessionId);
