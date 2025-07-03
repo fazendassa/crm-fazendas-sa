@@ -810,24 +810,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WhatsApp Integration Routes
   app.get('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
     try {
+      console.log('🔍 WhatsApp Sessions - req.user:', req.user);
       const userId = req.user?.claims?.sub || req.user?.id;
+      console.log('🔍 WhatsApp Sessions - userId:', userId);
+      
       if (!userId) {
+        console.error('❌ WhatsApp Sessions - No user ID found');
         return res.status(401).json({ message: "User ID not found" });
       }
+      
       const sessions = await storage.getWhatsappSessions(userId);
+      console.log('✅ WhatsApp Sessions - Found sessions:', sessions.length);
       res.json(sessions);
     } catch (error) {
       console.error("Error fetching WhatsApp sessions:", error);
-      res.status(500).json({ message: "Failed to fetch WhatsApp sessions" });
+      res.status(500).json({ message: "Failed to fetch WhatsApp sessions", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
   app.post('/api/whatsapp/create-session', isAuthenticated, async (req: any, res) => {
     try {
+      console.log('🔍 Create Session - req.user:', req.user);
       const userId = req.user?.claims?.sub || req.user?.id;
+      console.log('🔍 Create Session - userId:', userId);
+      
       if (!userId) {
+        console.error('❌ Create Session - No user ID found');
         return res.status(401).json({ message: "User ID not found" });
       }
+      
       const { sessionName } = req.body;
 
       if (!sessionName) {
@@ -838,7 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: result });
     } catch (error) {
       console.error("Error creating WhatsApp session:", error);
-      res.status(500).json({ message: "Failed to create WhatsApp session" });
+      res.status(500).json({ message: "Failed to create WhatsApp session", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
