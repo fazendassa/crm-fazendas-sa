@@ -85,17 +85,23 @@ export default function WhatsAppNew() {
   const queryClient = useQueryClient();
 
   // Buscar sessões WhatsApp
-  const { data: sessions, isLoading: loadingSessions } = useQuery<WhatsAppSession[]>({
+  const { data: sessionsData, isLoading: loadingSessions } = useQuery<WhatsAppSession[]>({
     queryKey: ['/api/whatsapp/sessions'],
     refetchInterval: 5000,
   });
 
+  // Garantir que sessions seja sempre um array
+  const sessions = Array.isArray(sessionsData) ? sessionsData : [];
+
   // Buscar mensagens da sessão selecionada
-  const { data: messages, isLoading: loadingMessages } = useQuery<WhatsAppMessage[]>({
+  const { data: messagesData, isLoading: loadingMessages } = useQuery<WhatsAppMessage[]>({
     queryKey: ['/api/whatsapp/messages', selectedSession?.id],
     enabled: !!selectedSession?.id,
     refetchInterval: 2000,
   });
+
+  // Garantir que messages seja sempre um array
+  const messages = Array.isArray(messagesData) ? messagesData : [];
 
   // WebSocket para atualizações em tempo real
   useEffect(() => {
@@ -200,7 +206,7 @@ export default function WhatsAppNew() {
 
   // Converter mensagens para conversas
   const conversations: Conversation[] = React.useMemo(() => {
-    if (!messages) return [];
+    if (!messages || messages.length === 0) return [];
 
     const conversationMap = new Map<string, Conversation>();
 
@@ -248,17 +254,10 @@ export default function WhatsAppNew() {
   }, [messages]);
 
   // Verificar se há sessões conectadas
-  const connectedSessions = sessions?.filter(s => s.status === 'connected') || [];
+  const connectedSessions = sessions.filter(s => s.status === 'connected');
   const hasConnectedSession = connectedSessions.length > 0;
 
-  // Selecionar automaticamente a primeira sessão conectada
-  useEffect(() => {
-    if (connectedSessions.length > 0 && !selectedSession) {
-      setSelectedSession(connectedSessions[0]);
-    }
-  }, [connectedSessions, selectedSession]);
-
-  // Handlers
+  // Handlers (mover antes dos returns condicionais)
   const handleSelectConversation = (conversationId: string) => {
     setSelectedConversation(conversationId);
     const conversation = conversations.find(c => c.id === conversationId);
@@ -290,6 +289,13 @@ export default function WhatsAppNew() {
   const handleDeleteSession = (sessionId: number) => {
     deleteSessionMutation.mutate(sessionId);
   };
+
+  // Selecionar automaticamente a primeira sessão conectada
+  useEffect(() => {
+    if (connectedSessions.length > 0 && !selectedSession) {
+      setSelectedSession(connectedSessions[0]);
+    }
+  }, [connectedSessions, selectedSession]);
 
   // Se não há sessões conectadas, mostrar tela de conexão
   if (!hasConnectedSession && !loadingSessions) {
@@ -413,7 +419,7 @@ export default function WhatsAppNew() {
         <div className="flex-1 flex flex-col">
           <ChatWindow
             contact={selectedContact}
-            messages={messages?.filter(m => m.contactNumber === selectedContact?.phone)
+            messages={selectedContact ? messages.filter(m => m.contactNumber === selectedContact.phone)
               .map(m => ({
                 id: m.id,
                 content: m.messageContent,
@@ -422,12 +428,12 @@ export default function WhatsAppNew() {
                 isFromMe: m.isFromMe,
                 type: m.messageType,
                 mediaUrl: m.mediaUrl || undefined
-              })) || []}
+              })) : []}
             onSendMessage={handleSendMessage}
             onStartNewChat={() => console.log('Start new chat')}
             onCloseChat={() => setSelectedConversation(null)}
             isTyping={isTyping}
-            deviceInfo={`WhatsApp Web – ${selectedSession?.sessionName} (${selectedSession?.phoneNumber})`}
+            deviceInfo={`WhatsApp Web – ${selectedSession?.sessionName} (${selectedSession?.phoneNumber || 'Conectando...'})`}
           />
         </div>
 
