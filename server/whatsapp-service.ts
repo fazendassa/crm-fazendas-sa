@@ -269,7 +269,7 @@ export class WhatsAppManager extends EventEmitter {
     }
   }
 
-  async sendMessage(userId: string, to: string, text: string): Promise<any> {
+  async sendMessage(userId: string, to: string, text: string, messageType: string = 'text'): Promise<any> {
     try {
       const sessionId = `session_crm-${userId}`;
       const client = this.clients.get(sessionId);
@@ -284,7 +284,7 @@ export class WhatsAppManager extends EventEmitter {
         formattedNumber = `${formattedNumber}@c.us`;
       }
 
-      console.log('📤 Sending message to:', formattedNumber, 'content:', text);
+      console.log('📤 Sending message to:', formattedNumber, 'content:', text, 'type:', messageType);
 
       // Send message
       const result = await client.sendText(formattedNumber, text);
@@ -302,7 +302,7 @@ export class WhatsAppManager extends EventEmitter {
           fromNumber: result.from || sessionId,
           toNumber: formattedNumber,
           content: text,
-          messageType: 'text',
+          messageType: messageType as 'text' | 'image' | 'audio' | 'video' | 'file',
           direction: 'outgoing' as const,
           isRead: true,
           timestamp: new Date(),
@@ -323,6 +323,428 @@ export class WhatsAppManager extends EventEmitter {
     } catch (error) {
       console.error('Error sending WhatsApp message:', error);
       throw new Error(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async sendMedia(userId: string, to: string, media: string, mediaType: 'image' | 'video' | 'audio' | 'document', caption?: string, fileName?: string): Promise<any> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found. Please create a session first.');
+      }
+
+      // Format phone number
+      let formattedNumber = to.replace(/\D/g, '');
+      if (!formattedNumber.includes('@')) {
+        formattedNumber = `${formattedNumber}@c.us`;
+      }
+
+      console.log('📤 Sending media to:', formattedNumber, 'type:', mediaType);
+
+      let result;
+      switch (mediaType) {
+        case 'image':
+          result = await client.sendImage(formattedNumber, media, fileName || 'image.jpg', caption);
+          break;
+        case 'video':
+          result = await client.sendVideoAsGif(formattedNumber, media, fileName || 'video.mp4', caption);
+          break;
+        case 'audio':
+          result = await client.sendVoice(formattedNumber, media);
+          break;
+        case 'document':
+          result = await client.sendFile(formattedNumber, media, fileName || 'document');
+          break;
+        default:
+          throw new Error('Unsupported media type');
+      }
+
+      // Save to database
+      const sessions = await storage.getWhatsappSessions(userId);
+      const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
+      
+      if (session) {
+        const messageData = {
+          sessionId: session.id,
+          messageId: result.id || `msg_${Date.now()}`,
+          chatId: formattedNumber,
+          fromNumber: result.from || sessionId,
+          toNumber: formattedNumber,
+          content: caption || `${mediaType} sent`,
+          messageType: mediaType,
+          direction: 'outgoing' as const,
+          isRead: true,
+          timestamp: new Date(),
+          mediaUrl: media
+        };
+
+        const savedMessage = await storage.createWhatsappMessage(messageData);
+
+        // Broadcast via WebSocket
+        webSocketManager.broadcastToUser(userId, {
+          type: 'wa:message',
+          message: savedMessage,
+          sessionId: session.id
+        });
+      }
+
+      return { success: true, messageId: result.id || `msg_${Date.now()}` };
+    } catch (error) {
+      console.error('Error sending media:', error);
+      throw new Error(`Failed to send media: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async sendSticker(userId: string, to: string, stickerPath: string): Promise<any> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      let formattedNumber = to.replace(/\D/g, '');
+      if (!formattedNumber.includes('@')) {
+        formattedNumber = `${formattedNumber}@c.us`;
+      }
+
+      const result = await client.sendImageAsSticker(formattedNumber, stickerPath);
+      
+      // Save to database
+      const sessions = await storage.getWhatsappSessions(userId);
+      const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
+      
+      if (session) {
+        const messageData = {
+          sessionId: session.id,
+          messageId: result.id || `msg_${Date.now()}`,
+          chatId: formattedNumber,
+          fromNumber: result.from || sessionId,
+          toNumber: formattedNumber,
+          content: 'Sticker sent',
+          messageType: 'sticker' as any,
+          direction: 'outgoing' as const,
+          isRead: true,
+          timestamp: new Date(),
+          mediaUrl: stickerPath
+        };
+
+        const savedMessage = await storage.createWhatsappMessage(messageData);
+
+        webSocketManager.broadcastToUser(userId, {
+          type: 'wa:message',
+          message: savedMessage,
+          sessionId: session.id
+        });
+      }
+
+      return { success: true, messageId: result.id };
+    } catch (error) {
+      console.error('Error sending sticker:', error);
+      throw new Error(`Failed to send sticker: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async sendStickerGif(userId: string, to: string, gifPath: string): Promise<any> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      let formattedNumber = to.replace(/\D/g, '');
+      if (!formattedNumber.includes('@')) {
+        formattedNumber = `${formattedNumber}@c.us`;
+      }
+
+      const result = await client.sendVideoAsGif(formattedNumber, gifPath, 'sticker.gif', '');
+      
+      // Save to database similar to sendSticker
+      const sessions = await storage.getWhatsappSessions(userId);
+      const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
+      
+      if (session) {
+        const messageData = {
+          sessionId: session.id,
+          messageId: result.id || `msg_${Date.now()}`,
+          chatId: formattedNumber,
+          fromNumber: result.from || sessionId,
+          toNumber: formattedNumber,
+          content: 'GIF Sticker sent',
+          messageType: 'sticker' as any,
+          direction: 'outgoing' as const,
+          isRead: true,
+          timestamp: new Date(),
+          mediaUrl: gifPath
+        };
+
+        const savedMessage = await storage.createWhatsappMessage(messageData);
+
+        webSocketManager.broadcastToUser(userId, {
+          type: 'wa:message',
+          message: savedMessage,
+          sessionId: session.id
+        });
+      }
+
+      return { success: true, messageId: result.id };
+    } catch (error) {
+      console.error('Error sending GIF sticker:', error);
+      throw new Error(`Failed to send GIF sticker: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async sendContact(userId: string, to: string, contactId: string, name: string): Promise<any> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      let formattedNumber = to.replace(/\D/g, '');
+      if (!formattedNumber.includes('@')) {
+        formattedNumber = `${formattedNumber}@c.us`;
+      }
+
+      const result = await client.sendContactVcard(formattedNumber, contactId, name);
+      
+      // Save to database
+      const sessions = await storage.getWhatsappSessions(userId);
+      const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
+      
+      if (session) {
+        const messageData = {
+          sessionId: session.id,
+          messageId: result.id || `msg_${Date.now()}`,
+          chatId: formattedNumber,
+          fromNumber: result.from || sessionId,
+          toNumber: formattedNumber,
+          content: `Contact shared: ${name}`,
+          messageType: 'contact' as any,
+          direction: 'outgoing' as const,
+          isRead: true,
+          timestamp: new Date(),
+        };
+
+        const savedMessage = await storage.createWhatsappMessage(messageData);
+
+        webSocketManager.broadcastToUser(userId, {
+          type: 'wa:message',
+          message: savedMessage,
+          sessionId: session.id
+        });
+      }
+
+      return { success: true, messageId: result.id };
+    } catch (error) {
+      console.error('Error sending contact:', error);
+      throw new Error(`Failed to send contact: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async forwardMessage(userId: string, to: string, messageId: string): Promise<any> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      let formattedNumber = to.replace(/\D/g, '');
+      if (!formattedNumber.includes('@')) {
+        formattedNumber = `${formattedNumber}@c.us`;
+      }
+
+      const result = await client.forwardMessages(formattedNumber, [messageId], false);
+      
+      // Save to database
+      const sessions = await storage.getWhatsappSessions(userId);
+      const session = sessions.find(s => s.sessionName === sessionId || s.userId === userId);
+      
+      if (session) {
+        const messageData = {
+          sessionId: session.id,
+          messageId: result.id || `msg_${Date.now()}`,
+          chatId: formattedNumber,
+          fromNumber: result.from || sessionId,
+          toNumber: formattedNumber,
+          content: 'Forwarded message',
+          messageType: 'text',
+          direction: 'outgoing' as const,
+          isRead: true,
+          timestamp: new Date(),
+        };
+
+        const savedMessage = await storage.createWhatsappMessage(messageData);
+
+        webSocketManager.broadcastToUser(userId, {
+          type: 'wa:message',
+          message: savedMessage,
+          sessionId: session.id
+        });
+      }
+
+      return { success: true, messageId: result.id };
+    } catch (error) {
+      console.error('Error forwarding message:', error);
+      throw new Error(`Failed to forward message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getContacts(userId: string): Promise<any[]> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      const contacts = await client.getAllContacts();
+      return contacts.map(contact => ({
+        id: contact.id,
+        name: contact.name || contact.pushname || contact.shortName,
+        phone: contact.id.replace('@c.us', ''),
+        isMyContact: contact.isMyContact,
+        isGroup: contact.isGroup,
+        profilePic: contact.profilePicThumb || null
+      }));
+    } catch (error) {
+      console.error('Error getting contacts:', error);
+      throw new Error(`Failed to get contacts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getChats(userId: string): Promise<any[]> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      const chats = await client.getAllChats();
+      return chats.map(chat => ({
+        id: chat.id,
+        name: chat.name || chat.formattedTitle,
+        isGroup: chat.isGroup,
+        lastMessage: chat.lastMessage,
+        unreadCount: chat.unreadCount,
+        timestamp: chat.t,
+        profilePic: chat.contact?.profilePicThumb || null
+      }));
+    } catch (error) {
+      console.error('Error getting chats:', error);
+      throw new Error(`Failed to get chats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getGroups(userId: string): Promise<any[]> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      const groups = await client.getAllGroups();
+      return groups.map(group => ({
+        id: group.id,
+        name: group.name || group.formattedTitle,
+        participants: group.participants?.length || 0,
+        admins: group.participants?.filter(p => p.isAdmin)?.length || 0,
+        description: group.groupMetadata?.desc,
+        profilePic: group.contact?.profilePicThumb || null
+      }));
+    } catch (error) {
+      console.error('Error getting groups:', error);
+      throw new Error(`Failed to get groups: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getGroupMembers(userId: string, groupId: string): Promise<any[]> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      const members = await client.getGroupMembers(groupId);
+      return members.map(member => ({
+        id: member.id,
+        phone: member.id.replace('@c.us', ''),
+        isAdmin: member.isAdmin,
+        isSuperAdmin: member.isSuperAdmin
+      }));
+    } catch (error) {
+      console.error('Error getting group members:', error);
+      throw new Error(`Failed to get group members: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getBlockList(userId: string): Promise<any[]> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      const blockedContacts = await client.getBlockList();
+      return blockedContacts.map(contact => ({
+        id: contact,
+        phone: contact.replace('@c.us', '')
+      }));
+    } catch (error) {
+      console.error('Error getting block list:', error);
+      throw new Error(`Failed to get block list: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async blockContact(userId: string, contactId: string): Promise<any> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      const result = await client.blockContact(contactId);
+      return { success: true, result };
+    } catch (error) {
+      console.error('Error blocking contact:', error);
+      throw new Error(`Failed to block contact: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async unblockContact(userId: string, contactId: string): Promise<any> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
+
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      const result = await client.unblockContact(contactId);
+      return { success: true, result };
+    } catch (error) {
+      console.error('Error unblocking contact:', error);
+      throw new Error(`Failed to unblock contact: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

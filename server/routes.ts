@@ -994,11 +994,218 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Session not connected" });
       }
       
-      const result = await whatsAppManager.sendMessage(userId, contactPhone, content);
+      const result = await whatsAppManager.sendMessage(userId, contactPhone, content, type);
       res.json(result);
     } catch (error) {
       console.error("Error sending WhatsApp message:", error);
       res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Send media (image, video, audio, document)
+  app.post('/api/whatsapp/sessions/:sessionId/send-media', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const { contactPhone, media, mediaType, caption, fileName } = req.body;
+      
+      const result = await whatsAppManager.sendMedia(userId, contactPhone, media, mediaType, caption, fileName);
+      res.json(result);
+    } catch (error) {
+      console.error("Error sending media:", error);
+      res.status(500).json({ message: "Failed to send media" });
+    }
+  });
+
+  // Send sticker
+  app.post('/api/whatsapp/sessions/:sessionId/send-sticker', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const { contactPhone, stickerPath } = req.body;
+      
+      const result = await whatsAppManager.sendSticker(userId, contactPhone, stickerPath);
+      res.json(result);
+    } catch (error) {
+      console.error("Error sending sticker:", error);
+      res.status(500).json({ message: "Failed to send sticker" });
+    }
+  });
+
+  // Send GIF sticker
+  app.post('/api/whatsapp/sessions/:sessionId/send-sticker-gif', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const { contactPhone, gifPath } = req.body;
+      
+      const result = await whatsAppManager.sendStickerGif(userId, contactPhone, gifPath);
+      res.json(result);
+    } catch (error) {
+      console.error("Error sending GIF sticker:", error);
+      res.status(500).json({ message: "Failed to send GIF sticker" });
+    }
+  });
+
+  // Send contact
+  app.post('/api/whatsapp/sessions/:sessionId/send-contact', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const { contactPhone, contactId, name } = req.body;
+      
+      const result = await whatsAppManager.sendContact(userId, contactPhone, contactId, name);
+      res.json(result);
+    } catch (error) {
+      console.error("Error sending contact:", error);
+      res.status(500).json({ message: "Failed to send contact" });
+    }
+  });
+
+  // Forward message
+  app.post('/api/whatsapp/sessions/:sessionId/forward-message', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const { contactPhone, messageId } = req.body;
+      
+      const result = await whatsAppManager.forwardMessage(userId, contactPhone, messageId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error forwarding message:", error);
+      res.status(500).json({ message: "Failed to forward message" });
+    }
+  });
+
+  // Get contacts
+  app.get('/api/whatsapp/sessions/:sessionId/contacts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const contacts = await whatsAppManager.getContacts(userId);
+      res.json(contacts);
+    } catch (error) {
+      console.error("Error getting contacts:", error);
+      res.status(500).json({ message: "Failed to get contacts" });
+    }
+  });
+
+  // Get chats
+  app.get('/api/whatsapp/sessions/:sessionId/chats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const chats = await whatsAppManager.getChats(userId);
+      res.json(chats);
+    } catch (error) {
+      console.error("Error getting chats:", error);
+      res.status(500).json({ message: "Failed to get chats" });
+    }
+  });
+
+  // Get groups
+  app.get('/api/whatsapp/sessions/:sessionId/groups', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const groups = await whatsAppManager.getGroups(userId);
+      res.json(groups);
+    } catch (error) {
+      console.error("Error getting groups:", error);
+      res.status(500).json({ message: "Failed to get groups" });
+    }
+  });
+
+  // Get group members
+  app.get('/api/whatsapp/sessions/:sessionId/groups/:groupId/members', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const groupId = req.params.groupId;
+      const members = await whatsAppManager.getGroupMembers(userId, groupId);
+      res.json(members);
+    } catch (error) {
+      console.error("Error getting group members:", error);
+      res.status(500).json({ message: "Failed to get group members" });
+    }
+  });
+
+  // Get block list
+  app.get('/api/whatsapp/sessions/:sessionId/block-list', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const blockList = await whatsAppManager.getBlockList(userId);
+      res.json(blockList);
+    } catch (error) {
+      console.error("Error getting block list:", error);
+      res.status(500).json({ message: "Failed to get block list" });
+    }
+  });
+
+  // Block contact
+  app.post('/api/whatsapp/sessions/:sessionId/block-contact', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const { contactId } = req.body;
+      
+      const result = await whatsAppManager.blockContact(userId, contactId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error blocking contact:", error);
+      res.status(500).json({ message: "Failed to block contact" });
+    }
+  });
+
+  // Unblock contact
+  app.post('/api/whatsapp/sessions/:sessionId/unblock-contact', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const { contactId } = req.body;
+      
+      const result = await whatsAppManager.unblockContact(userId, contactId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error unblocking contact:", error);
+      res.status(500).json({ message: "Failed to unblock contact" });
     }
   });
 

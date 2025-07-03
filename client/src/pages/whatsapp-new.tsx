@@ -644,6 +644,7 @@ export default function WhatsAppNew() {
             selectedConversation={selectedConversation}
             onSelectConversation={handleSelectConversation}
             isLoading={loadingMessages}
+            sessionId={selectedSession?.id}
           />
         </div>
 
@@ -666,6 +667,7 @@ export default function WhatsAppNew() {
             onCloseChat={() => setSelectedConversation(null)}
             isTyping={isTyping}
             deviceInfo={`WhatsApp Web – ${selectedSession?.sessionName} (${selectedSession?.phoneNumber || 'Conectando...'})`}
+            sessionId={selectedSession?.id}
           />
         </div>
 
