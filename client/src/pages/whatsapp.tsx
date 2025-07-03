@@ -41,7 +41,7 @@ interface WhatsAppMessage {
 export default function WhatsApp() {
   const { user } = useAuth();
   const { toast } = useToast();
-  
+
   const [sessions, setSessions] = useState<WhatsAppSession[]>([]);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [currentSession, setCurrentSession] = useState<WhatsAppSession | null>(null);
@@ -73,15 +73,15 @@ export default function WhatsApp() {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws?userId=${user.id}`;
-    
+
     const websocket = new WebSocket(wsUrl);
-    
+
     websocket.onopen = () => {
       console.log('📡 WebSocket connected');
       setWs(websocket);
       wsRef.current = websocket;
     };
-    
+
     websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -90,12 +90,12 @@ export default function WhatsApp() {
         console.error('Error parsing WebSocket message:', error);
       }
     };
-    
+
     websocket.onclose = () => {
       console.log('📡 WebSocket disconnected');
       setWs(null);
       wsRef.current = null;
-      
+
       // Reconnect after 3 seconds
       setTimeout(() => {
         if (user?.id) {
@@ -103,7 +103,7 @@ export default function WhatsApp() {
         }
       }, 3000);
     };
-    
+
     websocket.onerror = (error) => {
       console.error('WebSocket error:', error);
     };
@@ -114,14 +114,14 @@ export default function WhatsApp() {
       case 'wa:qr':
         setQrCode(data.qrCode);
         break;
-        
+
       case 'wa:status':
         setSessions(prev => prev.map(session => 
           session.id === data.sessionId 
             ? { ...session, status: data.status, phoneNumber: data.phoneNumber }
             : session
         ));
-        
+
         if (data.status === 'connected') {
           setQrCode(null);
           toast({
@@ -130,11 +130,11 @@ export default function WhatsApp() {
           });
         }
         break;
-        
+
       case 'wa:message':
         setMessages(prev => [data.message, ...prev]);
         break;
-        
+
       case 'wa:error':
         toast({
           title: "Erro no WhatsApp",
@@ -142,7 +142,7 @@ export default function WhatsApp() {
           variant: "destructive"
         });
         break;
-        
+
       default:
         console.log('Unknown WebSocket message:', data);
     }
@@ -152,7 +152,7 @@ export default function WhatsApp() {
     try {
       const response = await apiRequest('/api/whatsapp/sessions');
       setSessions(response);
-      
+
       if (response.length > 0) {
         setCurrentSession(response[0]);
         await loadMessages(response[0].id);
@@ -198,14 +198,14 @@ export default function WhatsApp() {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.message || 'Erro ao criar sessão');
       }
-      
+
       setSessionName('');
       await loadSessions();
-      
+
       toast({
         title: "Sessão Criada",
         description: "Aguarde o QR Code para conectar ao WhatsApp",
@@ -244,7 +244,7 @@ export default function WhatsApp() {
           text: messageText
         })
       });
-      
+
       setMessageText('');
       toast({
         title: "Mensagem Enviada",
@@ -338,32 +338,36 @@ export default function WhatsApp() {
 
             {/* Sessions List */}
             <div className="space-y-2">
-              {sessions.map((session) => (
-                <Card 
-                  key={session.id} 
-                  className={`cursor-pointer transition-colors ${
-                    currentSession?.id === session.id ? 'ring-2 ring-blue-500' : ''
-                  }`}
-                  onClick={() => {
-                    setCurrentSession(session);
-                    loadMessages(session.id);
-                  }}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{session.sessionName}</p>
-                        {session.phoneNumber && (
-                          <p className="text-sm text-gray-600">
-                            {formatPhoneNumber(session.phoneNumber)}
-                          </p>
-                        )}
+              {sessions && sessions.length > 0 ? (
+                sessions.map((session) => (
+                  <Card 
+                    key={session.id} 
+                    className={`cursor-pointer transition-colors ${
+                      currentSession?.id === session.id ? 'ring-2 ring-blue-500' : ''
+                    }`}
+                    onClick={() => {
+                      setCurrentSession(session);
+                      loadMessages(session.id);
+                    }}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{session.sessionName}</p>
+                          {session.phoneNumber && (
+                            <p className="text-sm text-gray-600">
+                              {formatPhoneNumber(session.phoneNumber)}
+                            </p>
+                          )}
+                        </div>
+                        {getStatusBadge(session.status)}
                       </div>
-                      {getStatusBadge(session.status)}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">Nenhuma sessão encontrada</p>
+              )}
             </div>
 
             {/* QR Code Display */}
