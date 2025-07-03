@@ -146,11 +146,11 @@ export default function WhatsAppNew() {
   console.log('sessionsData:', sessionsData);
   console.log('sessions:', sessions);
 
-  // Buscar mensagens da sessão selecionada
+  // Buscar mensagens da sessão selecionada apenas quando uma conversa estiver selecionada
   const { data: messagesData, isLoading: loadingMessages } = useQuery<WhatsAppMessage[]>({
     queryKey: [`/api/whatsapp/messages/${selectedSession?.id}`],
-    enabled: !!selectedSession?.id,
-    refetchInterval: 2000,
+    enabled: !!selectedSession?.id && !!selectedConversation,
+    refetchInterval: selectedConversation ? 2000 : false,
     onError: (error) => {
       console.error('Error loading messages:', error);
     },
@@ -247,54 +247,118 @@ export default function WhatsAppNew() {
     }
   });
 
-  // Converter mensagens para conversas
+  // Buscar contatos únicos para criar conversas (sem carregar mensagens ainda)
+  const { data: contactsData } = useQuery<any[]>({
+    queryKey: [`/api/whatsapp/sessions/${selectedSession?.id}/contacts`],
+    enabled: !!selectedSession?.id,
+    refetchInterval: 30000, // Atualizar contatos a cada 30 segundos
+    onError: (error) => {
+      console.error('Error loading contacts:', error);
+    },
+  });
+
+  // Converter contatos em conversas
   const conversations: Conversation[] = React.useMemo(() => {
-    if (!messages || messages.length === 0) return [];
+    if (!contactsData || contactsData.length === 0) {
+      // Se não temos contatos, criar conversas a partir das mensagens
+      if (!messages || messages.length === 0) return [];
 
-    const conversationMap = new Map<string, Conversation>();
+      const conversationMap = new Map<string, Conversation>();
 
-    messages.forEach(message => {
-      const key = message.contactNumber;
+      messages.forEach(message => {
+        const key = message.contactNumber;
+        
+        // Extrair nome do contato de forma mais inteligente
+        let contactName = message.contactName;
+        if (!contactName || contactName === message.contactNumber) {
+          // Se não tem nome, usar o número formatado
+          const cleanNumber = message.contactNumber.replace(/\D/g, '');
+          if (cleanNumber.length >= 10) {
+            contactName = `+${cleanNumber.slice(0, 2)} ${cleanNumber.slice(2, 4)} ${cleanNumber.slice(4)}`;
+          } else {
+            contactName = message.contactNumber;
+          }
+        }
 
-      if (!conversationMap.has(key)) {
-        conversationMap.set(key, {
-          id: key,
-          contactName: message.contactName || message.contactNumber,
-          contactPhone: message.contactNumber,
-          lastMessage: {
-            id: message.id,
-            content: message.messageContent,
-            timestamp: new Date(message.timestamp),
-            status: message.status,
-            isFromMe: message.isFromMe
+        if (!conversationMap.has(key)) {
+          conversationMap.set(key, {
+            id: key,
+            contactName: contactName,
+            contactPhone: message.contactNumber,
+            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contactName)}&backgroundColor=random`,
+            lastMessage: {
+              id: message.id,
+              content: message.messageContent,
+              timestamp: new Date(message.timestamp),
+              status: message.status,
+              isFromMe: message.isFromMe
+            },
+            unreadCount: 0,
+            isPinned: false,
+            tags: []
+          });
+        } else {
+          const conversation = conversationMap.get(key)!;
+          const messageTime = new Date(message.timestamp);
+
+          // Atualizar nome se este for melhor
+          if (contactName && contactName !== message.contactNumber && conversation.contactName === message.contactNumber) {
+            conversation.contactName = contactName;
+            conversation.avatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contactName)}&backgroundColor=random`;
+          }
+
+          if (messageTime > conversation.lastMessage.timestamp) {
+            conversation.lastMessage = {
+              id: message.id,
+              content: message.messageContent,
+              timestamp: messageTime,
+              status: message.status,
+              isFromMe: message.isFromMe
+            };
+          }
+
+          if (!message.isFromMe && message.status !== 'read') {
+            conversation.unreadCount++;
+          }
+        }
+      });
+
+      return Array.from(conversationMap.values())
+        .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
+    }
+
+    // Usar dados dos contatos para criar conversas
+    return contactsData
+      .filter(contact => !contact.isGroup) // Filtrar apenas contatos individuais
+      .map(contact => {
+        const cleanPhone = contact.phone.replace(/\D/g, '');
+        const lastMessage = messages?.find(m => m.contactNumber.includes(cleanPhone));
+        
+        return {
+          id: contact.phone,
+          contactName: contact.name || contact.phone,
+          contactPhone: contact.phone,
+          avatar: contact.profilePic || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contact.name || contact.phone)}&backgroundColor=random`,
+          lastMessage: lastMessage ? {
+            id: lastMessage.id,
+            content: lastMessage.messageContent,
+            timestamp: new Date(lastMessage.timestamp),
+            status: lastMessage.status,
+            isFromMe: lastMessage.isFromMe
+          } : {
+            id: 'no-message',
+            content: 'Clique para iniciar conversa',
+            timestamp: new Date(),
+            status: 'sent' as const,
+            isFromMe: false
           },
           unreadCount: 0,
           isPinned: false,
           tags: []
-        });
-      } else {
-        const conversation = conversationMap.get(key)!;
-        const messageTime = new Date(message.timestamp);
-
-        if (messageTime > conversation.lastMessage.timestamp) {
-          conversation.lastMessage = {
-            id: message.id,
-            content: message.messageContent,
-            timestamp: messageTime,
-            status: message.status,
-            isFromMe: message.isFromMe
-          };
-        }
-
-        if (!message.isFromMe && message.status !== 'read') {
-          conversation.unreadCount++;
-        }
-      }
-    });
-
-    return Array.from(conversationMap.values())
+        };
+      })
       .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
-  }, [messages]);
+  }, [contactsData, messages]);
 
   // Handlers
   const handleSelectConversation = (conversationId: string) => {
@@ -307,6 +371,9 @@ export default function WhatsAppNew() {
         phone: conversation.contactPhone,
         isOnline: true
       });
+      
+      // Forçar reload das mensagens ao selecionar conversa
+      queryClient.invalidateQueries({ queryKey: [`/api/whatsapp/messages/${selectedSession?.id}`] });
     }
   };
 

@@ -244,10 +244,13 @@ export function ChatWindow({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${contact.name}`} />
+              <AvatarImage 
+                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(contact.name)}&backgroundColor=random`} 
+                alt={contact.name}
+              />
               <AvatarFallback>
-                        {contact?.name ? contact.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
-                      </AvatarFallback>
+                {contact?.name ? contact.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+              </AvatarFallback>
             </Avatar>
             <div>
               <h3 className="font-medium text-gray-900">{contact.name}</h3>

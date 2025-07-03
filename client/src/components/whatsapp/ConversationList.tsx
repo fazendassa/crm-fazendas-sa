@@ -313,9 +313,10 @@ export function ConversationList({
                   <div className="relative">
                     <Avatar className="h-12 w-12">
                       <AvatarImage 
-                        src={conversation.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${conversation.contactName}`} 
+                        src={conversation.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(conversation.contactName)}&backgroundColor=random`} 
+                        alt={conversation.contactName}
                       />
-                      <AvatarFallback>
+                      <AvatarFallback className="bg-gray-200 text-gray-600">
                         {conversation.contactName.split(' ').map(n => n[0]).join('').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>

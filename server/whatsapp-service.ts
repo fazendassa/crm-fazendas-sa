@@ -909,14 +909,52 @@ export class WhatsAppManager extends EventEmitter {
       const contacts = await client.getAllContacts();
       console.log('📇 Raw contacts from WhatsApp:', contacts.length);
 
-      return contacts.map(contact => ({
-        id: contact.id,
-        name: contact.name || contact.pushname || contact.shortName || contact.id.replace('@c.us', ''),
-        phone: contact.id.replace('@c.us', ''),
-        isMyContact: contact.isMyContact,
-        isGroup: contact.isGroup,
-        profilePic: contact.profilePicThumb || null
-      }));
+      // Buscar também os chats para ter informações mais atualizadas
+      const chats = await client.getAllChats();
+      const chatMap = new Map();
+      
+      chats.forEach(chat => {
+        if (!chat.isGroup) {
+          chatMap.set(chat.id, {
+            name: chat.name || chat.formattedTitle,
+            lastMessageTime: chat.t,
+            profilePic: chat.contact?.profilePicThumb
+          });
+        }
+      });
+
+      return contacts
+        .filter(contact => !contact.isGroup && contact.isMyContact) // Apenas contatos pessoais
+        .map(contact => {
+          const chatInfo = chatMap.get(contact.id);
+          const cleanPhone = contact.id.replace('@c.us', '');
+          
+          // Priorizar nome do chat, depois pushname, depois nome do contato
+          let name = chatInfo?.name || contact.pushname || contact.name || contact.shortName;
+          
+          // Se ainda não tem nome, criar um nome formatado do número
+          if (!name || name === cleanPhone) {
+            if (cleanPhone.length >= 10) {
+              const countryCode = cleanPhone.slice(0, 2);
+              const areaCode = cleanPhone.slice(2, 4);
+              const number = cleanPhone.slice(4);
+              name = `+${countryCode} ${areaCode} ${number}`;
+            } else {
+              name = cleanPhone;
+            }
+          }
+
+          return {
+            id: contact.id,
+            name: name,
+            phone: cleanPhone,
+            isMyContact: contact.isMyContact,
+            isGroup: contact.isGroup,
+            profilePic: chatInfo?.profilePic || contact.profilePicThumb || null,
+            lastActivity: chatInfo?.lastMessageTime || null
+          };
+        })
+        .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0)); // Ordenar por última atividade
     } catch (error) {
       console.error('Error getting contacts:', error);
       return [];
