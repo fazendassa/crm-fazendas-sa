@@ -91,7 +91,7 @@ export default function WhatsApp() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   const [selectedContact, setSelectedContact] = useState<WhatsappContact | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,7 +102,7 @@ export default function WhatsApp() {
   // Setup Socket.IO connection
   useEffect(() => {
     const socket = io();
-    
+
     socket.on('qr-code', (data) => {
       console.log('QR Code received:', data);
       if (data.qrCode) {
@@ -117,7 +117,7 @@ export default function WhatsApp() {
     socket.on('session-status', (data) => {
       console.log('Session status update:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/sessions"] });
-      
+
       if (data.status === 'connected') {
         setQrCode(null);
         toast({
@@ -233,17 +233,55 @@ export default function WhatsApp() {
         method: "POST",
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to disconnect session");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to disconnect session");
+      }
       return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Desconectado",
-        description: "Sessão WhatsApp desconectada",
+        title: "Sessão desconectada",
+        description: "WhatsApp desconectado com sucesso",
       });
-      setQrCode(null);
       queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/sessions"] });
     },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao desconectar",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete session mutation
+  const deleteSessionMutation = useMutation({
+    mutationFn: async (sessionId: number) => {
+      const response = await fetch(`/api/whatsapp/sessions/${sessionId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete session");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Sessão excluída",
+        description: "Sessão WhatsApp excluída com sucesso",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/sessions"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   });
 
   // Send message mutation
@@ -277,7 +315,7 @@ export default function WhatsApp() {
 
   const handleSendMessage = () => {
     if (!messageText.trim() || !selectedContact || !activeSession) return;
-    
+
     sendMessageMutation.mutate({
       phoneNumber: selectedContact.phoneNumber,
       message: messageText.trim(),
@@ -353,7 +391,7 @@ export default function WhatsApp() {
               <Settings className="h-4 w-4" />
             </Button>
           </div>
-          
+
           {/* Search */}
           <div className="mt-3 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -602,6 +640,14 @@ export default function WhatsApp() {
                           <PowerOff className="h-4 w-4" />
                         </Button>
                       )}
+                       <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => deleteSessionMutation.mutate(session.id)}
+                          disabled={deleteSessionMutation.isPending}
+                        >
+                         <XCircle className="h-4 w-4" />
+                        </Button>
                     </div>
                   </div>
                 ))}

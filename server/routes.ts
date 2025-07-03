@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage-broken";
+import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import multer from "multer";
 import * as XLSX from "xlsx";
@@ -838,10 +838,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Session name is required" });
       }
 
-      // First, create the session in the database
+      // Check if session already exists
+      const existingSessions = await storage.getWhatsappSessions();
+      const existingSession = existingSessions.find(s => s.sessionName === sessionName);
+      
+      if (existingSession) {
+        return res.status(400).json({ 
+          message: `Session '${sessionName}' already exists. Please use a different name or connect to the existing session.` 
+        });
+      }
+
+      // Create the session in the database
       const newSession = await storage.createWhatsappSession({
         sessionName,
-        status: 'disconnected',
+        status: 'connecting',
+        isActive: true,
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -861,7 +872,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error creating WhatsApp session:", error);
-      res.status(500).json({ message: "Failed to create WhatsApp session" });
+      if (error instanceof Error && error.message.includes('duplicate key')) {
+        res.status(400).json({ 
+          message: "Session name already exists. Please choose a different name." 
+        });
+      } else {
+        res.status(500).json({ message: "Failed to create WhatsApp session" });
+      }
     }
   });
 
@@ -954,6 +971,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching WhatsApp messages:", error);
       res.status(500).json({ message: "Failed to fetch WhatsApp messages" });
+    }
+  });
+
+  app.delete("/api/whatsapp/sessions/:id", isAuthenticated, async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const session = await storage.getWhatsappSession(sessionId);
+
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      // Disconnect if connected
+      if (whatsappService.isSessionConnected(session.sessionName)) {
+        await whatsappService.disconnectSession(session.sessionName);
+      }
+
+      // Delete from database
+      await storage.deleteWhatsappSession(sessionId);
+      
+      res.json({ message: "Session deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to delete WhatsApp session" });
     }
   });
 

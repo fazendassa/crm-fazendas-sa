@@ -1,6 +1,6 @@
 import * as wppconnect from '@wppconnect-team/wppconnect';
 import { Server as SocketIOServer } from 'socket.io';
-import { storage } from './storage-broken';
+import { storage } from './storage';
 import type { WhatsappSession, InsertWhatsappMessage, InsertWhatsappContact } from '@shared/schema';
 
 interface WhatsappClient {
@@ -21,15 +21,8 @@ class WhatsappService {
   async createSession(sessionName: string): Promise<{ success: boolean; qrCode?: string; error?: string }> {
     try {
       if (this.clients.has(sessionName)) {
-        return { success: false, error: 'Session already exists' };
+        return { success: false, error: 'Session already exists in memory' };
       }
-
-      // Create session in database
-      const dbSession = await storage.createWhatsappSession({
-        sessionName,
-        status: 'connecting',
-        isActive: true,
-      });
 
       let qrCode: string | undefined;
 
