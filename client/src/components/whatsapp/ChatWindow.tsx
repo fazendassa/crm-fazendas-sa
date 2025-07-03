@@ -246,8 +246,8 @@ export function ChatWindow({
             <Avatar className="h-10 w-10">
               <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${contact.name}`} />
               <AvatarFallback>
-                {contact.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-              </AvatarFallback>
+                        {contact?.name ? contact.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+                      </AvatarFallback>
             </Avatar>
             <div>
               <h3 className="font-medium text-gray-900">{contact.name}</h3>

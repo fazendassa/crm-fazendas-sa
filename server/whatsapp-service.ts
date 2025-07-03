@@ -838,20 +838,28 @@ export class WhatsAppManager extends EventEmitter {
 
   private async handleIncomingMessage(userId: string, sessionId: number, message: any): Promise<void> {
     try {
+      console.log('📨 Processing incoming message:', {
+        messageId: message.id,
+        from: message.from,
+        body: message.body?.substring(0, 50)
+      });
+
       const messageData = {
         sessionId,
         messageId: message.id,
-        chatId: message.chatId,
+        chatId: message.chatId || message.from,
         fromNumber: message.from,
-        toNumber: message.to,
-        content: message.body || message.content,
-        messageType: message.type || 'text',
+        toNumber: message.to || `session_crm-${userId}`,
+        content: message.body || message.content || '',
+        messageType: (message.type || 'text') as 'text' | 'image' | 'audio' | 'video' | 'file',
         direction: 'incoming' as const,
         isRead: false,
-        timestamp: new Date(message.timestamp * 1000),
+        timestamp: new Date(message.timestamp ? message.timestamp * 1000 : Date.now()),
+        mediaUrl: message.mediaUrl || null
       };
 
       const savedMessage = await storage.createWhatsappMessage(messageData);
+      console.log('💾 Message saved to database:', savedMessage.id);
 
       // Emit message via WebSocket
       webSocketManager.broadcastToUser(userId, {
@@ -859,8 +867,10 @@ export class WhatsAppManager extends EventEmitter {
         message: savedMessage,
         sessionId
       });
+
+      console.log('📡 Message broadcasted via WebSocket');
     } catch (error) {
-      console.error('Error storing incoming message:', error);
+      console.error('❌ Error storing incoming message:', error);
     }
   }
 
@@ -887,26 +897,61 @@ export class WhatsAppManager extends EventEmitter {
     return await client.sendFile(to, filePath, fileName);
   }
 
-  async getContacts(userId: string): Promise<any[]> {
-    const sessionId = `session_crm-${userId}`;
-    const client = this.clients.get(sessionId);
+  async getContactsForSync(userId: string): Promise<any[]> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
 
-    if (!client) {
-      throw new Error('WhatsApp session not found');
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      const contacts = await client.getAllContacts();
+      console.log('📇 Raw contacts from WhatsApp:', contacts.length);
+
+      return contacts.map(contact => ({
+        id: contact.id,
+        name: contact.name || contact.pushname || contact.shortName || contact.id.replace('@c.us', ''),
+        phone: contact.id.replace('@c.us', ''),
+        isMyContact: contact.isMyContact,
+        isGroup: contact.isGroup,
+        profilePic: contact.profilePicThumb || null
+      }));
+    } catch (error) {
+      console.error('Error getting contacts:', error);
+      return [];
     }
-
-    return await client.getAllContacts();
   }
 
-  async getChats(userId: string): Promise<any[]> {
-    const sessionId = `session_crm-${userId}`;
-    const client = this.clients.get(sessionId);
+  async getChatsForSync(userId: string): Promise<any[]> {
+    try {
+      const sessionId = `session_crm-${userId}`;
+      const client = this.clients.get(sessionId);
 
-    if (!client) {
-      throw new Error('WhatsApp session not found');
+      if (!client) {
+        throw new Error('WhatsApp session not found');
+      }
+
+      const chats = await client.getAllChats();
+      console.log('💬 Raw chats from WhatsApp:', chats.length);
+
+      return chats.map(chat => ({
+        id: chat.id,
+        name: chat.name || chat.formattedTitle || chat.id.replace('@c.us', ''),
+        isGroup: chat.isGroup,
+        lastMessage: chat.lastMessage ? {
+          content: chat.lastMessage.body || '',
+          timestamp: new Date(chat.lastMessage.t * 1000),
+          fromMe: chat.lastMessage.fromMe
+        } : null,
+        unreadCount: chat.unreadCount || 0,
+        timestamp: chat.t ? new Date(chat.t * 1000) : new Date(),
+        profilePic: chat.contact?.profilePicThumb || null
+      }));
+    } catch (error) {
+      console.error('Error getting chats:', error);
+      return [];
     }
-
-    return await client.getAllChats();
   }
 }
 

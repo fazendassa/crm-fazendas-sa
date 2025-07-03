@@ -90,18 +90,27 @@ export function ConversationList({
 
     setIsLoadingContacts(true);
     try {
+      console.log('🔄 Starting contacts sync for session:', sessionId);
       const contacts = await apiRequest(`/api/whatsapp/sessions/${sessionId}/contacts`, 'GET');
-      console.log('Contatos sincronizados:', contacts);
+      console.log('✅ Contatos sincronizados:', contacts?.length || 0);
 
-      toast({
-        title: "Contatos sincronizados",
-        description: `${contacts.length} contatos encontrados`
-      });
+      if (Array.isArray(contacts) && contacts.length > 0) {
+        toast({
+          title: "Contatos sincronizados",
+          description: `${contacts.length} contatos encontrados`
+        });
+      } else {
+        toast({
+          title: "Nenhum contato encontrado",
+          description: "A sincronização foi bem-sucedida, mas não há contatos disponíveis",
+          variant: "default"
+        });
+      }
     } catch (error) {
-      console.error('Erro ao sincronizar contatos:', error);
+      console.error('❌ Erro ao sincronizar contatos:', error);
       toast({
         title: "Erro ao sincronizar",
-        description: "Não foi possível sincronizar os contatos",
+        description: "Não foi possível sincronizar os contatos. Verifique se a sessão está conectada.",
         variant: "destructive"
       });
     } finally {
@@ -121,18 +130,52 @@ export function ConversationList({
 
     setIsLoadingContacts(true);
     try {
+      console.log('🔄 Starting chats sync for session:', sessionId);
       const chats = await apiRequest(`/api/whatsapp/sessions/${sessionId}/chats`, 'GET');
-      console.log('Chats sincronizados:', chats);
+      console.log('✅ Chats sincronizados:', chats?.length || 0);
 
-      toast({
-        title: "Chats sincronizados",
-        description: `${chats.length} chats encontrados`
-      });
+      if (Array.isArray(chats) && chats.length > 0) {
+        // Create conversations from synced chats
+        const newConversations = chats.map(chat => ({
+          id: chat.id,
+          contactName: chat.name,
+          contactPhone: chat.id.replace('@c.us', '').replace('@g.us', ''),
+          lastMessage: chat.lastMessage ? {
+            id: `${chat.id}_last`,
+            content: chat.lastMessage.content || 'Mensagem',
+            timestamp: new Date(chat.lastMessage.timestamp || Date.now()),
+            status: 'delivered' as const,
+            isFromMe: chat.lastMessage.fromMe || false
+          } : {
+            id: `${chat.id}_empty`,
+            content: 'Sem mensagens',
+            timestamp: new Date(),
+            status: 'delivered' as const,
+            isFromMe: false
+          },
+          unreadCount: chat.unreadCount || 0,
+          isPinned: false,
+          tags: []
+        }));
+
+        console.log('📋 Conversations created from chats:', newConversations.length);
+
+        toast({
+          title: "Chats sincronizados",
+          description: `${chats.length} conversas encontradas`
+        });
+      } else {
+        toast({
+          title: "Nenhuma conversa encontrada",
+          description: "A sincronização foi bem-sucedida, mas não há conversas disponíveis",
+          variant: "default"
+        });
+      }
     } catch (error) {
-      console.error('Erro ao sincronizar chats:', error);
+      console.error('❌ Erro ao sincronizar chats:', error);
       toast({
         title: "Erro ao sincronizar",
-        description: "Não foi possível sincronizar os chats",
+        description: "Não foi possível sincronizar as conversas. Verifique se a sessão está conectada.",
         variant: "destructive"
       });
     } finally {

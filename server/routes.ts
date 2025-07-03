@@ -951,25 +951,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const messages = await storage.getWhatsappMessages(sessionId, undefined, limit);
       
       // Transform messages to match expected format
-      const formattedMessages = messages.map(msg => ({
-        id: msg.messageId || msg.id,
-        sessionId: msg.sessionId,
-        contactNumber: msg.fromNumber === `session_crm-${userId}` ? msg.toNumber : msg.fromNumber,
-        contactName: msg.fromNumber === `session_crm-${userId}` ? msg.toNumber : msg.fromNumber,
-        messageContent: msg.content,
-        messageType: msg.messageType || 'text',
-        isFromMe: msg.direction === 'outgoing',
-        timestamp: msg.timestamp,
-        status: msg.isRead ? 'read' : 'sent',
-        mediaUrl: msg.mediaUrl,
-        createdAt: msg.createdAt || msg.timestamp
-      }));
+      const formattedMessages = messages.map(msg => {
+        // Clean phone numbers
+        const cleanFromNumber = (msg.fromNumber || '').replace('@c.us', '').replace('session_crm-', '');
+        const cleanToNumber = (msg.toNumber || '').replace('@c.us', '').replace('session_crm-', '');
+        
+        const isFromMe = msg.direction === 'outgoing';
+        const contactNumber = isFromMe ? cleanToNumber : cleanFromNumber;
+        const contactName = contactNumber.length > 5 ? contactNumber : (msg.fromNumber || msg.toNumber || 'Desconhecido');
+        
+        return {
+          id: msg.messageId || msg.id,
+          sessionId: msg.sessionId,
+          contactNumber: contactNumber,
+          contactName: contactName,
+          messageContent: msg.content || '',
+          messageType: msg.messageType || 'text',
+          isFromMe: isFromMe,
+          timestamp: msg.timestamp,
+          status: msg.isRead ? 'read' : (isFromMe ? 'sent' : 'delivered'),
+          mediaUrl: msg.mediaUrl,
+          createdAt: msg.createdAt || msg.timestamp
+        };
+      });
       
       console.log(`📱 Returning ${formattedMessages.length} messages`);
       res.json(formattedMessages);
     } catch (error) {
       console.error("Error getting WhatsApp messages for session:", error);
-      res.status(500).json({ message: "Failed to get WhatsApp messages" });
+      res.status(500).json({ message: "Failed to get WhatsApp messages", error: error.message });
     }
   });
 
@@ -1100,7 +1110,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User ID not found" });
       }
       
-      const contacts = await whatsAppManager.getContacts(userId);
+      console.log('📇 Getting contacts for user:', userId);
+      const contacts = await whatsAppManager.getContactsForSync(userId);
+      console.log('📇 Contacts found:', contacts.length);
       res.json(contacts);
     } catch (error) {
       console.error("Error getting contacts:", error);
@@ -1116,7 +1128,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User ID not found" });
       }
       
-      const chats = await whatsAppManager.getChats(userId);
+      console.log('💬 Getting chats for user:', userId);
+      const chats = await whatsAppManager.getChatsForSync(userId);
+      console.log('💬 Chats found:', chats.length);
       res.json(chats);
     } catch (error) {
       console.error("Error getting chats:", error);
