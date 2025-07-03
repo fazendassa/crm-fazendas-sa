@@ -1365,6 +1365,8 @@ async updatePipeline(id: number, pipeline: Partial<InsertPipeline>): Promise<Pip
         eq(whatsappMessages.sessionId, sessionId),
         eq(whatsappMessages.chatId, chatId)
       ));
+    } else {
+      query = query.where(eq(whatsappMessages.sessionId, sessionId));
     }
 
     return await query;
@@ -1376,13 +1378,6 @@ async updatePipeline(id: number, pipeline: Partial<InsertPipeline>): Promise<Pip
       .values(message)
       .returning();
     return newMessage;
-  }
-
-  async updateWhatsappMessageStatus(messageId: string, isRead: boolean): Promise<void> {
-    await db
-      .update(whatsappMessages)
-      .set({ isRead })
-      .where(eq(whatsappMessages.messageId, messageId));
   }
 
   async updateWhatsappMessageStatus(messageId: string, isRead: boolean): Promise<void> {
