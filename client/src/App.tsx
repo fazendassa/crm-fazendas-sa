@@ -53,23 +53,14 @@ function Router() {
                 <Contacts />
               </Suspense>
             </Route>
-            <Route path="/contacts/:id">
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
-                 {/* @ts-expect-error */}
-                <Route path="/contacts/:id" component={lazy(() => import("./pages/contact-detail"))} />
-              </Suspense>
-            </Route>
-            <Route path="/contact-import">
-              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
-                 {/* @ts-expect-error */}
-                <Route path="/contact-import" component={lazy(() => import("./pages/contact-import"))} />
-              </Suspense>
-            </Route>
+            <Route path="/contacts/:id" component={lazy(() => import("./pages/contact-detail"))} />
+            <Route path="/contact-import" component={ContactImport} />
             <Route path="/companies" component={Companies} />
             <Route path="/pipeline" component={Pipeline} />
             <Route path="/activities" component={Activities} />
             <Route path="/integrations/activecampaign" component={ActiveCampaignConfig} />
             <Route path="/integrations/whatsapp" component={WhatsApp} />
+            <Route path="/whatsapp" component={WhatsApp} />
             <Route path="/admin" component={Admin} />
             <Route path="/users" component={UserManagement} />
             <Route component={NotFound} />
