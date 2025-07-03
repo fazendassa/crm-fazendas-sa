@@ -111,17 +111,33 @@ export default function WhatsApp() {
   };
 
   const handleWebSocketMessage = (data: any) => {
+    console.log('📱 WebSocket message received:', data);
+    
     switch (data.type) {
       case 'wa:qr':
-        console.log('📱 QR Code received via WebSocket');
+        console.log('📱 QR Code received via WebSocket:', data.qrCode ? 'Present' : 'Missing');
         setQrCode(data.qrCode);
         setConnectionError(null);
+        
+        // Also update the session with QR code
+        setSessions(prev => prev.map(session => 
+          session.id === data.sessionId 
+            ? { ...session, qrCode: data.qrCode, status: 'connecting' }
+            : session
+        ));
         break;
 
       case 'wa:status':
+        console.log('📱 Status update received:', data.status, 'for session:', data.sessionId);
+        
         setSessions(prev => prev.map(session => 
           session.id === data.sessionId 
-            ? { ...session, status: data.status, phoneNumber: data.phoneNumber }
+            ? { 
+                ...session, 
+                status: data.status, 
+                phoneNumber: data.phoneNumber,
+                lastActivity: new Date().toISOString()
+              }
             : session
         ));
 
@@ -131,6 +147,13 @@ export default function WhatsApp() {
             title: "WhatsApp Conectado",
             description: "Sua sessão do WhatsApp foi conectada com sucesso!",
           });
+        } else if (data.status === 'error') {
+          setQrCode(null);
+          toast({
+            title: "Erro na Conexão",
+            description: "Houve um erro na conexão do WhatsApp. Tente novamente.",
+            variant: "destructive"
+          });
         }
         break;
 
@@ -139,6 +162,7 @@ export default function WhatsApp() {
         break;
 
       case 'wa:error':
+        setQrCode(null);
         toast({
           title: "Erro no WhatsApp",
           description: data.message,
@@ -202,20 +226,27 @@ export default function WhatsApp() {
     try {
       setIsLoading(true);
       setConnectionError(null);
+      setQrCode(null);
       
       const response = await apiRequest('/api/whatsapp/create-session', 'POST', { sessionName: trimmedSessionName });
+
+      console.log('Create session response:', response);
 
       if (response?.success !== false) {
         toast({
           title: "Sucesso",
-          description: response?.message || "Sessão criada com sucesso",
+          description: response?.message || "Sessão criada com sucesso. Aguarde o QR Code...",
         });
 
         setSessionName('');
-        // Wait a bit before reloading sessions to allow backend processing
+        
+        // Reload sessions immediately
+        loadSessions();
+        
+        // Set a timeout to reload sessions again after QR generation
         setTimeout(() => {
           loadSessions();
-        }, 1000);
+        }, 3000);
       } else {
         throw new Error(response?.message || "Falha ao criar sessão");
       }
@@ -424,7 +455,7 @@ export default function WhatsApp() {
             </div>
 
             {/* QR Code Display */}
-            {qrCode && (
+            {(qrCode || sessions.some(s => s.qrCode)) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -438,11 +469,18 @@ export default function WhatsApp() {
                 <CardContent>
                   <div className="flex justify-center">
                     <img 
-                      src={qrCode} 
+                      src={qrCode || sessions.find(s => s.qrCode)?.qrCode} 
                       alt="WhatsApp QR Code" 
-                      className="w-full max-w-[200px] h-auto"
+                      className="w-full max-w-[250px] h-auto border rounded-lg"
+                      onError={(e) => {
+                        console.error('Error loading QR code image');
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
                   </div>
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    Abra o WhatsApp no seu celular e escaneie este código
+                  </p>
                 </CardContent>
               </Card>
             )}
