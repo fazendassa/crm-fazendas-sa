@@ -4,7 +4,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Loader2, Trash2 } from 'lucide-react';
+import { MessageSquare, Loader2, Trash2, Plus } from 'lucide-react';
 import { ConversationList } from '@/components/whatsapp/ConversationList';
 import { ChatWindow } from '@/components/whatsapp/ChatWindow';
 import { OpportunityPanel } from '@/components/whatsapp/OpportunityPanel';
@@ -126,7 +126,7 @@ export default function WhatsAppNew() {
           queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
         }
       } catch (error) {
-        console.log('Unknown WebSocket message:', data);
+        console.log('Unknown WebSocket message:', event.data);
       }
     };
     
@@ -298,7 +298,7 @@ export default function WhatsAppNew() {
   }, [connectedSessions, selectedSession]);
 
   // Se não há sessões conectadas, mostrar tela de conexão
-  if (!hasConnectedSession && !loadingSessions) {
+  if (!hasConnectedSession && !loadingSessions && sessions?.length === 0) {
     return (
       <div className="flex-1 flex flex-col">
         <div className="flex-1 flex items-center justify-center p-8">
@@ -365,6 +365,63 @@ export default function WhatsAppNew() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+      </div>
+    );
+  }
+
+  // Se há sessões mas não há conectadas, mostrar interface com sessões disponíveis
+  if (sessions && sessions.length > 0 && !hasConnectedSession) {
+    return (
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-md w-full">
+            <Card className="border-gray-200">
+              <CardHeader className="text-center">
+                <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+                  <MessageSquare className="w-8 h-8 text-yellow-600" />
+                </div>
+                <CardTitle className="text-xl text-gray-900">Sessões Disponíveis</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Há sessões criadas mas nenhuma conectada. Conecte uma sessão ou crie uma nova.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  {sessions.map((session) => (
+                    <div key={session.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-900">{session.sessionName}</p>
+                        <p className="text-sm text-gray-500">Status: {session.status}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteSession(session.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button 
+                  onClick={handleCreateSession}
+                  disabled={createSessionMutation.isPending}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  {createSessionMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nova Sessão
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }

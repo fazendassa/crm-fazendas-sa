@@ -62,7 +62,11 @@ function Router() {
             <Route path="/integrations/activecampaign" component={ActiveCampaignConfig} />
             <Route path="/integrations/whatsapp" component={WhatsApp} />
             <Route path="/whatsapp" component={WhatsApp} />
-            <Route path="/whatsapp-new" component={WhatsAppNew} />
+            <Route path="/whatsapp-new">
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div></div>}>
+                <WhatsAppNew />
+              </Suspense>
+            </Route>
             <Route path="/admin" component={Admin} />
             <Route path="/users" component={UserManagement} />
             <Route component={NotFound} />
