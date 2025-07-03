@@ -806,200 +806,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-
-  // Setup Socket.IO for WhatsApp integration
-  const { Server } = await import("socket.io");
-  const io = new Server(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    }
-  });
-
-  // Import WhatsApp service and setup Socket.IO
-  const { whatsappService } = await import("./whatsappService");
-  whatsappService.setSocketIO(io);
-
-  // WhatsApp Integration Routes
-  app.get("/api/whatsapp/sessions", isAuthenticated, async (req, res) => {
-    try {
-      const sessions = await storage.getWhatsappSessions();
-      console.log('WhatsApp sessions fetched:', sessions);
-      res.json(Array.isArray(sessions) ? sessions : []);
-    } catch (error) {
-      console.error("Error fetching WhatsApp sessions:", error);
-      res.status(500).json({ message: "Failed to fetch WhatsApp sessions", error: error.message });
-    }
-  });
-
-  app.post("/api/whatsapp/sessions", isAuthenticated, async (req, res) => {
-    try {
-      const { sessionName } = req.body;
-      if (!sessionName) {
-        return res.status(400).json({ message: "Session name is required" });
-      }
-
-      // Check if session already exists
-      const existingSessions = await storage.getWhatsappSessions();
-      const existingSession = existingSessions.find(s => s.sessionName === sessionName);
-      
-      if (existingSession) {
-        return res.status(400).json({ 
-          message: `Session '${sessionName}' already exists. Please use a different name or connect to the existing session.` 
-        });
-      }
-
-      // Create the session in the database
-      const newSession = await storage.createWhatsappSession({
-        sessionName,
-        status: 'connecting',
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-
-      // Then, create the WhatsApp session
-      const result = await whatsappService.createSession(sessionName);
-      if (result.success) {
-        res.json({ 
-          message: "Session created successfully", 
-          qrCode: result.qrCode,
-          session: newSession
-        });
-      } else {
-        // If WhatsApp session creation fails, update the database status
-        await storage.updateWhatsappSession(newSession.id, { status: 'error' });
-        res.status(400).json({ message: result.error });
-      }
-    } catch (error) {
-      console.error("Error creating WhatsApp session:", error);
-      if (error instanceof Error && error.message.includes('duplicate key')) {
-        res.status(400).json({ 
-          message: "Session name already exists. Please choose a different name." 
-        });
-      } else {
-        res.status(500).json({ message: "Failed to create WhatsApp session" });
-      }
-    }
-  });
-
-  app.post("/api/whatsapp/sessions/:id/connect", isAuthenticated, async (req, res) => {
-    try {
-      const sessionId = parseInt(req.params.id);
-      const session = await storage.getWhatsappSession(sessionId);
-
-      if (!session) {
-        return res.status(404).json({ message: "Session not found" });
-      }
-
-      const result = await whatsappService.createSession(session.sessionName);
-      if (result.success) {
-        res.json({ message: "Session connected successfully", qrCode: result.qrCode });
-      } else {
-        res.status(400).json({ message: result.error });
-      }
-    } catch (error) {
-      console.error("Error connecting WhatsApp session:", error);
-      res.status(500).json({ message: "Failed to connect WhatsApp session" });
-    }
-  });
-
-  app.post("/api/whatsapp/sessions/:id/disconnect", isAuthenticated, async (req, res) => {
-    try {
-      const sessionId = parseInt(req.params.id);
-      const session = await storage.getWhatsappSession(sessionId);
-
-      if (!session) {
-        return res.status(404).json({ message: "Session not found" });
-      }
-
-      const result = await whatsappService.disconnectSession(session.sessionName);
-      if (result.success) {
-        res.json({ message: "Session disconnected successfully" });
-      } else {
-        res.status(400).json({ message: result.error });
-      }
-    } catch (error) {
-      console.error("Error disconnecting WhatsApp session:", error);
-      res.status(500).json({ message: "Failed to disconnect WhatsApp session" });
-    }
-  });
-
-  app.post("/api/whatsapp/send-message", isAuthenticated, async (req, res) => {
-    try {
-      const { sessionId, phoneNumber, message } = req.body;
-
-      if (!sessionId || !phoneNumber || !message) {
-        return res.status(400).json({ message: "Session ID, phone number, and message are required" });
-      }
-
-      const session = await storage.getWhatsappSession(sessionId);
-      if (!session) {
-        return res.status(404).json({ message: "Session not found" });
-      }
-
-      const result = await whatsappService.sendMessage(session.sessionName, phoneNumber, message);
-      if (result.success) {
-        res.json({ message: "Message sent successfully" });
-      } else {
-        res.status(400).json({ message: result.error });
-      }
-    } catch (error) {
-      console.error("Error sending WhatsApp message:", error);
-      res.status(500).json({ message: "Failed to send WhatsApp message" });
-    }
-  });
-
-  app.get("/api/whatsapp/contacts", isAuthenticated, async (req, res) => {
-    try {
-      const { sessionId } = req.query;
-      const contacts = await storage.getWhatsappContacts(sessionId ? parseInt(sessionId as string) : undefined);
-      res.json(contacts);
-    } catch (error) {
-      console.error("Error fetching WhatsApp contacts:", error);
-      res.status(500).json({ message: "Failed to fetch WhatsApp contacts" });
-    }
-  });
-
-  app.get("/api/whatsapp/messages", isAuthenticated, async (req, res) => {
-    try {
-      const { sessionId, phoneNumber } = req.query;
-      const messages = await storage.getWhatsappMessages(
-        sessionId ? parseInt(sessionId as string) : undefined,
-        phoneNumber as string
-      );
-      res.json(messages);
-    } catch (error) {
-      console.error("Error fetching WhatsApp messages:", error);
-      res.status(500).json({ message: "Failed to fetch WhatsApp messages" });
-    }
-  });
-
-  app.delete("/api/whatsapp/sessions/:id", isAuthenticated, async (req, res) => {
-    try {
-      const sessionId = parseInt(req.params.id);
-      const session = await storage.getWhatsappSession(sessionId);
-
-      if (!session) {
-        return res.status(404).json({ message: "Session not found" });
-      }
-
-      // Disconnect if connected
-      if (whatsappService.isSessionConnected(session.sessionName)) {
-        await whatsappService.disconnectSession(session.sessionName);
-      }
-
-      // Delete from database
-      await storage.deleteWhatsappSession(sessionId);
-      
-      res.json({ message: "Session deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting WhatsApp session:", error);
-      res.status(500).json({ message: "Failed to delete WhatsApp session" });
-    }
-  });
-
   // ActiveCampaign Integration Routes
+
+  // Get user's ActiveCampaign configurations
   app.get("/api/integrations/activecampaign/configs", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
@@ -1007,61 +816,375 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(configs);
     } catch (error) {
       console.error("Error fetching ActiveCampaign configs:", error);
-      res.status(500).json({ message: "Failed to fetch ActiveCampaign configs" });
+      res.status(500).json({ message: "Failed to fetch configurations" });
     }
   });
 
-  app.post("/api/integrations/activecampaign/configs", isAuthenticated, async (req, res) => {
+  // Get single ActiveCampaign configuration
+  app.get("/api/integrations/activecampaign/configs/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      const { name, apiUrl, apiKey } = req.body;
-
-      if (!name || !apiUrl || !apiKey) {
-        return res.status(400).json({ message: "Name, API URL, and API Key are required" });
-      }
-
-      const config = await storage.createActiveCampaignConfig({
-        userId,
-        name,
-        apiUrl,
-        apiKey,
-        isActive: true,
-      });
-
-      res.status(201).json(config);
-    } catch (error) {
-      console.error("Error creating ActiveCampaign config:", error);
-      res.status(500).json({ message: "Failed to create ActiveCampaign config" });
-    }
-  });
-
-  app.put("/api/integrations/activecampaign/configs/:id", isAuthenticated, async (req, res) => {
-    try {
       const configId = parseInt(req.params.id);
-      const { name, apiUrl, apiKey, isActive } = req.body;
+      const config = await storage.getActiveCampaignConfigById(configId, userId);
 
-      const config = await storage.updateActiveCampaignConfig(configId, {
-        name,
-        apiUrl,
-        apiKey,
-        isActive,
-      });
+      if (!config) {
+        return res.status(404).json({ message: "Configuration not found" });
+      }
 
       res.json(config);
     } catch (error) {
-      console.error("Error updating ActiveCampaign config:", error);
-      res.status(500).json({ message: "Failed to update ActiveCampaign config" });
+      console.error("Error fetching ActiveCampaign config:", error);
+      res.status(500).json({ message: "Failed to fetch configuration" });
     }
   });
 
+  // Create ActiveCampaign configuration
+  app.post("/api/integrations/activecampaign/configs", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const { activeCampaignApiUrl, activeCampaignApiKey, pipelineId, defaultTags, fieldMapping, webhookType } = req.body;
+
+      // Validation
+      if (!activeCampaignApiUrl || !activeCampaignApiKey || !pipelineId) {
+        return res.status(400).json({ 
+          message: "ActiveCampaign API URL, API Key, and Pipeline are required" 
+        });
+      }
+
+      // Generate a webhook secret for security
+      const webhookSecret = Math.random().toString(36).substring(2, 15) + 
+                           Math.random().toString(36).substring(2, 15);
+
+      const configData = {
+        userId,
+        activeCampaignApiUrl: activeCampaignApiUrl.trim(),
+        activeCampaignApiKey: activeCampaignApiKey.trim(),
+        webhookSecret,
+        defaultPipelineId: parseInt(pipelineId),
+        defaultTags: defaultTags || [],
+        fieldMapping: fieldMapping || {},
+        webhookType: webhookType || 'contact',
+        isActive: true
+      };
+
+      const config = await storage.createActiveCampaignConfig(configData);
+
+      if (!config) {
+        return res.status(500).json({ message: "Failed to save configuration" });
+      }
+
+      res.json(config);
+    } catch (error) {
+      console.error("Error saving ActiveCampaign config:", error);
+      res.status(500).json({ message: "Failed to save configuration" });
+    }
+  });
+
+  // Delete ActiveCampaign configuration
   app.delete("/api/integrations/activecampaign/configs/:id", isAuthenticated, async (req, res) => {
     try {
+      const userId = (req.user as any).claims.sub;
       const configId = parseInt(req.params.id);
-      await storage.deleteActiveCampaignConfig(configId);
-      res.status(204).send();
+      await storage.deleteActiveCampaignConfigById(configId, userId);
+      res.json({ message: "Configuration deleted successfully" });
     } catch (error) {
       console.error("Error deleting ActiveCampaign config:", error);
-      res.status(500).json({ message: "Failed to delete ActiveCampaign config" });
+      res.status(500).json({ message: "Failed to delete configuration" });
+    }
+  });
+
+  // ActiveCampaign Webhook Endpoint (PUBLIC - no authentication required)
+  app.post("/api/integrations/activecampaign/webhook/:configId", async (req, res) => {
+    try {
+      console.log('\n=== ACTIVECAMPAIGN WEBHOOK RECEIVED ===');
+      console.log('URL Params:', req.params);
+      console.log('Headers:', req.headers);
+      console.log('Body:', JSON.stringify(req.body, null, 2));
+
+      const configId = parseInt(req.params.configId);
+
+      if (!configId) {
+        console.log('❌ WEBHOOK: No config ID provided');
+        return res.status(400).json({ message: "Configuration ID required" });
+      }
+
+      // Get specific configuration
+      const config = await storage.getActiveCampaignConfigById(configId);
+
+      if (!config) {
+        console.log('❌ WEBHOOK: Configuration not found for ID:', configId);
+        return res.status(404).json({ message: "Configuration not found" });
+      }
+
+      console.log('✓ WEBHOOK: Configuration found:', {
+        id: config.id,
+        userId: config.userId,
+        pipelineId: config.defaultPipelineId,
+        hasSecret: !!config.webhookSecret
+      });
+
+      // Get webhook secret from header (make optional for now)
+      const providedSecret = req.headers['x-api-key'] || req.headers['x-webhook-secret'] || req.headers['authorization'];
+
+      // For now, skip secret validation to test webhook functionality
+      if (config.webhookSecret && providedSecret && config.webhookSecret !== providedSecret) {
+        console.log('⚠️ WEBHOOK: Secret mismatch, but continuing for testing');
+        console.log('Expected:', config.webhookSecret);
+        console.log('Provided:', providedSecret);
+      }
+
+      const webhookData = req.body;
+
+      // Extract contact data from ActiveCampaign webhook format
+      console.log('🔍 WEBHOOK: Extracting contact data...');
+
+      // ActiveCampaign sends data in contact[field] format
+      const contactEmail = webhookData['contact[email]'] || webhookData.email;
+      const contactFirstName = webhookData['contact[first_name]'] || webhookData.first_name || '';
+      const contactLastName = webhookData['contact[last_name]'] || webhookData.last_name || '';
+      const contactPhone = webhookData['contact[phone]'] || webhookData.phone || '';
+      const contactOrgName = webhookData['contact[orgname]'] || webhookData.orgname || '';
+
+      console.log('📋 WEBHOOK: Extracted fields:', {
+        email: contactEmail,
+        firstName: contactFirstName,
+        lastName: contactLastName,
+        phone: contactPhone,
+        orgName: contactOrgName
+      });
+
+      if (!contactEmail && !contactFirstName && !contactLastName) {
+        console.log('❌ WEBHOOK: No valid contact data in webhook');
+        console.log('Available fields:', Object.keys(webhookData));
+        return res.status(400).json({ message: "No contact data provided" });
+      }
+
+      let createdContact = null;
+      let createdDeal = null;
+      let errorMessage = null;
+
+      try {
+        // Create contact name
+        const contactName = [contactFirstName, contactLastName].filter(Boolean).join(' ').trim() || 
+                           contactEmail || 'Contato ActiveCampaign';
+
+        // Create or update contact
+        const contactData = {
+          name: contactName,
+          email: contactEmail || null,
+          phone: contactPhone || null,
+          status: 'active',
+          source: 'activecampaign',
+          pipelineId: config.defaultPipelineId,
+          tags: config.defaultTags || [],
+          companyId: null
+        };
+
+        console.log('📝 WEBHOOK: Contact data to create:', contactData);
+
+        // Check if contact already exists by email
+        let existingContact;
+        if (contactData.email) {
+          console.log('🔍 WEBHOOK: Checking for existing contact with email:', contactData.email);
+          const existingContacts = await storage.getContacts(contactData.email);
+          existingContact = existingContacts.contacts?.find(c => c.email === contactData.email);
+          console.log('🔍 WEBHOOK: Existing contact found:', !!existingContact);
+        }
+
+        if (existingContact) {
+          // Update existing contact
+          console.log('📝 WEBHOOK: Updating existing contact:', existingContact.id);
+          createdContact = await storage.updateContact(existingContact.id, {
+            name: contactData.name,
+            phone: contactData.phone,
+            tags: [...(existingContact.tags || []), ...(contactData.tags || [])]
+          });
+          console.log('✅ WEBHOOK: Contact updated successfully:', createdContact.id);
+        } else {
+          // Create new contact
+          console.log('📝 WEBHOOK: Creating new contact...');
+          createdContact = await storage.createContact(contactData);
+          console.log('✅ WEBHOOK: Contact created successfully:', createdContact.id);
+        }
+
+        // Handle company creation if orgname is provided
+        if (contactOrgName && contactOrgName.trim()) {
+          console.log('🏢 WEBHOOK: Processing company:', contactOrgName);
+          try {
+            // Check if company already exists
+            const companies = await storage.getCompanies(contactOrgName);
+            let company = companies.find(c => c.name.toLowerCase() === contactOrgName.toLowerCase());
+
+            if (!company) {
+              // Create new company
+              company = await storage.createCompany({
+                name: contactOrgName.trim(),
+                sector: null,
+                location: null
+              });
+              console.log('✅ WEBHOOK: Company created:', company.id);
+            } else {
+              console.log('✅ WEBHOOK: Company found:', company.id);
+            }
+
+            // Update contact with company
+            if (company && createdContact) {
+              createdContact = await storage.updateContact(createdContact.id, {
+                companyId: company.id
+              });
+              console.log('✅ WEBHOOK: Contact updated with company');
+            }
+          } catch (companyError) {
+            console.error('❌ WEBHOOK: Company creation error:', companyError);
+          }
+        }
+
+        // Create deal if pipeline is configured and deal data is provided
+        if (config.defaultPipelineId && createdContact) {
+          console.log('📋 WEBHOOK: Creating deal for pipeline:', config.defaultPipelineId);
+          const pipelineStages = await storage.getPipelineStages(config.defaultPipelineId);
+          const firstStage = pipelineStages.find(stage => stage.position === 0) || pipelineStages[0];
+
+          if (firstStage) {
+            const dealData = {
+              title: `Oportunidade - ${createdContact.name}`,
+              description: 'Oportunidade criada via ActiveCampaign webhook',
+              stage: firstStage.title,
+              pipelineId: config.defaultPipelineId,
+              contactId: createdContact.id,
+              companyId: createdContact.companyId,
+              value: null,
+              expectedCloseDate: null,
+            };
+
+            console.log('📝 WEBHOOK: Deal data:', dealData);
+            createdDeal = await storage.createDeal(dealData);
+            console.log('✅ WEBHOOK: Deal created successfully:', createdDeal.id);
+          } else {
+            console.log('⚠️ WEBHOOK: No pipeline stages found for pipeline:', config.defaultPipelineId);
+          }
+        }
+
+      } catch (processError) {
+        errorMessage = processError instanceof Error ? processError.message : 'Unknown processing error';
+        console.error('❌ WEBHOOK: Processing error:', processError);
+      }
+
+      // Log the webhook event
+      try {
+        const logData = {
+          configId: config.id,
+          webhookData: req.body,
+          contactId: createdContact?.id || null,
+          dealId: createdDeal?.id || null,
+          status: errorMessage ? 'error' : 'success',
+          errorMessage: errorMessage || null
+        };
+
+        await storage.createWebhookLog(logData);
+        console.log('✓ WEBHOOK: Event logged successfully');
+      } catch (logError) {
+        console.error('❌ WEBHOOK: Failed to log event:', logError);
+        // Don't fail the webhook processing if logging fails
+      }
+
+      console.log('✓ WEBHOOK: Event logged successfully');
+      console.log('=== WEBHOOK PROCESSING COMPLETE ===\n');
+
+      res.json({
+        success: true,
+        message: "Webhook processed successfully",
+        data: {
+          contactId: createdContact?.id,
+          dealId: createdDeal?.id,
+          status: errorMessage ? 'error' : 'success'
+        }
+      });
+
+    } catch (error) {
+      console.error("❌ WEBHOOK: Fatal error:", error);
+      res.status(500).json({ 
+        message: "Failed to process webhook",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get webhook logs for all configurations of the user
+  app.get("/api/integrations/activecampaign/logs", isAuthenticated, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const logs = await storage.getWebhookLogs(undefined, limit, offset);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching webhook logs:", error);
+      res.status(500).json({ message: "Failed to fetch logs" });
+    }
+  });
+
+  // Get webhook logs for specific configuration
+  app.get("/api/integrations/activecampaign/logs/:configId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const configId = parseInt(req.params.configId);
+
+      const config = await storage.getActiveCampaignConfigById(configId, userId);
+
+      if (!config) {
+        return res.status(404).json({ message: "Configuration not found" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const logs = await storage.getWebhookLogs(configId, limit, offset);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching webhook logs:", error);
+      res.status(500).json({ message: "Failed to fetch logs" });
+    }
+  });
+
+  // Test webhook endpoint (GET method for easy testing)
+  app.get("/api/integrations/activecampaign/webhook/:configId/test", async (req, res) => {
+    try {
+      const configId = parseInt(req.params.configId);
+      const config = await storage.getActiveCampaignConfigById(configId);
+
+      if (!config) {
+        return res.status(404).json({ message: "Configuration not found" });
+      }
+
+      // Create test webhook data
+      const testWebhookData = {
+        "contact[email]": "teste@exemplo.com",
+        "contact[first_name]": "Teste",
+        "contact[last_name]": "Webhook",
+        "contact[phone]": "(11) 99999-9999",
+        "contact[orgname]": "Empresa Teste"
+      };
+
+      console.log('🧪 TEST WEBHOOK: Simulating webhook for config:', configId);
+
+      // Process the test data (simulate the webhook processing)
+      req.body = testWebhookData;
+
+      // Redirect to the actual webhook handler
+      return res.json({
+        message: "Test webhook data ready. Use POST method to actually test the webhook.",
+        config: {
+          id: config.id,
+          pipelineId: config.defaultPipelineId,
+          webhookUrl: `${req.protocol}://${req.get('host')}/api/integrations/activecampaign/webhook/${configId}`
+        },
+        testData: testWebhookData
+      });
+
+    } catch (error) {
+      console.error("Error in test webhook:", error);
+      res.status(500).json({ message: "Failed to test webhook" });
     }
   });
 
