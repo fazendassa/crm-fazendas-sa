@@ -148,7 +148,7 @@ export default function WhatsAppNew() {
 
   // Buscar mensagens da sessão selecionada
   const { data: messagesData, isLoading: loadingMessages } = useQuery<WhatsAppMessage[]>({
-    queryKey: ['/api/whatsapp/messages', selectedSession?.id],
+    queryKey: [`/api/whatsapp/messages/${selectedSession?.id}`],
     enabled: !!selectedSession?.id,
     refetchInterval: 2000,
     onError: (error) => {
@@ -666,7 +666,7 @@ export default function WhatsAppNew() {
             onStartNewChat={() => console.log('Start new chat')}
             onCloseChat={() => setSelectedConversation(null)}
             isTyping={isTyping}
-            deviceInfo={`WhatsApp Web – ${selectedSession?.sessionName} (${selectedSession?.phoneNumber || 'Conectando...'})`}
+            deviceInfo={selectedSession ? `WhatsApp Web – ${selectedSession.sessionName} (${selectedSession.phoneNumber || 'Conectando...'})` : ''}
             sessionId={selectedSession?.id}
           />
         </div>
