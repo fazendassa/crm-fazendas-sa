@@ -188,7 +188,7 @@ export default function WhatsApp() {
 
     setIsLoading(true);
     try {
-      await fetch('/api/whatsapp/create-session', {
+      const response = await fetch('/api/whatsapp/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,6 +196,12 @@ export default function WhatsApp() {
         credentials: 'include',
         body: JSON.stringify({ sessionName })
       });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Erro ao criar sessão');
+      }
       
       setSessionName('');
       await loadSessions();
@@ -205,6 +211,7 @@ export default function WhatsApp() {
         description: "Aguarde o QR Code para conectar ao WhatsApp",
       });
     } catch (error: any) {
+      console.error('Erro ao criar sessão:', error);
       toast({
         title: "Erro",
         description: error.message || "Falha ao criar sessão",
