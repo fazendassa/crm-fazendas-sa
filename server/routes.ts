@@ -946,8 +946,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionId = parseInt(req.params.sessionId);
       const limit = parseInt(req.query.limit as string) || 100;
       
+      console.log(`📱 Getting messages for session ${sessionId}, user ${userId}`);
+      
       const messages = await storage.getWhatsappMessages(sessionId, undefined, limit);
-      res.json(messages);
+      
+      // Transform messages to match expected format
+      const formattedMessages = messages.map(msg => ({
+        id: msg.messageId || msg.id,
+        sessionId: msg.sessionId,
+        contactNumber: msg.fromNumber === `session_crm-${userId}` ? msg.toNumber : msg.fromNumber,
+        contactName: msg.fromNumber === `session_crm-${userId}` ? msg.toNumber : msg.fromNumber,
+        messageContent: msg.content,
+        messageType: msg.messageType || 'text',
+        isFromMe: msg.direction === 'outgoing',
+        timestamp: msg.timestamp,
+        status: msg.isRead ? 'read' : 'sent',
+        mediaUrl: msg.mediaUrl,
+        createdAt: msg.createdAt || msg.timestamp
+      }));
+      
+      console.log(`📱 Returning ${formattedMessages.length} messages`);
+      res.json(formattedMessages);
     } catch (error) {
       console.error("Error getting WhatsApp messages for session:", error);
       res.status(500).json({ message: "Failed to get WhatsApp messages" });
@@ -965,6 +984,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionId = parseInt(req.params.sessionId);
       const { content, type, contactPhone } = req.body;
       
+      console.log('📤 Send message request:', { sessionId, content, contactPhone, type });
+      
       // Get session info
       const sessions = await storage.getWhatsappSessions(userId);
       const session = sessions.find(s => s.id === sessionId);
@@ -973,7 +994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Session not connected" });
       }
       
-      const result = await whatsAppManager.sendMessage(session.sessionName, contactPhone, content, type);
+      const result = await whatsAppManager.sendMessage(userId, contactPhone, content);
       res.json(result);
     } catch (error) {
       console.error("Error sending WhatsApp message:", error);

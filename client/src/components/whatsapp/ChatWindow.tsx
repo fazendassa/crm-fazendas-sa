@@ -137,7 +137,7 @@ export function ChatWindow({
 
   const groupMessagesByDate = (messages: Message[]) => {
     const grouped: { [key: string]: Message[] } = {};
-    
+
     messages.forEach(message => {
       const dateKey = message.timestamp.toDateString();
       if (!grouped[dateKey]) {
@@ -145,7 +145,7 @@ export function ChatWindow({
       }
       grouped[dateKey].push(message);
     });
-    
+
     return grouped;
   };
 
@@ -185,7 +185,7 @@ export function ChatWindow({
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onStartNewChat}>
               <MessageSquare className="w-4 h-4" />
@@ -264,7 +264,7 @@ export function ChatWindow({
               ))}
             </div>
           ))}
-          
+
           {isTyping && (
             <div className="flex justify-start">
               <div className="bg-gray-100 text-gray-900 px-4 py-2 rounded-lg">
@@ -276,7 +276,7 @@ export function ChatWindow({
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
