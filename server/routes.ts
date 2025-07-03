@@ -935,6 +935,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get messages for a specific session (for the new interface)
+  app.get('/api/whatsapp/messages/:sessionId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const sessionId = parseInt(req.params.sessionId);
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      const messages = await storage.getWhatsappMessages(sessionId, limit);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error getting WhatsApp messages for session:", error);
+      res.status(500).json({ message: "Failed to get WhatsApp messages" });
+    }
+  });
+
+  // Send message via session (for the new interface)
+  app.post('/api/whatsapp/sessions/:sessionId/send-message', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const sessionId = parseInt(req.params.sessionId);
+      const { content, type, contactPhone } = req.body;
+      
+      // Get session info
+      const sessions = await storage.getWhatsappSessions(userId);
+      const session = sessions.find(s => s.id === sessionId);
+      
+      if (!session || session.status !== 'connected') {
+        return res.status(400).json({ message: "Session not connected" });
+      }
+      
+      const result = await whatsAppManager.sendMessage(session.sessionName, contactPhone, content, type);
+      res.json(result);
+    } catch (error) {
+      console.error("Error sending WhatsApp message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Create new WhatsApp session
+  app.post('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const { sessionName } = req.body;
+      
+      if (!sessionName) {
+        return res.status(400).json({ message: "Session name is required" });
+      }
+      
+      const result = await whatsAppManager.createSession(userId, sessionName);
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to create session" });
+    }
+  });
+
+  // Delete WhatsApp session
+  app.delete('/api/whatsapp/sessions/:sessionId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
+      
+      const sessionId = parseInt(req.params.sessionId);
+      
+      const result = await whatsAppManager.deleteSession(userId, sessionId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error deleting WhatsApp session:", error);
+      res.status(500).json({ message: "Failed to delete session" });
+    }
+  });
+
   app.delete('/api/whatsapp/session', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub || req.user?.id || req.user?.userId;

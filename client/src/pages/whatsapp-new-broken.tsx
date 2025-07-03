@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Loader2, Trash2 } from 'lucide-react';
 import { ConversationList } from '@/components/whatsapp/ConversationList';
 import { ChatWindow } from '@/components/whatsapp/ChatWindow';
 import { OpportunityPanel } from '@/components/whatsapp/OpportunityPanel';
 import { TagsPanel } from '@/components/whatsapp/TagsPanel';
+import { QrCode, MessageSquare, Plus, Loader2, Smartphone, Power, Trash2, AlertCircle } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 
-// Interfaces
 interface WhatsAppSession {
   id: number;
   userId: string;
@@ -64,37 +66,31 @@ interface Conversation {
   tags: string[];
 }
 
-interface Message {
-  id: string;
-  content: string;
-  timestamp: Date;
-  status: 'sent' | 'delivered' | 'read' | 'pending';
-  isFromMe: boolean;
-  type: 'text' | 'image' | 'audio' | 'video' | 'file';
-  mediaUrl?: string;
-}
-
 export default function WhatsAppNew() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Estados locais
   const [selectedSession, setSelectedSession] = useState<WhatsAppSession | null>(null);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [newSessionName, setNewSessionName] = useState('');
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Buscar sessões WhatsApp
-  const { data: sessions, isLoading: loadingSessions } = useQuery<WhatsAppSession[]>({
+  const { data: sessions, isLoading: loadingSessions, error: sessionsError } = useQuery<WhatsAppSession[]>({
     queryKey: ['/api/whatsapp/sessions'],
-    refetchInterval: 5000,
+    refetchInterval: 5000, // Atualiza a cada 5 segundos
   });
 
-  // Buscar mensagens da sessão selecionada
+  // Buscar mensagens da sessão ativa
   const { data: messages, isLoading: loadingMessages } = useQuery<WhatsAppMessage[]>({
     queryKey: ['/api/whatsapp/messages', selectedSession?.id],
     enabled: !!selectedSession?.id,
-    refetchInterval: 2000,
+    refetchInterval: 2000, // Atualiza a cada 2 segundos
   });
 
   // WebSocket para atualizações em tempo real
@@ -115,8 +111,10 @@ export default function WhatsAppNew() {
         const data = JSON.parse(event.data);
         
         if (data.type === 'new_message' && data.sessionId === selectedSession.id) {
+          // Atualizar cache de mensagens
           queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/messages', selectedSession.id] });
         } else if (data.type === 'session_status_update') {
+          // Atualizar cache de sessões
           queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
         }
       } catch (error) {
@@ -133,54 +131,26 @@ export default function WhatsAppNew() {
     };
   }, [selectedSession, queryClient]);
 
-  // Mutation para enviar mensagem
-  const sendMessageMutation = useMutation({
-    mutationFn: async ({ content, type, contactPhone }: { content: string; type: string; contactPhone: string }) => {
-      if (!selectedSession) throw new Error('Nenhuma sessão selecionada');
-      
-      return apiRequest(`/api/whatsapp/sessions/${selectedSession.id}/send-message`, {
-        method: 'POST',
-        body: JSON.stringify({ content, type, contactPhone }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/messages', selectedSession?.id] });
-      toast({
-        title: "Mensagem enviada",
-        description: "Mensagem enviada com sucesso!"
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao enviar mensagem",
-        description: error.message || "Erro ao enviar mensagem",
-        variant: "destructive" 
-      });
-    }
-  });
-
   // Mutation para criar nova sessão
   const createSessionMutation = useMutation({
     mutationFn: async (sessionName: string) => {
-      return apiRequest('/api/whatsapp/sessions', {
+      return apiRequest(`/api/whatsapp/sessions`, {
         method: 'POST',
         body: JSON.stringify({ sessionName }),
         headers: { 'Content-Type': 'application/json' }
       });
     },
     onSuccess: () => {
+      toast({ title: "Sessão criada", description: "Nova sessão WhatsApp criada com sucesso" });
       queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
-      toast({
-        title: "Sessão criada",
-        description: "Nova sessão WhatsApp criada com sucesso!"
-      });
+      setNewSessionName('');
+      setIsCreatingSession(false);
     },
     onError: (error: any) => {
-      toast({
-        title: "Erro ao criar sessão",
+      toast({ 
+        title: "Erro", 
         description: error.message || "Erro ao criar sessão",
-        variant: "destructive"
+        variant: "destructive" 
       });
     }
   });
@@ -193,17 +163,39 @@ export default function WhatsAppNew() {
       });
     },
     onSuccess: () => {
+      toast({ title: "Sessão removida", description: "Sessão WhatsApp removida com sucesso" });
       queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
-      toast({
-        title: "Sessão removida",
-        description: "Sessão WhatsApp removida com sucesso!"
-      });
+      if (selectedSession?.id === arguments[0]) {
+        setSelectedSession(null);
+      }
     },
     onError: (error: any) => {
-      toast({
-        title: "Erro ao remover sessão",
+      toast({ 
+        title: "Erro", 
         description: error.message || "Erro ao remover sessão",
-        variant: "destructive"
+        variant: "destructive" 
+      });
+    }
+  });
+
+  // Mutation para enviar mensagem
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ content, type, contactPhone }: { content: string; type: string; contactPhone: string }) => {
+      return apiRequest(`/api/whatsapp/sessions/${selectedSession!.id}/send-message`, {
+        method: 'POST',
+        body: JSON.stringify({ content, type, contactPhone }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      // Atualizar mensagens após envio
+      queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/messages', selectedSession?.id] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Erro ao enviar", 
+        description: error.message || "Erro ao enviar mensagem",
+        variant: "destructive" 
       });
     }
   });
@@ -257,17 +249,6 @@ export default function WhatsAppNew() {
       .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
   }, [messages]);
 
-  // Verificar se há sessões conectadas
-  const connectedSessions = sessions?.filter(s => s.status === 'connected') || [];
-  const hasConnectedSession = connectedSessions.length > 0;
-
-  // Selecionar automaticamente a primeira sessão conectada
-  useEffect(() => {
-    if (connectedSessions.length > 0 && !selectedSession) {
-      setSelectedSession(connectedSessions[0]);
-    }
-  }, [connectedSessions, selectedSession]);
-
   // Handlers
   const handleSelectConversation = (conversationId: string) => {
     setSelectedConversation(conversationId);
@@ -293,13 +274,74 @@ export default function WhatsAppNew() {
   };
 
   const handleCreateSession = () => {
-    const sessionName = `WhatsApp-${Date.now()}`;
-    createSessionMutation.mutate(sessionName);
+    if (!newSessionName.trim()) return;
+    createSessionMutation.mutate(newSessionName.trim());
   };
 
   const handleDeleteSession = (sessionId: number) => {
     deleteSessionMutation.mutate(sessionId);
   };
+
+  // Verificar se há sessões conectadas
+  const connectedSessions = sessions?.filter(s => s.status === 'connected') || [];
+  const hasConnectedSession = connectedSessions.length > 0;
+
+  // Selecionar automaticamente a primeira sessão conectada
+  useEffect(() => {
+    if (connectedSessions.length > 0 && !selectedSession) {
+      setSelectedSession(connectedSessions[0]);
+    }
+  }, [connectedSessions, selectedSession]);
+
+  // Converter mensagens para conversas
+  const conversations: Conversation[] = React.useMemo(() => {
+    if (!messages) return [];
+
+    const conversationMap = new Map<string, Conversation>();
+
+    messages.forEach(message => {
+      const key = message.contactNumber;
+      
+      if (!conversationMap.has(key)) {
+        conversationMap.set(key, {
+          id: key,
+          contactName: message.contactName || message.contactNumber,
+          contactPhone: message.contactNumber,
+          lastMessage: {
+            id: message.id,
+            content: message.messageContent,
+            timestamp: new Date(message.timestamp),
+            status: message.status,
+            isFromMe: message.isFromMe
+          },
+          unreadCount: 0,
+          isPinned: false,
+          tags: []
+        });
+      } else {
+        const conversation = conversationMap.get(key)!;
+        const messageTime = new Date(message.timestamp);
+        
+        if (messageTime > conversation.lastMessage.timestamp) {
+          conversation.lastMessage = {
+            id: message.id,
+            content: message.messageContent,
+            timestamp: messageTime,
+            status: message.status,
+            isFromMe: message.isFromMe
+          };
+        }
+        
+        // Contar mensagens não lidas
+        if (!message.isFromMe && message.status !== 'read') {
+          conversation.unreadCount++;
+        }
+      }
+    });
+
+    return Array.from(conversationMap.values())
+      .sort((a, b) => b.lastMessage.timestamp.getTime() - a.lastMessage.timestamp.getTime());
+  }, [messages]);
 
   // Se não há sessões conectadas, mostrar tela de conexão
   if (!hasConnectedSession && !loadingSessions) {
@@ -318,36 +360,67 @@ export default function WhatsAppNew() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button 
-                  onClick={handleCreateSession}
-                  disabled={createSessionMutation.isPending}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  {createSessionMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Criando sessão...
-                    </>
-                  ) : (
-                    'Criar Nova Sessão'
-                  )}
-                </Button>
+                {sessions && sessions.length > 0 && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Você tem sessões criadas mas nenhuma está conectada. Verifique a página de integração do WhatsApp.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Nome da sessão"
+                      value={newSessionName}
+                      onChange={(e) => setNewSessionName(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleCreateSession()}
+                    />
+                    <Button 
+                      onClick={handleCreateSession}
+                      disabled={!newSessionName.trim() || createSessionMutation.isPending}
+                      className="shrink-0"
+                    >
+                      {createSessionMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => window.location.href = '/integrations/whatsapp'}
+                  >
+                    <QrCode className="w-4 h-4 mr-2" />
+                    Ir para Configurações do WhatsApp
+                  </Button>
+                </div>
 
                 {sessions && sessions.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-gray-700">Sessões Existentes:</h4>
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Sessões Existentes</h4>
                     <div className="space-y-2">
                       {sessions.map(session => (
-                        <div key={session.id} className="flex items-center justify-between p-2 border rounded">
-                          <div>
-                            <p className="font-medium">{session.sessionName}</p>
-                            <p className="text-sm text-gray-500">Status: {session.status}</p>
+                        <div key={session.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${
+                              session.status === 'connected' ? 'bg-green-500' : 
+                              session.status === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+                            }`} />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{session.sessionName}</p>
+                              <p className="text-xs text-gray-500">{session.status}</p>
+                            </div>
                           </div>
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteSession(session.id)}
-                            className="text-red-600 hover:text-red-700"
+                            disabled={deleteSessionMutation.isPending}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -398,8 +471,9 @@ export default function WhatsAppNew() {
               </select>
             )}
           </div>
-          <div className="flex items-center">
-            <Badge variant="secondary" className="text-green-700 bg-green-100">
+          
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="bg-green-100 text-green-800">
               <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
               Conectado
             </Badge>
@@ -431,7 +505,7 @@ export default function WhatsAppNew() {
                 status: m.status,
                 isFromMe: m.isFromMe,
                 type: m.messageType,
-                mediaUrl: m.mediaUrl || undefined
+                mediaUrl: m.mediaUrl
               })) || []}
             onSendMessage={handleSendMessage}
             onStartNewChat={() => console.log('Start new chat')}
@@ -445,6 +519,7 @@ export default function WhatsAppNew() {
         <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
           <div className="flex-1 overflow-auto">
             <OpportunityPanel
+              contact={selectedContact}
               onCreateDeal={(deal) => console.log('Create deal:', deal)}
               onUpdateDeal={(id, deal) => console.log('Update deal:', id, deal)}
             />
