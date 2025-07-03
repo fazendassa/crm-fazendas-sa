@@ -135,35 +135,13 @@ export function ConversationList({
       console.log('✅ Chats sincronizados:', chats?.length || 0);
 
       if (Array.isArray(chats) && chats.length > 0) {
-        // Create conversations from synced chats
-        const newConversations = chats.map(chat => ({
-          id: chat.id,
-          contactName: chat.name,
-          contactPhone: chat.id.replace('@c.us', '').replace('@g.us', ''),
-          lastMessage: chat.lastMessage ? {
-            id: `${chat.id}_last`,
-            content: chat.lastMessage.content || 'Mensagem',
-            timestamp: new Date(chat.lastMessage.timestamp || Date.now()),
-            status: 'delivered' as const,
-            isFromMe: chat.lastMessage.fromMe || false
-          } : {
-            id: `${chat.id}_empty`,
-            content: 'Sem mensagens',
-            timestamp: new Date(),
-            status: 'delivered' as const,
-            isFromMe: false
-          },
-          unreadCount: chat.unreadCount || 0,
-          isPinned: false,
-          tags: []
-        }));
-
-        console.log('📋 Conversations created from chats:', newConversations.length);
-
         toast({
           title: "Chats sincronizados",
           description: `${chats.length} conversas encontradas`
         });
+        
+        // Invalidate queries to refresh the data
+        window.location.reload(); // Force a refresh to see new conversations
       } else {
         toast({
           title: "Nenhuma conversa encontrada",
@@ -182,6 +160,14 @@ export function ConversationList({
       setIsLoadingContacts(false);
     }
   };
+
+  // Auto-sync on component mount if no conversations
+  React.useEffect(() => {
+    if (sessionId && conversations.length === 0 && !isLoading) {
+      console.log('🔄 Auto-syncing chats on mount');
+      handleSyncChats();
+    }
+  }, [sessionId, conversations.length, isLoading]);
 
   if (isLoading) {
     return (
