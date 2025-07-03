@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -90,7 +89,7 @@ export default function WhatsAppNew() {
   const [newSessionName, setNewSessionName] = useState('');
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [currentQrCode, setCurrentQrCode] = useState<string | null>(null);
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -99,18 +98,18 @@ export default function WhatsAppNew() {
     userId: user?.id,
     onMessage: (data) => {
       console.log('📡 WebSocket message in WhatsApp page:', data);
-      
+
       if (data.type === 'wa:qr') {
         console.log('📱 QR Code received via WebSocket');
         setCurrentQrCode(data.qrCode);
         setShowQrDialog(true);
       }
-      
+
       if (data.type === 'wa:status') {
         console.log('📱 Status update received:', data.status);
         // Invalidate sessions query to refresh the list
         queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
-        
+
         if (data.status === 'connected') {
           setShowQrDialog(false);
           setCurrentQrCode(null);
@@ -406,18 +405,34 @@ export default function WhatsAppNew() {
               <p className="text-sm text-gray-600">
                 Abra o WhatsApp no seu celular e escaneie este código para conectar:
               </p>
-              {currentQrCode && (
-                <div className="flex justify-center">
+              <div className="flex justify-center">
+                {currentQrCode ? (
                   <img 
                     src={currentQrCode} 
                     alt="QR Code WhatsApp" 
                     className="w-64 h-64 border rounded-lg"
                   />
-                </div>
-              )}
+                ) : (
+                  <div className="w-64 h-64 border rounded-lg flex items-center justify-center bg-gray-50">
+                    <div className="text-center">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm text-gray-500">Gerando QR Code...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-gray-500 text-center">
                 O código será atualizado automaticamente se expirar
               </p>
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQrDialog(false)}
+                >
+                  Fechar
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -470,7 +485,7 @@ export default function WhatsAppNew() {
                     </div>
                   ))}
                 </div>
-                
+
                 <div className="border-t pt-4">
                   <div className="flex gap-2">
                     <Input
@@ -513,18 +528,34 @@ export default function WhatsAppNew() {
               <p className="text-sm text-gray-600">
                 Abra o WhatsApp no seu celular e escaneie este código para conectar:
               </p>
-              {currentQrCode && (
-                <div className="flex justify-center">
+              <div className="flex justify-center">
+                {currentQrCode ? (
                   <img 
                     src={currentQrCode} 
                     alt="QR Code WhatsApp" 
                     className="w-64 h-64 border rounded-lg"
                   />
-                </div>
-              )}
+                ) : (
+                  <div className="w-64 h-64 border rounded-lg flex items-center justify-center bg-gray-50">
+                    <div className="text-center">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm text-gray-500">Gerando QR Code...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-gray-500 text-center">
                 O código será atualizado automaticamente se expirar
               </p>
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQrDialog(false)}
+                >
+                  Fechar
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -568,38 +599,38 @@ export default function WhatsAppNew() {
           </div>
           <div className="flex items-center gap-3">
             {selectedSession && (
-              <>
-                <Badge variant="secondary" className={`${
-                  selectedSession.status === 'connected' ? 'text-green-700 bg-green-100' :
-                  selectedSession.status === 'connecting' ? 'text-yellow-700 bg-yellow-100' :
-                  'text-red-700 bg-red-100'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full mr-2 ${
-                    selectedSession.status === 'connected' ? 'bg-green-500' :
-                    selectedSession.status === 'connecting' ? 'bg-yellow-500' :
-                    'bg-red-500'
-                  }`} />
-                  {selectedSession.status === 'connected' ? 'Conectado' :
-                   selectedSession.status === 'connecting' ? 'Conectando' : 'Erro'}
-                </Badge>
-                
-                {selectedSession.status === 'connected' && (
+                <>
+                  <Badge variant="secondary" className={`${
+                    selectedSession.status === 'connected' ? 'text-green-700 bg-green-100' :
+                    selectedSession.status === 'connecting' ? 'text-yellow-700 bg-yellow-100' :
+                    'text-red-700 bg-red-100'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full mr-2 ${
+                      selectedSession.status === 'connected' ? 'bg-green-500' :
+                      selectedSession.status === 'connecting' ? 'bg-yellow-500' :
+                      'bg-red-500'
+                    }`} />
+                    {selectedSession.status === 'connected' ? 'Conectado' :
+                     selectedSession.status === 'connecting' ? 'Conectando' : 'Erro'}
+                  </Badge>
+
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleDisconnectSession}
                     disabled={disconnectSessionMutation.isPending}
                     className="text-red-600 hover:text-red-700"
+                    title="Desconectar sessão"
                   >
                     {disconnectSessionMutation.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <WifiOff className="w-4 h-4" />
                     )}
+                    <span className="ml-1 text-xs">Desconectar</span>
                   </Button>
-                )}
-              </>
-            )}
+                </>
+              )}
           </div>
         </div>
       </div>
@@ -671,18 +702,34 @@ export default function WhatsAppNew() {
             <p className="text-sm text-gray-600">
               Abra o WhatsApp no seu celular e escaneie este código para conectar:
             </p>
-            {currentQrCode && (
-              <div className="flex justify-center">
+            <div className="flex justify-center">
+              {currentQrCode ? (
                 <img 
                   src={currentQrCode} 
                   alt="QR Code WhatsApp" 
                   className="w-64 h-64 border rounded-lg"
                 />
-              </div>
-            )}
+              ) : (
+                <div className="w-64 h-64 border rounded-lg flex items-center justify-center bg-gray-50">
+                  <div className="text-center">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm text-gray-500">Gerando QR Code...</p>
+                  </div>
+                </div>
+              )}
+            </div>
             <p className="text-xs text-gray-500 text-center">
               O código será atualizado automaticamente se expirar
             </p>
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowQrDialog(false)}
+              >
+                Fechar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

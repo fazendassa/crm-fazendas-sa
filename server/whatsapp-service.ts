@@ -27,11 +27,16 @@ export class WhatsAppManager extends EventEmitter {
     try {
       console.log('📱 Creating WhatsApp session for user:', userId, 'with name:', sessionName);
 
-      // Check if session already exists in database
-      const existingSession = await storage.getWhatsappSession(userId, sessionId);
-      if (existingSession && existingSession.status === 'connected') {
-        console.log('📱 Session already connected');
-        return 'Session already connected';
+      // Close existing client if any
+      const existingClient = this.clients.get(sessionId);
+      if (existingClient) {
+        console.log('🔄 Closing existing client');
+        try {
+          await existingClient.close();
+        } catch (error) {
+          console.log('⚠️ Error closing existing client:', error);
+        }
+        this.clients.delete(sessionId);
       }
 
       // Create or update session in database
@@ -46,6 +51,7 @@ export class WhatsAppManager extends EventEmitter {
       };
 
       let session;
+      const existingSession = await storage.getWhatsappSession(userId, sessionId);
       if (existingSession) {
         console.log('📱 Updating existing session');
         session = await storage.updateWhatsappSession(existingSession.id, sessionData);
@@ -54,17 +60,15 @@ export class WhatsAppManager extends EventEmitter {
         session = await storage.createWhatsappSession(sessionData);
       }
 
-      // Clean up session directory
+      // Clean up session directory completely to force new QR
       const sessionDir = path.join(this.sessionPath, sessionId);
       if (fs.existsSync(sessionDir)) {
-        const lockFile = path.join(sessionDir, 'SingletonLock');
-        if (fs.existsSync(lockFile)) {
-          try {
-            fs.unlinkSync(lockFile);
-            console.log('🧹 Removed existing lock file for session:', sessionId);
-          } catch (error) {
-            console.log('⚠️ Could not remove lock file:', error);
-          }
+        console.log('🧹 Cleaning session directory for fresh start');
+        try {
+          // Remove all session files to force QR generation
+          fs.rmSync(sessionDir, { recursive: true, force: true });
+        } catch (error) {
+          console.log('⚠️ Could not remove session directory:', error);
         }
       }
 
@@ -103,16 +107,26 @@ export class WhatsAppManager extends EventEmitter {
         catchQR: (base64Qr: string, asciiQR?: string) => {
           console.log('📱 WhatsApp QR Code generated for user:', userId);
           console.log('📱 QR Code length:', base64Qr?.length);
+          console.log('📱 QR Code preview:', base64Qr?.substring(0, 100) + '...');
 
           // Ensure QR code has proper data URL format
-          const qrCodeData = base64Qr.startsWith('data:') ? base64Qr : `data:image/png;base64,${base64Qr}`;
+          let qrCodeData = base64Qr;
+          if (!qrCodeData.startsWith('data:')) {
+            qrCodeData = `data:image/png;base64,${base64Qr}`;
+          }
+
+          console.log('📱 Final QR Code format:', qrCodeData.substring(0, 50) + '...');
 
           // Update session with QR code
           storage.updateWhatsappSession(session.id, {
             qrCode: qrCodeData,
             status: 'connecting',
             lastActivity: new Date(),
-          }).catch(err => console.error('Error updating session with QR:', err));
+          }).then(() => {
+            console.log('✅ QR Code saved to database');
+          }).catch(err => {
+            console.error('❌ Error updating session with QR:', err);
+          });
 
           // Emit QR code via WebSocket
           webSocketManager.broadcastToUser(userId, {
