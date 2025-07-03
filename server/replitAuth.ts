@@ -125,6 +125,10 @@ export async function setupAuth(app: Express) {
       );
     });
   });
+
+  app.get("/api/auth/user", isAuthenticated, (req, res) => {
+    res.json(req.user);
+  });
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
