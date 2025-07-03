@@ -292,49 +292,6 @@ export const activeCampaignWebhookLogs = pgTable("activecampaign_webhook_logs", 
   processedAt: timestamp("processed_at").defaultNow(),
 });
 
-// WhatsApp Session Management
-export const whatsappSessions = pgTable("whatsapp_sessions", {
-  id: serial("id").primaryKey(),
-  sessionName: varchar("session_name").notNull().unique(),
-  status: varchar("status").notNull().default("disconnected"), // disconnected, connecting, connected, error
-  phoneNumber: varchar("phone_number"),
-  isActive: boolean("is_active").default(true),
-  lastActivity: timestamp("last_activity"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// WhatsApp Messages Storage
-export const whatsappMessages = pgTable("whatsapp_messages", {
-  id: serial("id").primaryKey(),
-  sessionId: integer("session_id").references(() => whatsappSessions.id).notNull(),
-  messageId: varchar("message_id").notNull(),
-  fromNumber: varchar("from_number").notNull(),
-  toNumber: varchar("to_number").notNull(),
-  messageType: varchar("message_type").notNull(), // text, image, audio, video, document
-  content: text("content"),
-  mediaUrl: text("media_url"),
-  timestamp: timestamp("timestamp").notNull(),
-  isIncoming: boolean("is_incoming").notNull(),
-  contactId: integer("contact_id").references(() => contacts.id),
-  dealId: integer("deal_id").references(() => deals.id),
-  status: varchar("status").default("delivered"), // sent, delivered, read, failed
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// WhatsApp Contacts Mapping
-export const whatsappContacts = pgTable("whatsapp_contacts", {
-  id: serial("id").primaryKey(),
-  phoneNumber: varchar("phone_number").notNull().unique(),
-  name: varchar("name"),
-  profilePic: text("profile_pic"),
-  lastSeen: timestamp("last_seen"),
-  contactId: integer("contact_id").references(() => contacts.id),
-  isBlocked: boolean("is_blocked").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 // Relations for ActiveCampaign integration
 export const activeCampaignConfigsRelations = relations(activeCampaignConfigs, ({ one, many }) => ({
   pipeline: one(pipelines, {
@@ -379,68 +336,4 @@ export type ActiveCampaignWebhookLog = typeof activeCampaignWebhookLogs.$inferSe
 
 export type ActiveCampaignConfigWithRelations = ActiveCampaignConfig & {
   pipeline?: Pipeline | null;
-};
-
-// WhatsApp Relations
-export const whatsappSessionsRelations = relations(whatsappSessions, ({ many }) => ({
-  messages: many(whatsappMessages),
-}));
-
-export const whatsappMessagesRelations = relations(whatsappMessages, ({ one }) => ({
-  session: one(whatsappSessions, {
-    fields: [whatsappMessages.sessionId],
-    references: [whatsappSessions.id],
-  }),
-  contact: one(contacts, {
-    fields: [whatsappMessages.contactId],
-    references: [contacts.id],
-  }),
-  deal: one(deals, {
-    fields: [whatsappMessages.dealId],
-    references: [deals.id],
-  }),
-}));
-
-export const whatsappContactsRelations = relations(whatsappContacts, ({ one }) => ({
-  contact: one(contacts, {
-    fields: [whatsappContacts.contactId],
-    references: [contacts.id],
-  }),
-}));
-
-// WhatsApp Insert schemas
-export const insertWhatsappSessionSchema = createInsertSchema(whatsappSessions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertWhatsappContactSchema = createInsertSchema(whatsappContacts).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-// WhatsApp Types
-export type WhatsappSession = typeof whatsappSessions.$inferSelect;
-export type InsertWhatsappSession = z.infer<typeof insertWhatsappSessionSchema>;
-export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
-export type InsertWhatsappMessage = z.infer<typeof insertWhatsappMessageSchema>;
-export type WhatsappContact = typeof whatsappContacts.$inferSelect;
-export type InsertWhatsappContact = z.infer<typeof insertWhatsappContactSchema>;
-
-// WhatsApp types with relations
-export type WhatsappMessageWithRelations = WhatsappMessage & {
-  session?: WhatsappSession;
-  contact?: Contact;
-  deal?: Deal;
-};
-
-export type WhatsappSessionWithMessages = WhatsappSession & {
-  messages?: WhatsappMessage[];
 };
