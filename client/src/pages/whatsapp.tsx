@@ -51,6 +51,7 @@ export default function WhatsApp() {
   const [messageText, setMessageText] = useState('');
   const [recipientNumber, setRecipientNumber] = useState('');
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -112,7 +113,9 @@ export default function WhatsApp() {
   const handleWebSocketMessage = (data: any) => {
     switch (data.type) {
       case 'wa:qr':
+        console.log('📱 QR Code received via WebSocket');
         setQrCode(data.qrCode);
+        setConnectionError(null);
         break;
 
       case 'wa:status':
@@ -151,14 +154,23 @@ export default function WhatsApp() {
   const loadSessions = async () => {
     try {
       const response = await apiRequest('/api/whatsapp/sessions');
-      setSessions(response);
+      console.log('sessionsData:', response);
+      
+      // Ensure response is an array
+      const sessionsArray = Array.isArray(response) ? response : [];
+      setSessions(sessionsArray);
+      console.log('sessions:', sessionsArray);
 
-      if (response.length > 0) {
-        setCurrentSession(response[0]);
-        await loadMessages(response[0].id);
+      if (sessionsArray.length > 0) {
+        setCurrentSession(sessionsArray[0]);
+        await loadMessages(sessionsArray[0].id);
       }
+      
+      setConnectionError(null);
     } catch (error) {
       console.error('Error loading sessions:', error);
+      setConnectionError('Falha ao carregar sessões do WhatsApp');
+      setSessions([]);
       toast({
         title: "Erro",
         description: "Falha ao carregar sessões do WhatsApp",
@@ -335,6 +347,13 @@ export default function WhatsApp() {
             </div>
 
             <Separator />
+
+            {/* Connection Error */}
+            {connectionError && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3 text-red-800 text-sm">
+                {connectionError}
+              </div>
+            )}
 
             {/* Sessions List */}
             <div className="space-y-2">

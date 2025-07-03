@@ -810,7 +810,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // WhatsApp Integration Routes
   app.get('/api/whatsapp/sessions', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const sessions = await storage.getWhatsappSessions(userId);
       res.json(sessions);
     } catch (error) {
@@ -821,7 +824,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/whatsapp/create-session', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const { sessionName } = req.body;
 
       if (!sessionName) {
@@ -838,7 +844,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/whatsapp/send', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const { to, text } = req.body;
 
       if (!to || !text) {
@@ -858,7 +867,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/whatsapp/status', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const status = await whatsAppManager.getSessionStatus(userId);
       res.json({ status });
     } catch (error) {
@@ -869,7 +881,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/whatsapp/messages', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       const { chatId, limit } = req.query;
 
       const messages = await whatsAppManager.getMessages(
@@ -886,7 +901,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/whatsapp/session', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User ID not found" });
+      }
       await whatsAppManager.closeSession(userId);
       res.json({ message: "Session closed successfully" });
     } catch (error) {

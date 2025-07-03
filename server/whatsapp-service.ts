@@ -26,6 +26,18 @@ export class WhatsAppManager extends EventEmitter {
     try {
       const sessionId = `session_crm-${userId}`;
       
+      // Close existing client if any
+      const existingClient = this.clients.get(sessionId);
+      if (existingClient) {
+        try {
+          await existingClient.close();
+          this.clients.delete(sessionId);
+          console.log('📱 Closed existing WhatsApp client for user:', userId);
+        } catch (error) {
+          console.log('⚠️ Error closing existing client:', error);
+        }
+      }
+      
       // Check if session already exists
       const existingSession = await storage.getWhatsappSession(userId, sessionId);
       
@@ -44,6 +56,20 @@ export class WhatsAppManager extends EventEmitter {
         session = await storage.updateWhatsappSession(existingSession.id, sessionData);
       } else {
         session = await storage.createWhatsappSession(sessionData);
+      }
+
+      // Clean up session directory
+      const sessionDir = path.join(this.sessionPath, sessionId);
+      if (fs.existsSync(sessionDir)) {
+        const lockFile = path.join(sessionDir, 'SingletonLock');
+        if (fs.existsSync(lockFile)) {
+          try {
+            fs.unlinkSync(lockFile);
+            console.log('🧹 Removed existing lock file for session:', sessionId);
+          } catch (error) {
+            console.log('⚠️ Could not remove lock file:', error);
+          }
+        }
       }
 
       // Configuration for WPPConnect optimized for Replit
@@ -70,19 +96,24 @@ export class WhatsAppManager extends EventEmitter {
           '--disable-renderer-backgrounding',
           '--disable-features=TranslateUI',
           '--disable-ipc-flooding-protection',
-          '--disable-web-security'
+          '--disable-web-security',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-default-apps',
+          '--no-default-browser-check'
         ],
         folderNameToken: this.sessionPath,
         mkdirFolderToken: this.sessionPath,
         catchQR: (base64Qr: string, asciiQR?: string) => {
           console.log('📱 WhatsApp QR Code generated for user:', userId);
+          console.log('📱 QR Code length:', base64Qr?.length);
           
           // Update session with QR code
           storage.updateWhatsappSession(session.id, {
             qrCode: base64Qr,
             status: 'connecting',
             lastActivity: new Date(),
-          });
+          }).catch(err => console.error('Error updating session with QR:', err));
 
           // Emit QR code via WebSocket
           webSocketManager.broadcastToUser(userId, {
@@ -90,9 +121,12 @@ export class WhatsAppManager extends EventEmitter {
             qrCode: base64Qr,
             sessionId: session.id
           });
+
+          console.log('📡 QR Code sent via WebSocket to user:', userId);
         },
         statusFind: (statusSession: string, sessionInfo?: any) => {
           console.log('📱 WhatsApp Status changed:', statusSession, 'for user:', userId);
+          console.log('📱 Session info:', sessionInfo);
           
           let status = 'disconnected';
           let phoneNumber = null;
@@ -100,9 +134,14 @@ export class WhatsAppManager extends EventEmitter {
           switch (statusSession) {
             case 'isLogged':
               status = 'connected';
-              if (sessionInfo && sessionInfo.me) {
-                phoneNumber = sessionInfo.me.user || sessionInfo.me._serialized;
+              // Try to get phone number from session info
+              if (sessionInfo) {
+                phoneNumber = sessionInfo.me?.user || 
+                             sessionInfo.me?._serialized || 
+                             sessionInfo.wid?.user ||
+                             sessionInfo.wid?._serialized;
               }
+              console.log('📱 Connected with phone:', phoneNumber);
               break;
             case 'notLogged':
               status = 'disconnected';
@@ -116,6 +155,9 @@ export class WhatsAppManager extends EventEmitter {
             case 'qrReadError':
               status = 'error';
               break;
+            case 'inChat':
+              status = 'connected';
+              break;
             default:
               status = 'connecting';
           }
@@ -125,7 +167,7 @@ export class WhatsAppManager extends EventEmitter {
             status,
             phoneNumber,
             lastActivity: new Date(),
-          });
+          }).catch(err => console.error('Error updating session status:', err));
 
           // Emit status change via WebSocket
           webSocketManager.broadcastToUser(userId, {
@@ -134,6 +176,8 @@ export class WhatsAppManager extends EventEmitter {
             phoneNumber,
             sessionId: session.id
           });
+
+          console.log('📡 Status update sent via WebSocket:', { status, phoneNumber });
         }
       });
 
