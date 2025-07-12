@@ -304,7 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
         // Parse Excel
         try {
-          const XLSX = require('xlsx');
+          const XLSX = await import('xlsx');
           const workbook = XLSX.read(fileBuffer);
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
@@ -374,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
         // Parse Excel
         try {
-          const XLSX = require('xlsx');
+          const XLSX = await import('xlsx');
           const workbook = XLSX.read(fileBuffer);
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
