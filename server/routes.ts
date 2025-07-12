@@ -10,13 +10,13 @@ const upload = multer();
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
-  
+
   // Setup WebSocket server
   webSocketManager.setup(httpServer);
-  
+
   // Setup authentication first
   await setupAuth(app);
-  
+
   // Basic routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
@@ -27,13 +27,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = (req.user as any).claims.sub;
       console.log('Getting WhatsApp sessions for user:', userId);
-      
+
       const sessions = await storage.getWhatsappSessions(userId);
-      
+
       // Ensure we always return an array
       const sessionsArray = Array.isArray(sessions) ? sessions : [];
       console.log('Returning sessions:', sessionsArray.length);
-      
+
       res.json(sessionsArray);
     } catch (error) {
       console.error("Error getting WhatsApp sessions:", error);
@@ -45,18 +45,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = (req.user as any).claims.sub;
       const { sessionName } = req.body;
-      
+
       if (!sessionName || !sessionName.trim()) {
         return res.status(400).json({ 
           success: false, 
           message: "Nome da sessão é obrigatório" 
         });
       }
-      
+
       console.log('Creating WhatsApp session for user:', userId, 'with name:', sessionName);
 
       const result = await whatsAppManager.createSession(userId, sessionName.trim());
-      
+
       res.json({ 
         success: true,
         message: "Sessão criada com sucesso. Aguarde o QR Code aparecer.",
@@ -84,7 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Getting messages for session', sessionId, 'user', userId);
 
       const messages = await storage.getWhatsappMessages(sessionId, undefined, limit);
-      
+
       res.json({ messages: messages || [] });
     } catch (error) {
       console.error("Error getting WhatsApp messages:", error);
@@ -95,22 +95,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/whatsapp/session", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
-      
+
       console.log('Deleting WhatsApp session for user:', userId);
-      
+
       // Get user sessions first
       const sessions = await storage.getWhatsappSessions(userId);
-      
+
       if (sessions && sessions.length > 0) {
         // Delete from WhatsApp service
         await whatsAppManager.closeSession(userId);
-        
+
         // Delete from database
         for (const session of sessions) {
           await storage.deleteWhatsappSession(session.id);
         }
       }
-      
+
       res.json({ message: "Session deleted successfully" });
     } catch (error) {
       console.error("Error deleting WhatsApp session:", error);
@@ -202,7 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const search = req.query.search as string;
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
-      
+
       const companies = await storage.getCompanies(search, limit, offset);
       res.json(companies);
     } catch (error) {
@@ -228,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
-      
+
       const contacts = await storage.getContacts(search, companyId, limit, offset);
       res.json(contacts);
     } catch (error) {
@@ -254,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
       const contactId = req.query.contactId ? parseInt(req.query.contactId as string) : undefined;
-      
+
       const deals = await storage.getDeals(stage, limit, offset, contactId);
       res.json(deals);
     } catch (error) {

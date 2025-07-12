@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MessageCircle, Phone, Send, QrCode, Wifi, WifiOff, Loader2, Users } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 interface WhatsAppSession {
   id: number;
@@ -50,65 +52,16 @@ export default function WhatsApp() {
   const [sessionName, setSessionName] = useState('');
   const [messageText, setMessageText] = useState('');
   const [recipientNumber, setRecipientNumber] = useState('');
-  const [ws, setWs] = useState<WebSocket | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
-    loadSessions();
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (user?.id) {
-      connectWebSocket();
+  // WebSocket connection
+  const { isConnected: wsConnected } = useWebSocket({
+    userId: user?.id,
+    onMessage: (data) => {
+      console.log('📡 WebSocket message received:', data);
+      handleWebSocketMessage(data);
     }
-  }, [user?.id]);
-
-  const connectWebSocket = () => {
-    if (!user?.id) return;
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws?userId=${user.id}`;
-
-    const websocket = new WebSocket(wsUrl);
-
-    websocket.onopen = () => {
-      console.log('📡 WebSocket connected');
-      setWs(websocket);
-      wsRef.current = websocket;
-    };
-
-    websocket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    };
-
-    websocket.onclose = () => {
-      console.log('📡 WebSocket disconnected');
-      setWs(null);
-      wsRef.current = null;
-
-      // Reconnect after 3 seconds
-      setTimeout(() => {
-        if (user?.id) {
-          connectWebSocket();
-        }
-      }, 3000);
-    };
-
-    websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-  };
+  });
 
   const handleWebSocketMessage = (data: any) => {
     console.log('📱 WebSocket message received:', data);
@@ -183,12 +136,22 @@ export default function WhatsApp() {
     try {
       setIsLoading(true);
       const response = await apiRequest('/api/whatsapp/sessions');
-      console.log('sessionsData:', response);
+      console.log('Sessions response:', response);
 
       // Ensure response is always treated as an array
-      const sessionsArray = Array.isArray(response) ? response : (response?.sessions || []);
+      let sessionsArray: WhatsAppSession[] = [];
+      
+      if (Array.isArray(response)) {
+        sessionsArray = response;
+      } else if (response && Array.isArray(response.sessions)) {
+        sessionsArray = response.sessions;
+      } else if (response && typeof response === 'object') {
+        // If response is a single session object, wrap it in an array
+        sessionsArray = [response as WhatsAppSession];
+      }
+
       setSessions(sessionsArray);
-      console.log('sessions:', sessionsArray);
+      console.log('Sessions set:', sessionsArray);
     } catch (error) {
       console.error('Error loading sessions:', error);
       setSessions([]);
@@ -205,9 +168,10 @@ export default function WhatsApp() {
   const loadMessages = async (sessionId: number) => {
     try {
       const response = await apiRequest(`/api/whatsapp/messages?sessionId=${sessionId}`);
-      setMessages(response.messages || []);
+      setMessages(Array.isArray(response.messages) ? response.messages : []);
     } catch (error) {
       console.error('Error loading messages:', error);
+      setMessages([]);
     }
   };
 
@@ -228,11 +192,13 @@ export default function WhatsApp() {
       setConnectionError(null);
       setQrCode(null);
       
-      const response = await apiRequest('/api/whatsapp/create-session', 'POST', { sessionName: trimmedSessionName });
+      const response = await apiRequest('/api/whatsapp/sessions', 'POST', { 
+        sessionName: trimmedSessionName 
+      });
 
       console.log('Create session response:', response);
 
-      if (response?.success !== false) {
+      if (response && response.success !== false) {
         toast({
           title: "Sucesso",
           description: response?.message || "Sessão criada com sucesso. Aguarde o QR Code...",
@@ -241,7 +207,7 @@ export default function WhatsApp() {
         setSessionName('');
         
         // Reload sessions immediately
-        loadSessions();
+        await loadSessions();
         
         // Set a timeout to reload sessions again after QR generation
         setTimeout(() => {
@@ -266,7 +232,7 @@ export default function WhatsApp() {
 
   const deleteSession = async (sessionId: number) => {
     try {
-      await apiRequest('/api/whatsapp/session', 'DELETE');
+      await apiRequest(`/api/whatsapp/sessions/${sessionId}`, 'DELETE');
       toast({
         title: "Sucesso",
         description: "Sessão excluída com sucesso",
@@ -292,16 +258,9 @@ export default function WhatsApp() {
     }
 
     try {
-      await fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          to: recipientNumber,
-          text: messageText
-        })
+      await apiRequest('/api/whatsapp/send', 'POST', {
+        to: recipientNumber,
+        text: messageText
       });
 
       setMessageText('');
@@ -343,11 +302,9 @@ export default function WhatsApp() {
   };
 
   const formatPhoneNumber = (phone: string) => {
-    // Add safety check for phone parameter
     if (!phone || typeof phone !== 'string') {
       return '';
     }
-    // Remove WhatsApp suffix if present
     const cleanPhone = phone.replace('@c.us', '');
     return cleanPhone;
   };
@@ -375,6 +332,14 @@ export default function WhatsApp() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* WebSocket Status */}
+            <div className="flex items-center gap-2 text-sm">
+              <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <span className={wsConnected ? 'text-green-600' : 'text-red-600'}>
+                {wsConnected ? 'Conectado ao servidor' : 'Desconectado do servidor'}
+              </span>
+            </div>
+
             {/* Create New Session */}
             <div className="space-y-2">
               <Input
@@ -410,7 +375,7 @@ export default function WhatsApp() {
 
             {/* Sessions List */}
             <div className="space-y-2">
-              {Array.isArray(sessions) && sessions.length > 0 ? (
+              {sessions.length > 0 ? (
                 sessions.map((session) => (
                   <Card 
                     key={session.id} 
