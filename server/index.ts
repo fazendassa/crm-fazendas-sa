@@ -40,7 +40,11 @@ app.use((req, res, next) => {
   // Test database connection before starting server
   const { testConnection } = await import("./db");
   console.log('Testing database connection...');
-  await testConnection();
+  const dbConnected = await testConnection();
+  
+  if (!dbConnected) {
+    console.log('Warning: Starting server without database connection');
+  }
 
   const server = await registerRoutes(app);
 
