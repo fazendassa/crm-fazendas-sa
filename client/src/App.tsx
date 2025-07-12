@@ -66,7 +66,7 @@ function Router() {
             <Route path="/whatsapp-new" component={WhatsAppSimple} />
             <Route path="/whatsapp-simple" component={WhatsAppSimple} />
             <Route path="/admin" component={Admin} />
-            <Route path="/users" component={UserManagement} />
+            <Route path="/user-management" component={UserManagement} />
             <Route component={NotFound} />
           </Switch>
         </main>
