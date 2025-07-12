@@ -22,14 +22,11 @@ export default function Landing() {
           Fazendas S/A CRM
         </div>
         <div className="flex items-center space-x-6 text-sm text-gray-600">
-          <button className="hover:text-gray-800 transition-colors">
+          <button 
+            className="hover:text-gray-800 transition-colors"
+            onClick={() => window.location.href = '/api/login'}
+          >
             Iniciar sessão
-          </button>
-          <button className="hover:text-gray-800 transition-colors">
-            Suporte
-          </button>
-          <button className="hover:text-gray-800 transition-colors">
-            Contato
           </button>
         </div>
       </header>
