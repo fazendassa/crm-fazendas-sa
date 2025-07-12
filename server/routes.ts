@@ -425,7 +425,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/deals", isAuthenticated, async (req, res) => {
     try {
-      const deal = await storage.createDeal(req.body);
+      // Convert expectedCloseDate from ISO string to Date if present
+      const dealData = {
+        ...req.body,
+        expectedCloseDate: req.body.expectedCloseDate ? new Date(req.body.expectedCloseDate) : null
+      };
+      
+      const deal = await storage.createDeal(dealData);
       res.json(deal);
     } catch (error) {
       console.error("Error creating deal:", error);
@@ -436,7 +442,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/deals/:id", isAuthenticated, async (req, res) => {
     try {
       const dealId = parseInt(req.params.id);
-      const deal = await storage.updateDeal(dealId, req.body);
+      // Convert expectedCloseDate from ISO string to Date if present
+      const dealData = {
+        ...req.body,
+        expectedCloseDate: req.body.expectedCloseDate ? new Date(req.body.expectedCloseDate) : null
+      };
+      
+      const deal = await storage.updateDeal(dealId, dealData);
       res.json(deal);
     } catch (error) {
       console.error("Error updating deal:", error);
