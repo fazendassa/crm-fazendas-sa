@@ -230,7 +230,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const offset = parseInt(req.query.offset as string) || 0;
 
       const contacts = await storage.getContacts(search, companyId, limit, offset);
-      res.json(contacts);
+      const total = await storage.getContactCount(search, companyId);
+      
+      res.json({
+        contacts: contacts,
+        total: total
+      });
     } catch (error) {
       console.error("Error getting contacts:", error);
       res.status(500).json({ message: "Failed to get contacts" });
