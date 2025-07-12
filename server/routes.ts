@@ -433,6 +433,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/deals/:id", isAuthenticated, async (req, res) => {
+    try {
+      const dealId = parseInt(req.params.id);
+      const deal = await storage.updateDeal(dealId, req.body);
+      res.json(deal);
+    } catch (error) {
+      console.error("Error updating deal:", error);
+      res.status(500).json({ message: "Failed to update deal" });
+    }
+  });
+
+  app.get("/api/deals/by-stage", isAuthenticated, async (req, res) => {
+    try {
+      const pipelineId = req.query.pipelineId ? parseInt(req.query.pipelineId as string) : undefined;
+      
+      console.log('Getting deals by stage for pipeline:', pipelineId);
+      
+      const dealsByStage = await storage.getDealsByStage(pipelineId);
+      
+      console.log('Deals by stage result:', dealsByStage);
+      
+      res.json(dealsByStage);
+    } catch (error) {
+      console.error("Error getting deals by stage:", error);
+      res.status(500).json({ message: "Failed to get deals by stage" });
+    }
+  });
+
   // Pipeline routes
   app.get("/api/pipelines", isAuthenticated, async (req, res) => {
     try {
