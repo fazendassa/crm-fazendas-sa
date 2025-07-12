@@ -103,32 +103,7 @@ export default function Landing() {
           Iniciar sessão
         </Button>
 
-        {/* Features Grid */}
-        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl">
-          <div className="text-center p-6">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-green-600 text-xl">🌱</span>
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Gestão Completa</h3>
-            <p className="text-gray-600 text-sm">Controle total sobre contatos, empresas e oportunidades</p>
-          </div>
-          
-          <div className="text-center p-6">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-blue-600 text-xl">📊</span>
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Analytics Avançado</h3>
-            <p className="text-gray-600 text-sm">Relatórios detalhados e métricas em tempo real</p>
-          </div>
-          
-          <div className="text-center p-6">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-purple-600 text-xl">🤝</span>
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Relacionamentos</h3>
-            <p className="text-gray-600 text-sm">Fortaleça conexões com clientes e parceiros</p>
-          </div>
-        </div>
+        
       </main>
 
       {/* Footer */}
