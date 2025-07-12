@@ -115,19 +115,7 @@ export default function Sidebar() {
             ? permissions.hasPermission((item as any).permission) || permissions.hasPermission((item as any).fallbackPermission)
             : permissions.hasPermission((item as any).permission);
           
-          // Debug: Log de permissões para o item "Usuários"
-          if (item.name === 'Usuários') {
-            console.log('Debug Usuários:', {
-              name: item.name,
-              permission: (item as any).permission,
-              userRole: permissions.userRole,
-              hasAccess: hasAccess,
-              hasPermission: permissions.hasPermission((item as any).permission)
-            });
-          }
-          
-          // Temporariamente mostrar sempre o item "Usuários" para debug
-          if (!hasAccess && item.name !== 'Usuários') {
+          if (!hasAccess) {
             return null;
           }
           
