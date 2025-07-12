@@ -230,7 +230,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const offset = parseInt(req.query.offset as string) || 0;
 
       const contacts = await storage.getContacts(search, companyId, limit, offset);
-      res.json(contacts);
+      const total = await storage.getContactCount(search, companyId);
+      
+      res.json({
+        contacts: contacts,
+        total: total
+      });
     } catch (error) {
       console.error("Error getting contacts:", error);
       res.status(500).json({ message: "Failed to get contacts" });
@@ -244,6 +249,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating contact:", error);
       res.status(500).json({ message: "Failed to create contact" });
+    }
+  });
+
+  // Contact import routes
+  app.get("/api/contacts/tags", isAuthenticated, async (req, res) => {
+    try {
+      const tags = await storage.getAvailableTags();
+      res.json(tags);
+    } catch (error) {
+      console.error("Error getting available tags:", error);
+      res.json([]);
+    }
+  });
+
+  app.get("/api/contacts/import-template", isAuthenticated, async (req, res) => {
+    try {
+      // Create a simple CSV template
+      const csvContent = "Nome,Email,Telefone,Cargo,Empresa,Status,Tags\nJoão Silva,joao@exemplo.com,(11) 99999-9999,Gerente,Empresa ABC,ativo,cliente;prospect\nMaria Santos,maria@exemplo.com,(11) 88888-8888,Diretora,Empresa XYZ,ativo,cliente";
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="template_contatos.csv"');
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error generating template:", error);
+      res.status(500).json({ message: "Failed to generate template" });
+    }
+  });
+
+  app.post("/api/contacts/preview-import", isAuthenticated, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Arquivo é obrigatório" });
+      }
+
+      const fileBuffer = req.file.buffer;
+      const fileName = req.file.originalname.toLowerCase();
+      
+      console.log('Preview import - File:', fileName, 'Size:', fileBuffer.length);
+
+      let data: any[] = [];
+      
+      if (fileName.endsWith('.csv')) {
+        // Parse CSV
+        const csvText = fileBuffer.toString('utf-8');
+        const lines = csvText.split('\n').filter(line => line.trim());
+        
+        if (lines.length === 0) {
+          return res.status(400).json({ message: "Arquivo CSV está vazio" });
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        
+        return res.json({
+          columns: headers,
+          totalRows: lines.length - 1
+        });
+        
+      } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        // Parse Excel
+        try {
+          const XLSX = await import('xlsx');
+          const workbook = XLSX.read(fileBuffer);
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          if (data.length === 0) {
+            return res.status(400).json({ message: "Planilha está vazia" });
+          }
+
+          const headers = data[0] || [];
+          
+          return res.json({
+            columns: headers,
+            totalRows: data.length - 1
+          });
+          
+        } catch (excelError) {
+          console.error('Excel parsing error:', excelError);
+          return res.status(400).json({ message: "Erro ao processar arquivo Excel. Verifique se o arquivo não está corrompido." });
+        }
+      } else {
+        return res.status(400).json({ message: "Formato de arquivo não suportado. Use .xlsx, .xls ou .csv" });
+      }
+
+    } catch (error) {
+      console.error("Error previewing import:", error);
+      res.status(500).json({ message: "Erro ao analisar arquivo" });
+    }
+  });
+
+  app.post("/api/contacts/import", isAuthenticated, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Arquivo é obrigatório" });
+      }
+
+      const fileBuffer = req.file.buffer;
+      const fileName = req.file.originalname.toLowerCase();
+      const fieldMapping = req.body.fieldMapping ? JSON.parse(req.body.fieldMapping) : {};
+      const pipelineId = req.body.pipelineId ? parseInt(req.body.pipelineId) : undefined;
+      const tags = req.body.tags ? JSON.parse(req.body.tags) : [];
+
+      console.log('Import - File:', fileName, 'Mapping:', fieldMapping);
+
+      let data: any[] = [];
+      
+      if (fileName.endsWith('.csv')) {
+        // Parse CSV
+        const csvText = fileBuffer.toString('utf-8');
+        const lines = csvText.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          return res.status(400).json({ message: "Arquivo CSV deve conter pelo menos cabeçalho e uma linha de dados" });
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+          const row: any = {};
+          headers.forEach((header, index) => {
+            row[header] = values[index] || '';
+          });
+          data.push(row);
+        }
+        
+      } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        // Parse Excel
+        try {
+          const XLSX = await import('xlsx');
+          const workbook = XLSX.read(fileBuffer);
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          data = XLSX.utils.sheet_to_json(worksheet);
+          
+        } catch (excelError) {
+          console.error('Excel parsing error:', excelError);
+          return res.status(400).json({ message: "Erro ao processar arquivo Excel" });
+        }
+      } else {
+        return res.status(400).json({ message: "Formato de arquivo não suportado" });
+      }
+
+      if (data.length === 0) {
+        return res.status(400).json({ message: "Nenhum dado encontrado no arquivo" });
+      }
+
+      // Import contacts using the mapping
+      const result = await storage.createContactsFromImport(data, pipelineId, tags, fieldMapping);
+      res.json(result);
+
+    } catch (error) {
+      console.error("Error importing contacts:", error);
+      res.status(500).json({ message: "Erro na importação" });
     }
   });
 
@@ -270,6 +430,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating deal:", error);
       res.status(500).json({ message: "Failed to create deal" });
+    }
+  });
+
+  app.put("/api/deals/:id", isAuthenticated, async (req, res) => {
+    try {
+      const dealId = parseInt(req.params.id);
+      const deal = await storage.updateDeal(dealId, req.body);
+      res.json(deal);
+    } catch (error) {
+      console.error("Error updating deal:", error);
+      res.status(500).json({ message: "Failed to update deal" });
+    }
+  });
+
+  app.get("/api/deals/by-stage", isAuthenticated, async (req, res) => {
+    try {
+      const pipelineId = req.query.pipelineId ? parseInt(req.query.pipelineId as string) : undefined;
+      
+      console.log('Getting deals by stage for pipeline:', pipelineId);
+      
+      const dealsByStage = await storage.getDealsByStage(pipelineId);
+      
+      console.log('Deals by stage result:', dealsByStage);
+      
+      res.json(dealsByStage);
+    } catch (error) {
+      console.error("Error getting deals by stage:", error);
+      res.status(500).json({ message: "Failed to get deals by stage" });
     }
   });
 

@@ -65,7 +65,7 @@ const navigation = [
   },
   { 
     name: 'Usuários', 
-    href: '/users', 
+    href: '/user-management', 
     icon: Users,
     permission: 'view:users' as const
   },

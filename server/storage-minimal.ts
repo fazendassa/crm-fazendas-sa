@@ -13,57 +13,57 @@ export interface IStorage {
   createWhatsappMessage(message: any): Promise<any>;
   updateWhatsappMessageStatus(messageId: string, isRead: boolean): Promise<void>;
   deleteWhatsappSession(sessionId: number): Promise<void>;
-  
+
   // Core operations
   getUser(id: string): Promise<any>;
   upsertUser(user: any): Promise<any>;
   getAllUsers(): Promise<any[]>;
   updateUserRole(id: string, role: string): Promise<void>;
-  
+
   getCompanies(search?: string, limit?: number, offset?: number): Promise<any[]>;
   getCompany(id: number): Promise<any>;
   createCompany(company: any): Promise<any>;
   updateCompany(id: number, company: any): Promise<any>;
   deleteCompany(id: number): Promise<void>;
   getCompanyCount(search?: string): Promise<number>;
-  
+
   getContacts(search?: string, companyId?: number, limit?: number, offset?: number): Promise<any[]>;
   getContact(id: number): Promise<any>;
   createContact(contact: any): Promise<any>;
   updateContact(id: number, contact: any): Promise<any>;
   deleteContact(id: number): Promise<void>;
   getContactCount(search?: string, companyId?: number): Promise<number>;
-  
+
   getDeals(stage?: string, limit?: number, offset?: number, contactId?: number): Promise<any[]>;
   getDeal(id: number): Promise<any>;
   createDeal(deal: any): Promise<any>;
   updateDeal(id: number, deal: any): Promise<any>;
   deleteDeal(id: number): Promise<void>;
   getDealsByStage(pipelineId?: number): Promise<any[]>;
-  
+
   getActivities(contactId?: number, dealId?: number, userId?: string, limit?: number, offset?: number): Promise<any[]>;
   getActivity(id: number): Promise<any>;
   createActivity(activity: any): Promise<any>;
   updateActivity(id: number, activity: any): Promise<any>;
   deleteActivity(id: number): Promise<void>;
-  
+
   getPipelines(): Promise<any[]>;
   getPipeline(id: number): Promise<any>;
   createPipeline(pipeline: any): Promise<any>;
   updatePipeline(id: number, pipeline: any): Promise<any>;
   deletePipeline(id: number): Promise<void>;
-  
+
   getPipelineStages(pipelineId?: number): Promise<any[]>;
   createPipelineStage(stage: any): Promise<any>;
   updatePipelineStage(id: number, stage: any): Promise<any>;
   deletePipelineStage(id: number): Promise<void>;
   updateStagePositions(stages: any[]): Promise<void>;
-  
+
   getDashboardMetrics(): Promise<any>;
   importContacts(contacts: any[]): Promise<any>;
   getAvailableTags(): Promise<string[]>;
   createContactsFromImport(data: any[], pipelineId?: number, tags?: string[]): Promise<any>;
-  
+
   getActiveCampaignConfigs(userId: string): Promise<any[]>;
   getActiveCampaignConfigById(configId: number, userId?: string): Promise<any>;
   createActiveCampaignConfig(config: any): Promise<any>;
@@ -382,20 +382,123 @@ export class DatabaseStorage implements IStorage {
     await db.delete(deals).where(eq(deals.id, id));
   }
 
-  async getDealsByStage(pipelineId?: number): Promise<any[]> {
-    let query = db
-      .select({
-        stage: deals.stage,
-        count: count(),
-      })
-      .from(deals)
-      .groupBy(deals.stage);
+  async getDealsByStage(pipelineId?: number): Promise<{ stage: string; count: number; deals: DealWithRelations[] }[]> {
+    console.log('=== getDealsByStage called ===');
+    console.log('Pipeline ID:', pipelineId);
 
+    // Get stages from pipeline_stages table if pipelineId is provided
+    let stages: string[];
     if (pipelineId) {
-      query = query.where(eq(deals.pipelineId, pipelineId));
+      const pipelineStages = await this.getPipelineStages(pipelineId);
+      stages = pipelineStages.map(s => s.title);
+      console.log('Pipeline stages:', stages);
+    } else {
+      stages = ['Prospecção', 'Qualificação', 'Proposta', 'Fechamento'];
+      console.log('Default stages:', stages);
     }
 
-    return await query;
+    const result = [];
+
+    for (const stage of stages) {
+      console.log(`\n--- Processing stage: ${stage} ---`);
+      let dealsInStage;
+
+      if (pipelineId) {
+        dealsInStage = await db
+          .select({
+            id: deals.id,
+            title: deals.title,
+            value: deals.value,
+            stage: deals.stage,
+            pipelineId: deals.pipelineId,
+            expectedCloseDate: deals.expectedCloseDate,
+            contactId: deals.contactId,
+            companyId: deals.companyId,
+            ownerId: deals.ownerId,
+            description: deals.description,
+            createdAt: deals.createdAt,
+            updatedAt: deals.updatedAt,
+            contact: {
+              id: contacts.id,
+              name: contacts.name,
+              email: contacts.email,
+              phone: contacts.phone,
+              position: contacts.position,
+              companyId: contacts.companyId,
+              tags: contacts.tags,
+              status: contacts.status,
+              createdAt: contacts.createdAt,
+              updatedAt: contacts.updatedAt,
+            },
+            company: {
+              id: companies.id,
+              name: companies.name,
+              sector: companies.sector,
+              location: companies.location,
+              createdAt: companies.createdAt,
+              updatedAt: companies.updatedAt,
+            },
+          })
+          .from(deals)
+          .leftJoin(contacts, eq(deals.contactId, contacts.id))
+          .leftJoin(companies, eq(deals.companyId, companies.id))
+          .where(and(eq(deals.stage, stage), eq(deals.pipelineId, pipelineId)))
+          .orderBy(desc(deals.createdAt));
+      } else {
+        dealsInStage = await db
+          .select({
+            id: deals.id,
+            title: deals.title,
+            value: deals.value,
+            stage: deals.stage,
+            pipelineId: deals.pipelineId,
+            expectedCloseDate: deals.expectedCloseDate,
+            contactId: deals.contactId,
+            companyId: deals.companyId,
+            ownerId: deals.ownerId,
+            description: deals.description,
+            createdAt: deals.createdAt,
+            updatedAt: deals.updatedAt,
+            contact: {
+              id: contacts.id,
+              name: contacts.name,
+              email: contacts.email,
+              phone: contacts.phone,
+              position: contacts.position,
+              companyId: contacts.companyId,
+              tags: contacts.tags,
+              status: contacts.status,
+              createdAt: contacts.createdAt,
+              updatedAt: contacts.updatedAt,
+            },
+            company: {
+              id: companies.id,
+              name: companies.name,
+              sector: companies.sector,
+              location: companies.location,
+              createdAt: companies.createdAt,
+              updatedAt: companies.updatedAt,
+            },
+          })
+          .from(deals)
+          .leftJoin(contacts, eq(deals.contactId, contacts.id))
+          .leftJoin(companies, eq(deals.companyId, companies.id))
+          .where(eq(deals.stage, stage))
+          .orderBy(desc(deals.createdAt));
+      }
+
+      console.log(`Deals found for stage ${stage}:`, dealsInStage.length);
+      console.log('Deals:', dealsInStage.map(d => ({ id: d.id, title: d.title, stage: d.stage })));
+
+      result.push({
+        stage,
+        count: dealsInStage.length,
+        deals: dealsInStage as DealWithRelations[],
+      });
+    }
+
+    console.log('Final result:', result);
+    return result;
   }
 
   async getActivities(contactId?: number, dealId?: number, userId?: string, limit = 50, offset = 0): Promise<any[]> {

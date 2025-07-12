@@ -12,18 +12,12 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Configure pooled connection with proper timeout settings and retry logic
-const poolUrl = process.env.DATABASE_URL.replace('.us-east-2', '-pooler.us-east-2');
-
 export const pool = new Pool({ 
-  connectionString: poolUrl,
-  max: 10,
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 20000,
-  // Add retry configuration
-  allowExitOnIdle: true,
-  // Handle reconnection automatically
-  statement_timeout: 0,
-  query_timeout: 0,
+  connectionTimeoutMillis: 10000,
+  allowExitOnIdle: false,
 });
 
 // Add error handler for the pool
@@ -41,14 +35,23 @@ export const db = drizzle({ client: pool, schema });
 
 // Test the connection and retry if needed
 export const testConnection = async () => {
-  try {
-    const client = await pool.connect();
-    await client.query('SELECT 1');
-    client.release();
-    console.log('Database connection test successful');
-    return true;
-  } catch (error) {
-    console.error('Database connection test failed:', error.message);
-    return false;
+  let retries = 3;
+  while (retries > 0) {
+    try {
+      const client = await pool.connect();
+      await client.query('SELECT 1');
+      client.release();
+      console.log('Database connection test successful');
+      return true;
+    } catch (error) {
+      console.error(`Database connection test failed (${4-retries}/3):`, error.message);
+      retries--;
+      if (retries > 0) {
+        console.log('Retrying in 2 seconds...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
   }
+  console.log('Continuing without database connection...');
+  return false;
 };
