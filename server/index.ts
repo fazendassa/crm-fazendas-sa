@@ -2,6 +2,8 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import http from 'http';
 import whatsappRouter from './routes/whatsapp.routes';
+import dashboardRouter from './routes/dashboard.routes.ts';
+import activitiesRouter from './routes/activities.routes.ts';
 import { setupVite, serveStatic, log } from "./vite";
 import cors from 'cors';
 
@@ -19,6 +21,8 @@ app.use(express.urlencoded({ extended: false }));
 
 // Register API routes before logging and static files
 app.use('/api/whatsapp', whatsappRouter);
+app.use('/api/dashboard', dashboardRouter);
+app.use('/api/activities', activitiesRouter);
 
 app.use((req, res, next) => {
   const start = Date.now();
