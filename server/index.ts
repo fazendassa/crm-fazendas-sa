@@ -3,8 +3,17 @@ import express, { type Request, Response, NextFunction } from "express";
 import http from 'http';
 import whatsappRouter from './routes/whatsapp.routes';
 import { setupVite, serveStatic, log } from "./vite";
+import cors from 'cors';
 
 const app = express();
+
+// Configuração do CORS para permitir apenas a URL do frontend
+const corsOptions = {
+  origin: 'https://crm-fazendas-sa-front-end.onrender.com',
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
