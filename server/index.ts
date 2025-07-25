@@ -80,7 +80,11 @@ app.use((req, res, next) => {
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
-      serveStatic(app);
+      // In production, the backend is API-only. The frontend is served by a separate static site service.
+      // We don't serve static files from the backend.
+      app.get('*', (req, res) => {
+        res.status(404).json({ message: 'Not Found' });
+      });
     }
 
     // Use a porta do ambiente ou 3000 como padrão, e não 5000 hardcoded.
