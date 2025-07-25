@@ -118,14 +118,11 @@ router.get('/qrcode', async (req: Request, res: Response) => {
   }
 });
 
-// Middleware para proteger todas as rotas subsequentes
-router.use(requireUser);
-
 /**
  * POST /api/whatsapp/send
  * Envia uma mensagem via W-API
  */
-router.post('/send', async (req: Request, res: Response) => {
+router.post('/send', requireUser, async (req: Request, res: Response) => {
   try {
     const { phone, message } = req.body;
     const { user } = (req as any);
@@ -184,7 +181,7 @@ router.post('/send', async (req: Request, res: Response) => {
  * GET /api/whatsapp/history/:contactId
  * Busca o histórico de mensagens de um contato
  */
-router.get('/history/:contactId', async (req: Request, res: Response) => {
+router.get('/history/:contactId', requireUser, async (req: Request, res: Response) => {
   try {
     const { contactId } = req.params;
     const { user } = (req as any);
@@ -243,7 +240,7 @@ router.get('/history/:contactId', async (req: Request, res: Response) => {
  * GET /api/whatsapp/conversations
  * Lista todas as conversas ativas
  */
-router.get('/conversations', async (req: Request, res: Response) => {
+router.get('/conversations', requireUser, async (req: Request, res: Response) => {
   try {
     const { user } = (req as any);
 
@@ -298,7 +295,7 @@ router.get('/conversations', async (req: Request, res: Response) => {
  * POST /api/whatsapp/send-image
  * Envia uma imagem via W-API
  */
-router.post('/send-image', async (req: Request, res: Response) => {
+router.post('/send-image', requireUser, async (req: Request, res: Response) => {
   try {
     const { phone, imageUrl, caption } = req.body;
     const { user } = (req as any);
