@@ -12,7 +12,9 @@ const app = express();
 // Configuração do CORS para permitir apenas a URL do frontend
 const corsOptions = {
   origin: 'https://crm-fazendas-sa-front-end.onrender.com',
-  optionsSuccessStatus: 200
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true,
+  optionsSuccessStatus: 204
 };
 app.use(cors(corsOptions));
 
