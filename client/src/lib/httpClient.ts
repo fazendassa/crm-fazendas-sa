@@ -85,5 +85,8 @@ class HttpClient {
   }
 }
 
+// DEBUG: Print the environment variable to check if it's being loaded in production
+console.log('VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
+
 // Export a configured instance
 export const httpClient = new HttpClient(import.meta.env.VITE_API_BASE_URL || '')
