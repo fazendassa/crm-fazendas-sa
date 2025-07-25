@@ -86,4 +86,4 @@ class HttpClient {
 }
 
 // Export a configured instance
-export const httpClient = new HttpClient()
+export const httpClient = new HttpClient(import.meta.env.VITE_API_BASE_URL || '')
