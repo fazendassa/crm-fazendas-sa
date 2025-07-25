@@ -8,6 +8,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Register API routes before logging and static files
+app.use('/api/whatsapp', whatsappRouter);
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -48,8 +51,6 @@ app.use((req, res, next) => {
     if (!dbConnected) {
       console.log('Warning: Starting server without database connection');
     }
-
-    app.use('/api/whatsapp', whatsappRouter);
     const server = http.createServer(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
