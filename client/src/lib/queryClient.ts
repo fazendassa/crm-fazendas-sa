@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { httpClient } from './httpClient';
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,39 +13,20 @@ export async function apiRequest(
   method: string = 'GET',
   data?: any
 ): Promise<any> {
-  const safeMethod = method || 'GET';
-  const config: RequestInit = {
-    method: safeMethod.toUpperCase(),
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-  };
-
-  if (data && (safeMethod === 'POST' || safeMethod === 'PUT' || safeMethod === 'PATCH')) {
-    config.body = JSON.stringify(data);
+  const safeMethod = method.toUpperCase();
+  
+  switch (safeMethod) {
+    case 'GET':
+      return httpClient.get(url);
+    case 'POST':
+      return httpClient.post(url, data);
+    case 'PUT':
+      return httpClient.put(url, data);
+    case 'DELETE':
+      return httpClient.delete(url);
+    default:
+      throw new Error(`Unsupported HTTP method: ${method}`);
   }
-
-  const response = await fetch(url, config);
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage;
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.message || `HTTP error! status: ${response.status}`;
-    } catch {
-      errorMessage = `HTTP error! status: ${response.status}`;
-    }
-    throw new Error(errorMessage);
-  }
-
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
-    return await response.json();
-  }
-
-  return await response.text();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -53,16 +35,14 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
-      credentials: "include",
-    });
-
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    try {
+      return await httpClient.get(queryKey[0] as string);
+    } catch (error) {
+      if (unauthorizedBehavior === "returnNull" && error instanceof Error && error.message.includes('401')) {
+        throw error; // Let React Query handle 401 errors
+      }
+      throw error;
     }
-
-    await throwIfResNotOk(res);
-    return await res.json();
   };
 
 export const queryClient = new QueryClient({

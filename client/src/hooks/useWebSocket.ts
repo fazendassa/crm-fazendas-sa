@@ -53,11 +53,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           console.log('📡 WebSocket message received:', data);
           
           // Handle built-in message types
-          if (data.type === 'wa:qr' || data.type === 'wa:status') {
-            queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/sessions'] });
-          } else if (data.type === 'wa:message') {
-            queryClient.invalidateQueries({ queryKey: ['/api/whatsapp/messages'] });
-          }
+
           
           // Call custom message handler
           if (onMessage) {

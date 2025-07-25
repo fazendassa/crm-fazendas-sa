@@ -67,16 +67,16 @@ export default function ContactForm({ contact, onSuccess }: ContactFormProps) {
   const createContactMutation = useMutation({
     mutationFn: async (data: FormData) => {
       // Convert "none" to null for companyId
-      const submitData = {
+            const submitData = {
         ...data,
-        companyId: data.companyId === 'none' ? null : data.companyId ? parseInt(data.companyId) : null,
-        tags: selectedTags
+        companyId: data.companyId ? Number(data.companyId) : null,
+        tags: selectedTags,
       };
 
       if (contact) {
-        await apiRequest('PUT', `/api/contacts/${contact.id}`, submitData);
+                return apiRequest(`/api/contacts/${contact.id}`, 'PUT', submitData);
       } else {
-        await apiRequest('POST', '/api/contacts', submitData);
+                return apiRequest('/api/contacts', 'POST', submitData);
       }
     },
     onSuccess: () => {

@@ -1,9 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage-minimal";
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import { whatsAppManager } from "./whatsapp-service";
+import { requireUser } from "./supabaseAuth";
+
 import { webSocketManager } from "./websocket";
+import whatsappRoutes from "./routes/whatsapp.routes";
 import multer from "multer";
 
 const upload = multer();
@@ -15,189 +16,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   webSocketManager.setup(httpServer);
 
   // Setup authentication first
-  await setupAuth(app);
+  await 
 
   // Basic routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
 
-  // WhatsApp routes
-  app.get("/api/whatsapp/sessions", isAuthenticated, async (req, res) => {
-    try {
-      const userId = (req.user as any).claims.sub;
-      console.log('Getting WhatsApp sessions for user:', userId);
-
-      const sessions = await storage.getWhatsappSessions(userId);
-
-      // Ensure we always return an array
-      const sessionsArray = Array.isArray(sessions) ? sessions : [];
-      console.log('Returning sessions:', sessionsArray.length);
-
-      res.json(sessionsArray);
-    } catch (error) {
-      console.error("Error getting WhatsApp sessions:", error);
-      res.status(500).json({ message: "Failed to get WhatsApp sessions" });
-    }
-  });
-
-  app.post("/api/whatsapp/create-session", isAuthenticated, async (req, res) => {
-    try {
-      const userId = (req.user as any).claims.sub;
-      const { sessionName } = req.body;
-
-      if (!sessionName || !sessionName.trim()) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Nome da sessão é obrigatório" 
-        });
-      }
-
-      console.log('Creating WhatsApp session for user:', userId, 'with name:', sessionName);
-
-      const result = await whatsAppManager.createSession(userId, sessionName.trim());
-
-      res.json({ 
-        success: true,
-        message: "Sessão criada com sucesso. Aguarde o QR Code aparecer.",
-        sessionName: sessionName.trim()
-      });
-    } catch (error) {
-      console.error("Error creating WhatsApp session:", error);
-      res.status(500).json({ 
-        success: false,
-        message: error instanceof Error ? error.message : "Falha ao criar sessão do WhatsApp" 
-      });
-    }
-  });
-
-  app.get("/api/whatsapp/messages", isAuthenticated, async (req, res) => {
-    try {
-      const userId = (req.user as any).claims.sub;
-      const sessionId = req.query.sessionId ? parseInt(req.query.sessionId as string) : undefined;
-      const limit = parseInt(req.query.limit as string) || 50;
-
-      if (!sessionId) {
-        return res.json({ messages: [] });
-      }
-
-      console.log('Getting messages for session', sessionId, 'user', userId);
-
-      const messages = await storage.getWhatsappMessages(sessionId, undefined, limit);
-
-      res.json({ messages: messages || [] });
-    } catch (error) {
-      console.error("Error getting WhatsApp messages:", error);
-      res.json({ messages: [] });
-    }
-  });
-
-  app.delete("/api/whatsapp/session", isAuthenticated, async (req, res) => {
-    try {
-      const userId = (req.user as any).claims.sub;
-
-      console.log('Deleting WhatsApp session for user:', userId);
-
-      // Get user sessions first
-      const sessions = await storage.getWhatsappSessions(userId);
-
-      if (sessions && sessions.length > 0) {
-        // Delete from WhatsApp service
-        await whatsAppManager.closeSession(userId);
-
-        // Delete from database
-        for (const session of sessions) {
-          await storage.deleteWhatsappSession(session.id);
-        }
-      }
-
-      res.json({ message: "Session deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting WhatsApp session:", error);
-      res.status(500).json({ message: "Failed to delete WhatsApp session" });
-    }
-  });
-
-  app.get("/api/whatsapp/sessions/:sessionId/messages", isAuthenticated, async (req, res) => {
-    try {
-      const userId = (req.user as any).claims.sub;
-      if (!userId) {
-        return res.status(401).json({ message: "User ID not found" });
-      }
-
-      const sessionId = parseInt(req.params.sessionId);
-      const limit = parseInt(req.query.limit as string) || 100;
-
-      console.log('Getting messages for session', sessionId, 'user', userId);
-
-      const messages = await storage.getWhatsappMessages(sessionId, undefined, limit);
-
-      // Transform messages to match expected format
-      const formattedMessages = messages.map(msg => {
-        return {
-          id: msg.messageId,
-          from: msg.fromNumber,
-          to: msg.toNumber,
-          body: msg.content,
-          timestamp: msg.timestamp,
-          type: msg.messageType,
-          isRead: msg.isRead,
-          createdAt: msg.createdAt || msg.timestamp
-        };
-      });
-
-      console.log('Returning', formattedMessages.length, 'messages');
-      res.json(formattedMessages);
-    } catch (error) {
-      console.error("Error getting WhatsApp messages for session:", error);
-      res.status(500).json({ message: "Failed to get WhatsApp messages", error: error.message });
-    }
-  });
-
-  app.get("/api/whatsapp/sessions/:sessionId/contacts", isAuthenticated, async (req, res) => {
-    try {
-      const userId = (req.user as any).claims.sub;
-      if (!userId) {
-        return res.status(401).json({ message: "User ID not found" });
-      }
-
-      const sessionId = parseInt(req.params.sessionId);
-      console.log('Getting contacts for user:', userId);
-
-      // Check if session exists and is connected
-      const session = await storage.getWhatsappSession(userId, 'session_crm-' + userId);
-      if (!session || session.status !== 'connected') {
-        console.log('Session not connected, returning empty contacts');
-        return res.json([]);
-      }
-
-      const contacts = await whatsAppManager.getContactsForSync(userId);
-      console.log('Contacts found:', contacts.length);
-
-      res.json(contacts);
-    } catch (error) {
-      console.error("Error getting WhatsApp contacts:", error);
-      res.json([]); // Return empty array instead of error
-    }
-  });
-
-  app.post("/api/whatsapp/send", isAuthenticated, async (req, res) => {
-    try {
-      const userId = (req.user as any).claims.sub;
-      const { to, message } = req.body;
-
-      console.log('Sending WhatsApp message from user:', userId);
-
-      const result = await whatsAppManager.sendMessage(userId, to, message);
-      res.json(result);
-    } catch (error) {
-      console.error("Error sending WhatsApp message:", error);
-      res.status(500).json({ message: "Failed to send message" });
-    }
-  });
+  // WhatsApp Z-API routes
+  app.use("/api/whatsapp", whatsappRoutes);
 
   // Company routes
-  app.get("/api/companies", isAuthenticated, async (req, res) => {
+  app.get("/api/companies", requireUser, async (req, res) => {
     try {
       const search = req.query.search as string;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -207,22 +37,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(companies);
     } catch (error) {
       console.error("Error getting companies:", error);
-      res.status(500).json({ message: "Failed to get companies" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to get companies" });
     }
   });
 
-  app.post("/api/companies", isAuthenticated, async (req, res) => {
+  app.post("/api/companies", requireUser, async (req, res) => {
     try {
       const company = await storage.createCompany(req.body);
-      res.json(company);
+      res.status(201).json(company);
     } catch (error) {
       console.error("Error creating company:", error);
-      res.status(500).json({ message: "Failed to create company" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to create company" });
+    }
+  });
+
+  app.put("/api/companies/:id", requireUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid company ID" });
+      }
+      const companyData = req.body;
+      const updatedCompany = await storage.updateCompany(id, companyData);
+      if (!updatedCompany) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+      res.json(updatedCompany);
+    } catch (error) {
+      console.error(`Error updating company ${req.params.id}:`, error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to update company" });
+    }
+  });
+
+  app.delete("/api/companies/:id", requireUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid company ID" });
+      }
+      await storage.deleteCompany(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error(`Error deleting company ${req.params.id}:`, error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to delete company" });
     }
   });
 
   // Contact routes
-  app.get("/api/contacts", isAuthenticated, async (req, res) => {
+  app.get("/api/contacts", requireUser, async (req, res) => {
     try {
       const search = req.query.search as string;
       const companyId = req.query.companyId ? parseInt(req.query.companyId as string) : undefined;
@@ -238,32 +100,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error getting contacts:", error);
-      res.status(500).json({ message: "Failed to get contacts" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to get contacts" });
     }
   });
 
-  app.post("/api/contacts", isAuthenticated, async (req, res) => {
+  app.post("/api/contacts", requireUser, async (req, res) => {
     try {
       const contact = await storage.createContact(req.body);
-      res.json(contact);
+      res.status(201).json(contact);
     } catch (error) {
       console.error("Error creating contact:", error);
-      res.status(500).json({ message: "Failed to create contact" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to create contact" });
+    }
+  });
+
+  app.put("/api/contacts/:id", requireUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid contact ID" });
+      }
+      const contactData = req.body;
+      const updatedContact = await storage.updateContact(id, contactData);
+      if (!updatedContact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      res.json(updatedContact);
+    } catch (error) {
+      console.error(`Error updating contact ${req.params.id}:`, error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to update contact" });
     }
   });
 
   // Contact import routes
-  app.get("/api/contacts/tags", isAuthenticated, async (req, res) => {
+
+  // DELETE /api/contacts/:id
+  app.delete("/api/contacts/:id", requireUser, async (req, res) => {
+    try {
+      const contactId = parseInt(req.params.id);
+      await storage.deleteContact(contactId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to delete contact" });
+    }
+  });
+  app.get("/api/contacts/tags", requireUser, async (req, res) => {
     try {
       const tags = await storage.getAvailableTags();
       res.json(tags);
     } catch (error) {
       console.error("Error getting available tags:", error);
-      res.json([]);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to get tags" });
     }
   });
 
-  app.get("/api/contacts/import-template", isAuthenticated, async (req, res) => {
+  app.get("/api/contacts/import-template", requireUser, async (req, res) => {
     try {
       // Create a simple CSV template
       const csvContent = "Nome,Email,Telefone,Cargo,Empresa,Status,Tags\nJoão Silva,joao@exemplo.com,(11) 99999-9999,Gerente,Empresa ABC,ativo,cliente;prospect\nMaria Santos,maria@exemplo.com,(11) 88888-8888,Diretora,Empresa XYZ,ativo,cliente";
@@ -273,11 +165,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(csvContent);
     } catch (error) {
       console.error("Error generating template:", error);
-      res.status(500).json({ message: "Failed to generate template" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to generate template" });
     }
   });
 
-  app.post("/api/contacts/preview-import", isAuthenticated, upload.single('file'), async (req, res) => {
+  app.post("/api/contacts/preview-import", requireUser, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "Arquivo é obrigatório" });
@@ -336,16 +228,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error("Error previewing import:", error);
-      res.status(500).json({ message: "Erro ao analisar arquivo" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Erro ao analisar arquivo" });
     }
   });
 
-  app.post("/api/contacts/import", isAuthenticated, upload.single('file'), async (req, res) => {
+  app.post("/api/contacts/import", requireUser, upload.single('file'), async (req, res) => {
     try {
+      // Allow simple JSON array payload (no file upload) for automated tests
       if (!req.file) {
-        return res.status(400).json({ message: "Arquivo é obrigatório" });
+        if (Array.isArray(req.body) && req.body.length > 0) {
+          try {
+            const createdContacts: any[] = [];
+            for (const item of req.body as any[]) {
+              const contact = await storage.createContact({
+                name: item.name,
+                email: item.email,
+                phone: item.phone,
+              });
+              createdContacts.push(contact);
+            }
+            return res.status(201).json({ imported: createdContacts.length, contacts: createdContacts });
+          } catch (bulkErr) {
+            console.error("JSON import error:", bulkErr);
+            return res.status(500).json({ message: "Failed to import contacts" });
+          }
+        }
+        return res.status(400).json({ message: "Arquivo é obrigatório ou payload inválido" });
       }
 
+      // File upload branch
       const fileBuffer = req.file.buffer;
       const fileName = req.file.originalname.toLowerCase();
       const fieldMapping = req.body.fieldMapping ? JSON.parse(req.body.fieldMapping) : {};
@@ -399,16 +310,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Import contacts using the mapping
       const result = await storage.createContactsFromImport(data, pipelineId, tags, fieldMapping);
-      res.json(result);
+      res.status(201).json(result);
 
     } catch (error) {
       console.error("Error importing contacts:", error);
-      res.status(500).json({ message: "Erro na importação" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Erro na importação" });
     }
   });
 
   // Deal routes
-  app.get("/api/deals", isAuthenticated, async (req, res) => {
+  app.get("/api/deals", requireUser, async (req, res) => {
     try {
       const stage = req.query.stage as string;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -419,11 +330,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(deals);
     } catch (error) {
       console.error("Error getting deals:", error);
-      res.status(500).json({ message: "Failed to get deals" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to get deals" });
     }
   });
 
-  app.post("/api/deals", isAuthenticated, async (req, res) => {
+  app.post("/api/deals", requireUser, async (req, res) => {
     try {
       // Convert expectedCloseDate from ISO string to Date if present
       const dealData = {
@@ -432,14 +343,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const deal = await storage.createDeal(dealData);
-      res.json(deal);
+      res.status(201).json(deal);
     } catch (error) {
       console.error("Error creating deal:", error);
-      res.status(500).json({ message: "Failed to create deal" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to create deal" });
     }
   });
 
-  app.put("/api/deals/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/deals/:id", requireUser, async (req, res) => {
     try {
       const dealId = parseInt(req.params.id);
       // Convert expectedCloseDate from ISO string to Date if present
@@ -449,14 +360,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const deal = await storage.updateDeal(dealId, dealData);
-      res.json(deal);
+      res.status(201).json(deal);
     } catch (error) {
       console.error("Error updating deal:", error);
-      res.status(500).json({ message: "Failed to update deal" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to update deal" });
     }
   });
 
-  app.get("/api/deals/by-stage", isAuthenticated, async (req, res) => {
+  app.get("/api/deals/by-stage", requireUser, async (req, res) => {
     try {
       const pipelineId = req.query.pipelineId ? parseInt(req.query.pipelineId as string) : undefined;
       
@@ -469,45 +380,246 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(dealsByStage);
     } catch (error) {
       console.error("Error getting deals by stage:", error);
-      res.status(500).json({ message: "Failed to get deals by stage" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to get deals by stage" });
     }
   });
 
   // Pipeline routes
-  app.get("/api/pipelines", isAuthenticated, async (req, res) => {
+  app.get("/api/pipelines", requireUser, async (req, res) => {
     try {
       const pipelines = await storage.getPipelines();
       res.json(pipelines);
     } catch (error) {
       console.error("Error getting pipelines:", error);
-      res.status(500).json({ message: "Failed to get pipelines" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to get pipelines" });
     }
   });
 
-  app.get("/api/pipeline-stages", isAuthenticated, async (req, res) => {
+  // POST /api/pipelines
+  app.post("/api/pipelines", requireUser, async (req, res) => {
+    try {
+      const pipeline = await storage.createPipeline(req.body);
+      res.status(201).json(pipeline);
+    } catch (error) {
+      console.error("Error creating pipeline:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to create pipeline" });
+    }
+  });
+
+  app.put("/api/pipelines/:id", requireUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid pipeline ID" });
+      }
+      const pipelineData = req.body;
+      const updatedPipeline = await storage.updatePipeline(id, pipelineData);
+      if (!updatedPipeline) {
+        return res.status(404).json({ message: "Pipeline not found" });
+      }
+      res.json(updatedPipeline);
+    } catch (error) {
+      console.error(`Error updating pipeline ${req.params.id}:`, error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to update pipeline" });
+    }
+  });
+
+  app.delete("/api/pipelines/:id", requireUser, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid pipeline ID" });
+      }
+      await storage.deletePipeline(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error(`Error deleting pipeline ${req.params.id}:`, error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to delete pipeline" });
+    }
+  });
+
+  app.get("/api/pipeline-stages", requireUser, async (req, res) => {
     try {
       const pipelineId = req.query.pipelineId ? parseInt(req.query.pipelineId as string) : undefined;
       const stages = await storage.getPipelineStages(pipelineId);
       res.json(stages);
     } catch (error) {
       console.error("Error getting pipeline stages:", error);
-      res.status(500).json({ message: "Failed to get pipeline stages" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to get pipeline stages" });
+    }
+  });
+
+  // Update positions of multiple pipeline stages
+  app.put("/api/pipeline-stages/positions", requireUser, async (req, res) => {
+    try {
+      const { stages } = req.body;
+
+      if (!Array.isArray(stages) || stages.length === 0) {
+        return res.status(400).json({ message: 'Invalid input: stages must be a non-empty array' });
+      }
+
+      // Basic validation for each stage object
+      for (const stage of stages) {
+        if (typeof stage.id !== 'number' || typeof stage.position !== 'number') {
+          return res.status(400).json({ message: 'Invalid input: each stage must have a numeric id and position' });
+        }
+      }
+
+      await storage.updateStagePositions(stages);
+      res.status(200).json({ message: 'Stage positions updated successfully' });
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error('Error updating stage positions:', error.message);
+        res.status(500).json({ message: 'Failed to update stage positions', error: error.message });
+      } else {
+        console.error('An unknown error occurred while updating stage positions');
+        res.status(500).json({ message: 'An unknown error occurred' });
+      }
+    }
+  });
+
+  // Nested route: POST /api/pipelines/:pipelineId/stages
+  app.post("/api/pipelines/:pipelineId/stages", requireUser, async (req, res) => {
+    try {
+      const pipelineId = parseInt(req.params.pipelineId);
+      if (isNaN(pipelineId)) {
+        return res.status(400).json({ message: "Invalid pipelineId" });
+      }
+
+      const { name, title, order, position, color } = req.body as any;
+      const stageData: any = {
+        title: title ?? name,
+        position: position ?? order,
+        color: color ?? "#3b82f6",
+        pipelineId,
+      };
+      const stage = await storage.createPipelineStage(stageData);
+      res.status(201).json(stage);
+    } catch (error) {
+      console.error("Error creating pipeline stage:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to create pipeline stage" });
+    }
+  });
+
+  // GET /api/pipelines/:pipelineId/stages
+  app.get("/api/pipelines/:pipelineId/stages", requireUser, async (req, res) => {
+    try {
+      const pipelineId = parseInt(req.params.pipelineId);
+      if (isNaN(pipelineId)) {
+        return res.status(400).json({ message: "Invalid pipelineId" });
+      }
+      const stages = await storage.getPipelineStages(pipelineId);
+      res.json(stages);
+    } catch (error) {
+      console.error(`Error getting stages for pipeline ${req.params.pipelineId}:`, error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to get pipeline stages" });
+    }
+  });
+
+  // Nested route: POST /api/pipelines/:pipelineId/deals
+  app.post("/api/pipelines/:pipelineId/deals", requireUser, async (req, res) => {
+    try {
+      const pipelineId = parseInt(req.params.pipelineId);
+      if (isNaN(pipelineId)) {
+        return res.status(400).json({ message: "Invalid pipelineId" });
+      }
+
+      // Map stageId (numeric) to stage string if provided
+      let stage = req.body.stage ?? undefined;
+      const stageId = req.body.stageId ? Number(req.body.stageId) : undefined;
+      if (!stage && stageId) {
+        const stages = await storage.getPipelineStages(pipelineId);
+        const stageRecord = stages.find((s: any) => s.id === stageId);
+        if (!stageRecord) {
+          return res.status(400).json({ message: "Invalid stageId" });
+        }
+        stage = stageRecord.title;
+      }
+
+      const dealData = {
+        title: (req.body.name ?? req.body.title ?? '').toString().trim() || 'Novo Negócio',
+        value: req.body.value ? Number(req.body.value).toString() : null,
+        pipelineId,
+        stage: stage ?? 'prospecting',
+        expectedCloseDate: req.body.expectedCloseDate ? new Date(req.body.expectedCloseDate) : null,
+        contactId: req.body.contactId ?? null,
+        companyId: req.body.companyId ?? null,
+        ownerId: req.body.ownerId ?? null,
+        description: req.body.description ?? null,
+      };
+      console.log('Deal data:', dealData);
+
+      const deal = await storage.createDeal(dealData);
+      return res.status(201).json(deal);
+    } catch (error) {
+      console.error("Error creating deal:", error);
+      return res.status(500).json({ message: error instanceof Error ? error.message : "Failed to create deal" });
+    }
+  });
+
+  // PATCH /api/pipelines/:pipelineId/stages/:stageId
+  app.patch("/api/pipelines/:pipelineId/stages/:stageId", requireUser, async (req, res) => {
+    try {
+      const pipelineId = parseInt(req.params.pipelineId);
+      const stageId = parseInt(req.params.stageId);
+      if (isNaN(pipelineId) || isNaN(stageId)) {
+        return res.status(400).json({ message: "Invalid pipelineId or stageId" });
+      }
+
+      const { name, title, order, position, color } = req.body as any;
+      const stageData: any = {
+        ...(title || name ? { title: title ?? name } : {}),
+        ...(position || order ? { position: position ?? order } : {}),
+        ...(color ? { color } : {}),
+      };
+
+      const updated = await storage.updatePipelineStage(stageId, stageData);
+      res.status(200).json(updated);
+    } catch (error) {
+      console.error("Error updating pipeline stage:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to update pipeline stage" });
+    }
+  });
+
+  // DELETE /api/pipelines/:pipelineId/stages/:stageId
+  app.delete("/api/pipelines/:pipelineId/stages/:stageId", requireUser, async (req, res) => {
+    try {
+      const stageId = parseInt(req.params.stageId);
+      if (isNaN(stageId)) {
+        return res.status(400).json({ message: "Invalid stageId" });
+      }
+      await storage.deletePipelineStage(stageId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting pipeline stage:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to delete pipeline stage" });
+    }
+  });
+
+  // POST /api/pipeline-stages
+  app.post("/api/pipeline-stages", requireUser, async (req, res) => {
+    try {
+      const stage = await storage.createPipelineStage(req.body);
+      res.status(201).json(stage);
+    } catch (error) {
+      console.error("Error creating pipeline stage:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to create pipeline stage" });
     }
   });
 
   // Dashboard routes
-  app.get("/api/dashboard/metrics", isAuthenticated, async (req, res) => {
+  app.get("/api/dashboard/metrics", requireUser, async (req, res) => {
     try {
       const metrics = await storage.getDashboardMetrics();
       res.json(metrics);
     } catch (error) {
       console.error("Error getting dashboard metrics:", error);
-      res.status(500).json({ message: "Failed to get dashboard metrics" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to get dashboard metrics" });
     }
   });
 
   // Auth setup
-  setupAuth(app);
+  
 
   return httpServer;
 }

@@ -51,6 +51,12 @@ const navigation = [
     permission: 'view:activities' as const
   },
   { 
+    name: 'WhatsApp', 
+    href: '/whatsapp', 
+    icon: MessageCircle,
+    permission: 'view:contacts' as const
+  },
+  { 
     name: 'Financeiro', 
     href: '/billing', 
     icon: DollarSign,
@@ -75,18 +81,8 @@ const navigation = [
     icon: Zap,
     permission: 'manage:settings' as const
   },
-  { 
-    name: 'WhatsApp', 
-    href: '/integrations/whatsapp', 
-    icon: MessageCircle,
-    permission: 'manage:settings' as const
-  },
-  { 
-    name: 'WhatsApp Chat', 
-    href: '/whatsapp-new', 
-    icon: MessageCircle,
-    permission: 'view:contacts' as const
-  },
+
+
   { 
     name: 'Administração', 
     href: '/admin', 

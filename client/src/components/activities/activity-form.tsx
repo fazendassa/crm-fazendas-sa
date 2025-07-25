@@ -68,21 +68,21 @@ export default function ActivityForm({ activity, onSuccess }: ActivityFormProps)
   });
 
   const createActivityMutation = useMutation({
-    mutationFn: async (data: FormData) => {
+        mutationFn: (data: FormData) => {
       // Convert form data to proper types
       const activityData = {
         ...data,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
-        contactId: data.contactId === 'none' ? null : data.contactId ? parseInt(data.contactId.toString()) : null,
-        dealId: data.dealId === 'none' ? null : data.dealId ? parseInt(data.dealId.toString()) : null,
-        companyId: data.companyId === 'none' ? null : data.companyId ? parseInt(data.companyId.toString()) : null,
+        contactId: data.contactId ? Number(data.contactId) : null,
+        dealId: data.dealId ? Number(data.dealId) : null,
+        companyId: data.companyId ? Number(data.companyId) : null,
         userId: user?.id,
       };
 
       if (activity) {
-        await apiRequest('PUT', `/api/activities/${activity.id}`, activityData);
+        return apiRequest(`/api/activities/${activity.id}`, 'PUT', activityData);
       } else {
-        await apiRequest('POST', '/api/activities', activityData);
+        return apiRequest('/api/activities', 'POST', activityData);
       }
     },
     onSuccess: () => {

@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { AuthProvider } from "@/contexts/AuthContext";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -15,9 +16,8 @@ import Admin from "@/pages/admin";
 import UserManagement from "@/pages/user-management";
 import ContactImport from "@/pages/contact-import";
 import ActiveCampaignConfig from "@/pages/ActiveCampaignConfig";
-import WhatsApp from "@/pages/whatsapp";
-import WhatsAppNew from "@/pages/whatsapp-new";
-import WhatsAppSimple from "@/pages/whatsapp-simple";
+import WhatsAppWApi from "@/pages/whatsapp-wapi";
+
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { lazy, Suspense } from 'react';
@@ -60,11 +60,9 @@ function Router() {
             <Route path="/companies" component={Companies} />
             <Route path="/pipeline" component={Pipeline} />
             <Route path="/activities" component={Activities} />
+            <Route path="/whatsapp" component={WhatsAppWApi} />
             <Route path="/integrations/activecampaign" component={ActiveCampaignConfig} />
-            <Route path="/integrations/whatsapp" component={WhatsAppSimple} />
-            <Route path="/whatsapp" component={WhatsAppSimple} />
-            <Route path="/whatsapp-new" component={WhatsAppSimple} />
-            <Route path="/whatsapp-simple" component={WhatsAppSimple} />
+
             <Route path="/admin" component={Admin} />
             <Route path="/user-management" component={UserManagement} />
             <Route component={NotFound} />
@@ -78,10 +76,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Router />
+          <Toaster />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

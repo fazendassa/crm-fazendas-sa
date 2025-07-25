@@ -46,8 +46,11 @@ function hasAnyPermission(userRole: UserRole, permissions: Permission[]): boolea
 }
 
 export function usePermissions() {
-  const { user } = useAuth();
-  const userRole = ((user as any)?.role as UserRole) || 'externo';
+    const { user } = useAuth();
+  // Supabase fornece "role" padrão "authenticated" ou custom nas claims.
+  // Caso não exista mapeamento, fallback para "externo" para garantir menu básico.
+  const rawRole = (user as any)?.role as string | undefined;
+  const userRole: UserRole = (rawRole && ROLE_PERMISSIONS[rawRole as UserRole]) ? (rawRole as UserRole) : 'externo';
 
   return {
     // Verificações básicas de permissão

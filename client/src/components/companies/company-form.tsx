@@ -34,11 +34,11 @@ export default function CompanyForm({ company, onSuccess }: CompanyFormProps) {
   });
 
   const createCompanyMutation = useMutation({
-    mutationFn: async (data: FormData) => {
+    mutationFn: (data: FormData) => {
       if (company) {
-        await apiRequest('PUT', `/api/companies/${company.id}`, data);
+        return apiRequest(`/api/companies/${company.id}`, 'PUT', data).then(() => {});
       } else {
-        await apiRequest('POST', '/api/companies', data);
+        return apiRequest('/api/companies', 'POST', data).then(() => {});
       }
     },
     onSuccess: () => {

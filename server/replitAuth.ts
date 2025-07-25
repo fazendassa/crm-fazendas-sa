@@ -1,4 +1,5 @@
-import * as client from "openid-client";
+// Este arquivo foi descontinuado. Toda autenticação agora é feita via Supabase Auth JWT.
+
 import { Strategy, type VerifyFunction } from "openid-client/passport";
 
 import passport from "passport";

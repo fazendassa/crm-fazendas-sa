@@ -1,14 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSupabaseAuth } from '@/contexts/AuthContext'
 
 export function useAuth() {
-  const { data: user, isLoading } = useQuery({
-    queryKey: ["/api/auth/user"],
-    retry: false,
-  });
+  const { user, loading, signIn, signUp, signOut, getAccessToken } = useSupabaseAuth()
 
   return {
     user,
-    isLoading,
+    isLoading: loading,
     isAuthenticated: !!user,
-  };
+    signIn,
+    signUp,
+    signOut,
+    getAccessToken,
+  }
 }

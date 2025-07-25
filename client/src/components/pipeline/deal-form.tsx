@@ -32,7 +32,8 @@ interface DealFormProps {
   onSuccess: () => void;
 }
 
-export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: DealFormProps) {
+export default function DealForm({ deal, pipelineId, onSuccess, defaultStage }: DealFormProps) {
+  console.log('DealForm rendered with pipelineId:', pipelineId);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -44,9 +45,10 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
     queryKey: ['/api/companies'],
   });
 
-  const { data: pipelineStages } = useQuery({
-    queryKey: ['/api/pipeline-stages', pipelineId],
-    queryFn: () => fetch(`/api/pipeline-stages?pipelineId=${pipelineId}`).then(res => res.json()),
+  const { data: pipelineStages = [] } = useQuery<any[]>({
+    queryKey: [`/api/pipelines/${pipelineId}/stages`],
+    queryFn: () => apiRequest(`/api/pipelines/${pipelineId}/stages`, 'GET'),
+    enabled: !!pipelineId,
   });
 
   const { data: usersData } = useQuery({
@@ -75,13 +77,21 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
     },
   });
 
-  // Set default stage when pipeline stages load
   useEffect(() => {
-    if (pipelineStages && pipelineStages.length > 0 && !deal && !watch('stage')) {
-      const firstStage = pipelineStages.find((stage: any) => stage.position === 0) || pipelineStages[0];
-      setValue('stage', firstStage.title);
+    console.log('Pipeline stages query result:', { pipelineStages });
+  }, [pipelineStages]);
+
+  // Set default stage from prop or fallback to the first stage
+  useEffect(() => {
+    if (defaultStage) {
+      setValue('stage', defaultStage);
+    } else if (pipelineStages && pipelineStages.length > 0 && !deal) {
+      const stageToSelect = pipelineStages.find(s => s.position === 0) || pipelineStages[0];
+      if (stageToSelect) {
+        setValue('stage', stageToSelect.title);
+      }
     }
-  }, [pipelineStages, deal, setValue, watch]);
+  }, [defaultStage, pipelineStages, deal, setValue]);
 
   const createDealMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -105,24 +115,10 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
 
       if (deal && deal.id) {
         console.log("Updating existing deal with ID:", deal.id);
-        const response = await fetch(`/api/deals/${deal.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(dealData),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Update response error:", errorText);
-          throw new Error(`Failed to update deal: ${response.status} ${response.statusText}`);
-        }
-
-        return await response.json();
+        return await apiRequest(`/api/deals/${deal.id}`, 'PUT', dealData);
       } else {
         console.log("Creating new deal");
-        return await apiRequest("/api/deals", "POST", dealData);
+        return await apiRequest(`/api/pipelines/${pipelineId}/deals`, 'POST', dealData);
       }
     },
     onSuccess: () => {
@@ -137,7 +133,8 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
       });
       onSuccess();
     },
-    onError: (error) => {
+        onError: (error) => {
+      console.error("Deal creation/update failed:", error);
       console.error("Deal form error:", error);
       console.error("Error message:", error.message);
       console.error("Error stack:", error.stack);
@@ -150,20 +147,15 @@ export default function DealForm({ deal, defaultStage, pipelineId, onSuccess }: 
   });
 
   const onSubmit = (data: FormData) => {
-    console.log("=== FORM SUBMIT TRIGGERED ===");
-    console.log("Form data:", data);
-    console.log("Form errors:", errors);
-    console.log("Form state valid:", Object.keys(errors).length === 0);
-    console.log("Deal being edited:", deal);
-    console.log("Pipeline ID:", pipelineId);
-    console.log("Mutation pending:", createDealMutation.isPending);
-    
+    console.log("Validation passed. Submitting data:", data);
     createDealMutation.mutate(data);
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" 
-          onClick={() => console.log("Form clicked")}>
+    <form
+      onSubmit={handleSubmit(onSubmit, (errors) => console.error("Validation Errors:", errors))}
+      className="space-y-6"
+    > 
       <div>
         <Label htmlFor="title">Título da Oportunidade *</Label>
         <Input
